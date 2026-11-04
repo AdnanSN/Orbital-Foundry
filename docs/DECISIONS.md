@@ -167,3 +167,87 @@ owner's decision, so it hasn't been done.
 
 It isn't needed today: Mistral Small 3.1 (Apache-2.0) and Llama 4 Scout already pass the live
 vision census. The model stays last in the live vision list in case the owner agrees later.
+
+## D-013: Client stack and rendering (2026-11-04)
+
+**Decision.** `apps/client` uses the latest stable releases on 2026-11-04: Vite 8.3, Phaser 4.2.1,
+React 19.3 and Tailwind 4.3.
+
+- Phaser renders with `smoothPixelArt`. Its pixel-art guide recommends this when the camera
+  zooms: pixels stay square, with no shimmer at fractional zoom.
+- The canvas renders at device resolution (CSS size × DPR, with Phaser's scale zoom at 1/DPR), so
+  the art stays crisp on the laptop's scaled display.
+- There are two cameras: a fixed one for the starfield, and the world camera that pans and zooms.
+  Void tiles and window glass are transparent, so the stars show through.
+- The React panels are a DOM overlay. They read the same world model as the scene and refresh
+  four times a second.
+- All art, the pixel font and the icons are drawn in code (§5, D-002). There are no third-party
+  art or font files.
+
+## D-014: The station map is a JSON tile grid in packages/shared (2026-11-04)
+
+`packages/shared/src/station/station.map.json` holds a character grid (void, wall, window, floor,
+corridor, door) plus lists of rooms, furniture, anchors and floor labels.
+
+- Anchors are the spots where crew stand to do things (work, deliver, review, rest, patrol), each
+  with a facing.
+- The JSON is the source of truth and is edited by hand. Biome formats it.
+- zod validates the schema on load. `layoutProblems()` catches what a hand edit can break:
+  furniture on walls, overlapping furniture, anchors off the floor or out of reach, and blocked
+  doorways. A test keeps the list empty.
+- Furniture blocks the tiles it stands on, so pathfinding walks around it.
+- Room themes are ids in the map. The client owns the colours.
+
+## D-015: Shared deterministic A* (2026-11-04)
+
+`findPath` in packages/shared is a 4-connected A*.
+
+- Each step costs 1, and each turn costs 0.2 more. Among the shortest routes, it picks the one
+  with the fewest turns, so walks look deliberate.
+- Ties are broken by a fixed rule, so every machine gets the same path.
+- Walking speed is a shared constant (3.2 tiles per sim second). With that, `agent.moved {from,
+  to, t0}` is enough for any client to animate the walk the server meant (§8).
+- Crew may pass through each other while walking. The director never parks two on one tile.
+
+## D-016: Station events and the client world model (2026-11-04)
+
+The event types are zod schemas in `packages/shared/src/station/events.ts`: `snapshot`,
+`agent.spawned`, `agent.moved`, `agent.activity`, `agent.say`, `task.updated` and
+`provider.status`.
+
+- Every event has a sequence number and a time in sim milliseconds. The other §8 messages join the
+  union in the stages that produce them.
+- The client's `World` is built only from events: a snapshot, then increments. It drops stale and
+  duplicate sequence numbers. The Phaser scene and the React panels only read it.
+- Events reach the world through a `StationLink`: `MockLink` today, a WebSocket link in Stage 3.
+- An activity says what an agent is doing. Walking comes from `agent.moved`. A facing sent after a
+  walk ends is the direction the agent stands in.
+
+## D-017: The Stage 2 mock director (2026-11-04)
+
+`apps/client/src/mock/director.ts` plays the server's part. It is deterministic for a seed, does
+not depend on frame rate, uses no browser APIs and calls no models. Stage 3 can run it on the
+server as the first sim engine.
+
+- A task takes two or three work sessions, sometimes at different stations.
+- Factory crew then carry a crate to the QA Bay. Scout takes reports to the Bridge, and so does
+  Ledger now and then.
+- Lens reviews what arrives. When there is a backlog, Lens does quick checks at the intake table.
+  About 28% of first attempts go back for rework, with at most two reworks (§6).
+- Mock rate limits, mostly on NVIDIA, send one or two working crew to the café for the back-off.
+  Lens is never sent, so deliverables don't pile up; a test caps the backlog.
+- Mock outages turn a Server Room rack row red, with sparks.
+- WARDEN plans at the holo-table, patrols the rooms, and nudges anyone idle for 6 seconds.
+- The tunables live in `DEFAULT_TIMING`.
+
+## D-018: Code-drawn crew sprites (2026-11-04)
+
+The 16×16 crew sprites are layers of run-length rows of palette keys: a head per hair style, an
+accessory, a body pose, legs and a carried item. They are composed frame by frame.
+
+- Each crew member's look (skin, hair, suit, accent, accessory) swaps the palette.
+- Right-facing frames mirror the left-facing ones.
+- The animations are an idle with a breath and a blink, a 4-direction walk with a one-pixel bob,
+  typing, and carrying a crate, a datapad or a cup.
+- Eyes are a white glint over a dark pupil, so they read on every skin tone.
+- `?view=sprites` shows every frame enlarged, for checking the art.

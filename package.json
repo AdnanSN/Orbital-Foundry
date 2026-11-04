@@ -9,14 +9,17 @@
   },
   "workspaces": [
     "packages/shared",
-    "apps/server"
+    "apps/server",
+    "apps/client"
   ],
   "scripts": {
+    "client": "npm run dev --workspace @orbital/client",
+    "client:build": "npm run build --workspace @orbital/client",
     "census": "npm run census --workspace @orbital/server --",
     "smoke": "npm run smoke --workspace @orbital/server --",
     "models": "npm run models --workspace @orbital/server --",
-    "test": "npm run test --workspace @orbital/server",
-    "typecheck": "tsc -p packages/shared && tsc -p apps/server",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "tsc -p packages/shared && tsc -p apps/server && tsc -p apps/client && tsc -p apps/client/tsconfig.node.json",
     "lint": "biome check .",
     "format": "biome check --write .",
     "check": "npm run lint && npm run typecheck && npm run test"

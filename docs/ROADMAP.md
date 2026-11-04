@@ -15,7 +15,7 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 |---|---|---|---|
 | 0 | Prep: keys, folder, decisions | you, ~30 min | ✅ done (NVIDIA, Cloudflare and Groq keys set) |
 | 1 | Foundation & model router | 1 session | ✅ done, except NVIDIA image generation (down on NVIDIA's side) |
-| 2 | The station: visuals with a mock crew | 1 session | ☐ |
+| 2 | The station: visuals with a mock crew | 1 session | ✅ done (`npm run client`) |
 | 3 | Sim engine, persistence, realtime link | 1 session | ☐ |
 | 4 | Agent brains: runtime, Overseer, task board | 1–2 sessions | ☐ |
 | 5 | Creative toolchain (images, upscale, QA) | 1 session | ☐ |
@@ -356,6 +356,10 @@ defineTool({
 - `task.updated`, `artifact.created`, `approval.requested`, `ledger.entry`
 - `provider.status`, `alert`
 
+Stage 2 defines the first seven as zod schemas in `packages/shared/src/station/events.ts`, each
+with a sequence number and a sim time. The client's mock director emits them today. The other
+four join the union in the stages that produce them (DECISIONS D-016).
+
 **REST commands (client → server):**
 
 - `POST /agents` hires an agent; `PATCH /agents/:id` reassigns its room.
@@ -427,23 +431,33 @@ Keys go in `.env`. I'll create `.env.example` in Stage 1, so there's no need to 
 
 **Goal:** the "wow" moment: a living station on screen before any AI is wired in.
 
-- [ ] `apps/client`: Vite + Phaser + a React overlay.
-- [ ] The station map from §5 as a JSON tile grid:
+- [x] `apps/client`: Vite 8 + Phaser 4.2 + a React 19 overlay with Tailwind 4. `npm run client`
+      starts it (DECISIONS D-013).
+- [x] The station map from §5 as a JSON tile grid (`packages/shared/src/station/station.map.json`,
+      58×55 tiles, 11 rooms; D-014):
   - walls, doors, corridors and consoles;
   - workstation anchor points and room labels;
   - starfield windows and blinking server racks.
-- [ ] Original 16×16 crew sprites drawn in code with palette swaps:
+- [x] Original 16×16 crew sprites drawn in code with palette swaps (D-018):
   - idle, 4-direction walk, typing and carrying animations;
   - name tags, speech bubbles and status icons.
-- [ ] Movement and camera:
-  - A* grid pathfinding with smooth movement and furniture collision;
-  - camera pan and zoom.
-- [ ] Clicking an agent opens an inspector, and clicking a room opens a room panel (both with mock data).
-- [ ] A mock "director" script that generates fake events: work, deliver to QA, coffee break, Overseer
-      patrol.
+- [x] Movement and camera:
+  - A* grid pathfinding with smooth movement and furniture collision (shared with the future
+    server, D-015);
+  - camera pan and zoom (drag or WASD, wheel, Fit, follow a crew member).
+- [x] Clicking an agent opens an inspector, and clicking a room opens a room panel (both with mock data).
+- [x] A mock "director" script that generates fake events: work, deliver to QA, coffee break, Overseer
+      patrol (D-016, D-017).
 
 **Done when:** about 9 crew members animate believably at a smooth frame rate on your laptop, and a
 screenshot is saved in `docs/`.
+
+- [x] All 9 crew work, deliver, take café breaks for mock rate limits, and get nudged by WARDEN.
+- [x] Frame rate: a real-time run in headless Edge on this laptop's Intel UHD GPU ran at 113–120 fps
+      (the headless cap), with about 1 ms of work per frame and 95% of frames 9 ms apart or less.
+- [x] Screenshots: `docs/stage-2-station.png` (the whole station) and `docs/stage-2-inspector.png`.
+- [x] `npm run check` covers the client (lint, typecheck) and adds tests for the map layout,
+      pathfinding, the director, the world model, the sprites and the font.
 
 ### Stage 3: Sim engine, persistence, realtime (1 session)
 
@@ -708,3 +722,17 @@ your phone.
     Provider errors no longer contain account IDs. 59 tests.
   - **Next:** Stage 2 (station visuals). Open owner decision: whether to accept Meta's Llama 3.2
     license on Cloudflare (D-012). It isn't needed today.
+- **2026-11-04:** Stage 2 built: the station on screen with a mock crew.
+  - `apps/client` (Vite 8, Phaser 4.2, React 19, Tailwind 4) joins the workspaces, and
+    `npm run client` starts it.
+  - The map, crew, station events and A* pathfinding live in `packages/shared`. The map is a
+    JSON tile grid with 11 rooms, checked by layout tests.
+  - Everything is drawn in code: 16×16 crew sprites with palette swaps, a pixel font, tiles,
+    furniture, and animated screens, racks, doors and holograms.
+  - A seeded mock director drives the nine crew: work sessions, QA deliveries and reviews, café
+    breaks for mock rate limits, Server Room outages, and WARDEN's patrols and nudges.
+  - 108 tests (49 new). The station was checked in the built-in browser pane. The saved
+    screenshots and the frame-rate run used headless Edge: pane screenshots can't be saved to
+    disk, and a hidden pane runs no frames.
+  - **Next:** Stage 3 (sim engine, persistence, realtime link). The mock director can become the
+    server's first sim engine, and the client swaps `MockLink` for a WebSocket link.

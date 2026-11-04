@@ -8,8 +8,10 @@ An always-on pixel-art space station where AI agents run small online businesses
 
 | Command | What it does |
 |---|---|
-| `npm run check` | Biome lint, typecheck and tests. Run it before finishing any stage. |
-| `npm test` | Server unit tests (Vitest). They never call real APIs. |
+| `npm run check` | Biome lint, typecheck (all workspaces) and tests. Run it before finishing any stage. |
+| `npm test` | Unit tests (Vitest) in every workspace. They never call real APIs. |
+| `npm run client` | Starts the station client (Vite) at http://localhost:5173. Mock crew; no API calls. |
+| `npm run client:build` | Production build of the client into `apps/client/dist/`. |
 | `npm run census` | Probes every candidate model (chat, JSON, tools, vision, embeddings) and writes `config/models.census.json`. Flags: `--provider nvidia`, `--tier vision`, `--ref nvidia:openai/gpt-oss-20b`, `--list-only`. |
 | `npm run smoke` | One real call per tier plus one image per endpoint, saved to `data/artifacts/smoke/`. Flags: `--lane live`, `--no-images`. |
 | `npm run models -- nvidia [filter]` | Lists a provider's model IDs. |
@@ -24,7 +26,16 @@ An always-on pixel-art space station where AI agents run small online businesses
   - `src/images/`: lane-aware FLUX clients for NVIDIA genai and Cloudflare Workers AI.
   - `src/scripts/`: census, smoke, models.
   - `src/station.ts` wires everything together.
-- `packages/shared`: zod schemas and types, shared with the future client.
+- `apps/client`: Vite + Phaser 4 + a React overlay (Tailwind).
+  - `src/sim/`: the world model built from station events, the sim clock, and `StationLink`
+    (the mock link now, a WebSocket link in Stage 3).
+  - `src/mock/`: the Stage 2 director that fakes the crew's events (pure TS, seeded).
+  - `src/art/`: everything drawn in code: crew sprites, the pixel font, tiles, furniture, effects.
+  - `src/game/`: the Phaser scene, agent views, textures. `src/ui/`: the React panels.
+  - URL options: `?seed=`, `?speed=`, `?warp=`, `?focus=`, `?select=`, `?zoom=`, and
+    `?view=sprites` for the sprite sheet.
+- `packages/shared`: zod schemas and types shared by the server and the client: model config
+  (`llm.ts`) and the station (`station/`: map JSON and loader, A* pathfinding, crew, events).
 - `config/`: `providers.yaml`, `tiers.yaml`, and the generated `models.census.json`.
 - `data/`: SQLite database and artifacts (git-ignored).
 
@@ -42,12 +53,16 @@ An always-on pixel-art space station where AI agents run small online businesses
 4. **Secrets** live only in `.env`, which is git-ignored. Never print, log or commit keys.
 5. **Free tiers are scarce.** Every model call goes through a `ProviderGate` and is logged to
    `llm_calls`. Tests use fakes (`apps/server/test/helpers.ts`).
+6. **The client only renders station events.** It never calls models, reads `.env` or imports
+   server code. Event shapes live in `packages/shared/src/station/events.ts`.
+7. **The station map is data.** Edit `packages/shared/src/station/station.map.json`; the station
+   tests check the layout (reachable anchors, open doorways, furniture on floors).
 
 ## Conventions
 
 - TypeScript strict, ESM, `import type` for type-only imports (`verbatimModuleSyntax`).
 - Biome formatting: 2 spaces, double quotes, 100 columns. Line endings are LF (`.gitattributes`).
-- Tests live in `apps/server/test/*.test.ts`.
+- Tests live in each workspace's `test/` folder (`*.test.ts`).
 - The dev machine runs Windows. Prefer npm scripts over ad-hoc shell commands.
 
 ## Finishing a stage

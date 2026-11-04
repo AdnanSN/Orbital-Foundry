@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SF Mono", monospace;
+  --color-panel: rgb(14 13 30 / 0.9);
+  --color-panel-edge: rgb(120 110 200 / 0.28);
+  --color-ink: #e9e6ff;
+  --color-dim: #9d98c4;
+  --color-gold: #ffd166;
+  --color-cyan: #5ff2ff;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #05060f;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+}
+
+#game canvas {
+  display: block;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+}
+
+.panel {
+  pointer-events: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-edge);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.6),
+    0 12px 40px rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(6px);
+}
