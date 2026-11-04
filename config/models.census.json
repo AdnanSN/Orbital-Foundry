@@ -1,0 +1,130 @@
+{
+  "generatedAt": "2026-11-04T20:14:55.359Z",
+  "entries": {
+    "cloudflare:@cf/baai/bge-base-en-v1.5": {
+      "ref": "cloudflare:@cf/baai/bge-base-en-v1.5",
+      "testedAt": "2026-11-04T20:14:55.231Z",
+      "probes": {}
+    },
+    "cloudflare:@cf/meta/llama-3.1-8b-instruct-fp8-fast": {
+      "ref": "cloudflare:@cf/meta/llama-3.1-8b-instruct-fp8-fast",
+      "testedAt": "2026-11-04T20:14:55.231Z",
+      "probes": {}
+    },
+    "cloudflare:@cf/meta/llama-3.2-11b-vision-instruct": {
+      "ref": "cloudflare:@cf/meta/llama-3.2-11b-vision-instruct",
+      "testedAt": "2026-11-04T20:14:55.231Z",
+      "probes": {}
+    },
+    "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast": {
+      "ref": "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      "testedAt": "2026-11-04T20:14:55.231Z",
+      "probes": {}
+    },
+    "groq:llama-3.1-8b-instant": {
+      "ref": "groq:llama-3.1-8b-instant",
+      "testedAt": "2026-11-04T20:14:55.231Z",
+      "probes": {}
+    },
+    "groq:llama-3.3-70b-versatile": {
+      "ref": "groq:llama-3.3-70b-versatile",
+      "testedAt": "2026-11-04T20:14:55.231Z",
+      "probes": {}
+    },
+    "groq:openai/gpt-oss-120b": {
+      "ref": "groq:openai/gpt-oss-120b",
+      "testedAt": "2026-11-04T20:14:55.231Z",
+      "probes": {}
+    },
+    "nvidia:deepseek-ai/deepseek-v4.1-flash": {
+      "ref": "nvidia:deepseek-ai/deepseek-v4.1-flash",
+      "testedAt": "2026-11-04T20:14:55.358Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:google/gemma-4-31b-it": {
+      "ref": "nvidia:google/gemma-4-31b-it",
+      "testedAt": "2026-11-04T20:14:55.358Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:meta/llama-3.2-11b-vision-instruct": {
+      "ref": "nvidia:meta/llama-3.2-11b-vision-instruct",
+      "testedAt": "2026-11-04T20:14:55.359Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:meta/llama-3.2-90b-vision-instruct": {
+      "ref": "nvidia:meta/llama-3.2-90b-vision-instruct",
+      "testedAt": "2026-11-04T20:14:55.359Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:mistralai/mistral-large-4-1t-a52b": {
+      "ref": "nvidia:mistralai/mistral-large-4-1t-a52b",
+      "testedAt": "2026-11-04T20:14:55.358Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:moonshotai/kimi-k2.6": {
+      "ref": "nvidia:moonshotai/kimi-k2.6",
+      "testedAt": "2026-11-04T20:14:55.357Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:nvidia/nemotron-3-super-120b-a12b": {
+      "ref": "nvidia:nvidia/nemotron-3-super-120b-a12b",
+      "testedAt": "2026-11-04T20:14:55.358Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:nvidia/nemotron-3.5-bolt-e4b": {
+      "ref": "nvidia:nvidia/nemotron-3.5-bolt-e4b",
+      "testedAt": "2026-11-04T20:14:55.359Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:nvidia/nemotron-3.5-embed-1b": {
+      "ref": "nvidia:nvidia/nemotron-3.5-embed-1b",
+      "testedAt": "2026-11-04T20:14:55.359Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b": {
+      "ref": "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b",
+      "testedAt": "2026-11-04T20:14:55.359Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b": {
+      "ref": "nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "testedAt": "2026-11-04T20:14:55.359Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:nvidia/nv-embedqa-mistral-7b-v2": {
+      "ref": "nvidia:nvidia/nv-embedqa-mistral-7b-v2",
+      "testedAt": "2026-11-04T20:14:55.359Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:openai/gpt-oss-20b": {
+      "ref": "nvidia:openai/gpt-oss-20b",
+      "testedAt": "2026-11-04T20:14:55.359Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:writer/palmyra-creative-122b": {
+      "ref": "nvidia:writer/palmyra-creative-122b",
+      "testedAt": "2026-11-04T20:14:55.358Z",
+      "listed": true,
+      "probes": {}
+    },
+    "nvidia:z-ai/glm-5.3-flash": {
+      "ref": "nvidia:z-ai/glm-5.3-flash",
+      "testedAt": "2026-11-04T20:14:55.358Z",
+      "listed": true,
+      "probes": {}
+    }
+  }
+}

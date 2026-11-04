@@ -1,0 +1,81 @@
+# Orbital Foundry model providers.
+#
+# Each provider speaks the OpenAI chat-completions API at `baseURL`.
+# `lanes` is the important part (docs/DECISIONS.md, D-001):
+#   sandbox  development, tests, demos. Outputs are never sold or delivered.
+#   live     anything that reaches customers or marketplaces. Only add "live" when the
+#            provider's terms allow production use, and record the check in DECISIONS.md.
+# Config validation and the router both refuse live traffic to a provider without "live".
+# `limits` are our own budgets; keep them a little under each provider's real caps.
+
+providers:
+  nvidia:
+    name: NVIDIA NIM (build.nvidia.com free trial)
+    baseURL: https://integrate.api.nvidia.com/v1
+    apiKeyEnv: NVIDIA_API_KEY
+    lanes: [sandbox]
+    limits: { rpm: 35, concurrency: 4 }
+    publicModelList: true
+    quirks: { embedInputType: true }
+    terms: >-
+      Trial terms (checked 2026-11-04): testing and evaluation only; no production use of the
+      service or its Generated Content, and Generated Content may not be sold or distributed.
+
+  cloudflare:
+    name: Cloudflare Workers AI
+    baseURL: https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1
+    apiKeyEnv: CLOUDFLARE_API_TOKEN
+    lanes: [sandbox, live]
+    # The real free budget is 10,000 neurons/day (≈170 FLUX.1-schnell images); these just cap bursts.
+    limits: { rpm: 120, rpd: 2000, concurrency: 4 }
+    terms: >-
+      Free allocation of 10,000 neurons/day on the normal Workers plans, resetting 00:00 UTC
+      (checked 2026-11-04). Not a trial. Model licenses apply (FLUX.1-schnell is Apache-2.0).
+
+  groq:
+    name: Groq
+    baseURL: https://api.groq.com/openai/v1
+    apiKeyEnv: GROQ_API_KEY
+    lanes: [sandbox] # candidate for live: verify its terms in Stage 7 first
+    limits: { rpm: 25, rpd: 900, concurrency: 2 }
+
+  openrouter:
+    name: OpenRouter (":free" models)
+    baseURL: https://openrouter.ai/api/v1
+    apiKeyEnv: OPENROUTER_API_KEY
+    lanes: [sandbox] # upstream terms vary per model, and some free endpoints log prompts
+    limits: { rpm: 15, rpd: 45, concurrency: 2 }
+    publicModelList: true
+
+  gemini:
+    name: Google Gemini API (free quota)
+    baseURL: https://generativelanguage.googleapis.com/v1beta/openai
+    apiKeyEnv: GEMINI_API_KEY
+    lanes: [sandbox] # free-tier prompts and outputs are used to improve Google products
+    limits: { rpm: 8, rpd: 200, concurrency: 2 }
+
+  cerebras:
+    name: Cerebras
+    baseURL: https://api.cerebras.ai/v1
+    apiKeyEnv: CEREBRAS_API_KEY
+    lanes: [sandbox]
+    limits: { rpm: 25, rpd: 900, concurrency: 2 }
+
+images:
+  nvidia-flux-schnell:
+    provider: nvidia
+    kind: nvidia-genai
+    url: https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell
+    lanes: [sandbox]
+    license: Apache-2.0 model; NVIDIA trial terms apply to outputs, so never sell them
+    maxSteps: 4
+    supportsSize: true
+
+  cloudflare-flux-schnell:
+    provider: cloudflare
+    kind: cloudflare-run
+    url: https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-1-schnell
+    lanes: [sandbox, live]
+    license: Apache-2.0
+    maxSteps: 8
+    supportsSize: false # always 1024x1024

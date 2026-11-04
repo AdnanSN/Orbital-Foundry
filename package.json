@@ -1,0 +1,31 @@
+{
+  "name": "orbital-foundry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An always-on pixel-art space station where AI agents run small online businesses.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "workspaces": [
+    "packages/shared",
+    "apps/server"
+  ],
+  "scripts": {
+    "census": "npm run census --workspace @orbital/server --",
+    "smoke": "npm run smoke --workspace @orbital/server --",
+    "models": "npm run models --workspace @orbital/server --",
+    "test": "npm run test --workspace @orbital/server",
+    "typecheck": "tsc -p packages/shared && tsc -p apps/server",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "npm run lint && npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.5",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

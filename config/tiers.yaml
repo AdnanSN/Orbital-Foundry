@@ -1,0 +1,60 @@
+# Orbital Foundry model tiers.
+#
+# Agents ask for a tier and a lane. The router walks that lane's list top to bottom and uses the
+# first model that has a key, is allowed in the lane, and passed the census for what the request
+# needs. Refs are "provider:model". Run `npm run census` after editing this file.
+# The NVIDIA candidates come from its live catalog on 2026-11-04; the census decides which work.
+
+tiers:
+  reasoning:
+    description: Overseer planning, reviews, research synthesis
+    requires: [chat, json, tools]
+    sandbox:
+      - nvidia:moonshotai/kimi-k2.6
+      - nvidia:nvidia/nemotron-3-super-120b-a12b
+      - nvidia:deepseek-ai/deepseek-v4.1-flash
+      - nvidia:mistralai/mistral-large-4-1t-a52b
+      - groq:openai/gpt-oss-120b
+    live:
+      - cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast
+
+  creative:
+    description: Listing copy, design concepts, image prompts
+    requires: [chat, json]
+    sandbox:
+      - nvidia:writer/palmyra-creative-122b
+      - nvidia:z-ai/glm-5.3-flash
+      - nvidia:google/gemma-4-31b-it
+      - groq:llama-3.3-70b-versatile
+    live:
+      - cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast
+
+  fast:
+    description: Classification, tagging, short status lines
+    requires: [chat, json]
+    sandbox:
+      - nvidia:nvidia/nemotron-3.5-lightning-30b-a3b
+      - nvidia:openai/gpt-oss-20b
+      - nvidia:nvidia/nemotron-3.5-bolt-e4b
+      - groq:llama-3.1-8b-instant
+    live:
+      - cloudflare:@cf/meta/llama-3.1-8b-instruct-fp8-fast
+
+  vision:
+    description: Image QA and readability checks
+    requires: [chat, vision]
+    sandbox:
+      - nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b
+      - nvidia:meta/llama-3.2-90b-vision-instruct
+      - nvidia:meta/llama-3.2-11b-vision-instruct
+    live:
+      - cloudflare:@cf/meta/llama-3.2-11b-vision-instruct
+
+  embed:
+    description: Embeddings for memory search
+    requires: [embed]
+    sandbox:
+      - nvidia:nvidia/nemotron-3.5-embed-1b
+      - nvidia:nvidia/nv-embedqa-mistral-7b-v2
+    live:
+      - cloudflare:@cf/baai/bge-base-en-v1.5
