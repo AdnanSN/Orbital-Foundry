@@ -1,6 +1,6 @@
 import type { Capability, ProbeResult } from "@orbital/shared";
 import { z } from "zod";
-import { solidPng } from "../images/png";
+import { circlePng } from "../images/png";
 import { truncate } from "./errors";
 import { jsonInstruction, parseStructured } from "./json";
 import type { ChatResult, ToolSpec, Transport } from "./transport";
@@ -19,9 +19,9 @@ export const ADD_NUMBERS_TOOL: ToolSpec = {
   },
 };
 
-/** A 96×96 red square as a data URL, for vision checks. */
-export function redSquareDataUrl(): string {
-  return `data:image/png;base64,${solidPng(96, 96, [220, 30, 30]).toString("base64")}`;
+/** A red circle on white as a data URL, for vision checks (uniform images fail NVIDIA screening). */
+export function redCircleDataUrl(): string {
+  return `data:image/png;base64,${circlePng(512, [220, 30, 30]).toString("base64")}`;
 }
 
 export function snippet(text: string, max = 80): string {
@@ -106,8 +106,11 @@ export const PROBES: Record<Capability, Probe> = {
         {
           role: "user",
           content: [
-            { type: "text", text: "What colour is this image? Answer with one word." },
-            { type: "image_url", image_url: { url: redSquareDataUrl() } },
+            {
+              type: "text",
+              text: "What colour is the circle in this image? Answer with one word.",
+            },
+            { type: "image_url", image_url: { url: redCircleDataUrl() } },
           ],
         },
       ],

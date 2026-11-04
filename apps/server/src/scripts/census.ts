@@ -3,11 +3,15 @@
  * and embeddings, then write config/models.census.json. The router skips models that fail a
  * capability a request needs.
  *
- *   npm run census                         all providers that have keys
- *   npm run census -- --provider nvidia    one provider
- *   npm run census -- --tier vision        one tier
+ *   npm run census                          all providers that have keys
+ *   npm run census -- --provider nvidia     one provider
+ *   npm run census -- --tier vision         one tier
  *   npm run census -- --ref nvidia:openai/gpt-oss-20b
- *   npm run census -- --list-only          only check the providers' model lists (no key needed for NVIDIA)
+ *   npm run census -- --list-only           only check the providers' model lists
+ *   npm run census -- --discover --provider nvidia
+ *                                           one cheap chat ping to every chat-like model in the
+ *                                           provider's catalog, to find candidates for tiers.yaml
+ *   --timeout 60000                         per-request timeout in ms (default 60 s)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -28,71 +32,97 @@ import { PROBES } from "../llm/probes";
 import { censusProblems } from "../llm/router";
 import { CONFIG_DIR, REPO_ROOT } from "../paths";
 import { createStation } from "../station";
-import { formatTable, keyReport, parseArgs, stringFlag } from "./cli";
+import { formatTable, keyReport, mapLimit, parseArgs, stringFlag } from "./cli";
 
 const CENSUS_FILE = path.join(CONFIG_DIR, "models.census.json");
 const ORDER: Capability[] = ["chat", "json", "tools", "vision", "embed"];
+/** Catalog entries that are clearly not chat models (embeddings, guards, parsers, rewards, …). */
+const NOT_CHAT =
+  /embed|guard|safety|reward|parse|clip|retriever|detector|calibration|translate|deplot|kosmos|rerank|bge|whisper|tts|flux|diffusion-xl|sdxl/i;
 
-const args = parseArgs(process.argv.slice(2), ["list-only"]);
+const args = parseArgs(process.argv.slice(2), ["list-only", "discover"]);
 const onlyProvider = stringFlag(args, "provider");
 const onlyTier = stringFlag(args, "tier");
 const onlyRef = stringFlag(args, "ref");
 const listOnly = args.flags.has("list-only");
+const discover = args.flags.has("discover");
+const timeoutMs = Number(stringFlag(args, "timeout") ?? 60_000);
 
-const station = createStation();
+const station = createStation({ requestTimeoutMs: timeoutMs });
 const { providers, tiers } = station.config;
-console.log(`Model census${listOnly ? " (model lists only)" : ""}\n\n${keyReport(providers)}\n`);
+const mode = listOnly ? " (model lists only)" : discover ? " (discovery)" : "";
+console.log(`Model census${mode}\n\n${keyReport(providers)}\n`);
 
-// Capabilities to probe per ref: the union over every tier that lists it.
-const wanted = new Map<string, Set<Capability>>();
-for (const tier of TIERS) {
-  if (onlyTier && onlyTier !== tier) continue;
-  const config = tiers.tiers[tier];
-  const caps: Capability[] = config.requires.includes("embed")
-    ? ["embed"]
-    : config.requires.includes("vision")
-      ? ["chat", "vision"]
-      : ["chat", "json", "tools"];
-  for (const lane of LANES) {
-    for (const ref of config[lane]) {
-      if (onlyRef && onlyRef !== ref) continue;
-      if (onlyProvider && parseModelRef(ref).provider !== onlyProvider) continue;
-      const set = wanted.get(ref) ?? new Set<Capability>();
-      for (const cap of caps) set.add(cap);
-      wanted.set(ref, set);
-    }
-  }
+if (discover) {
+  await runDiscovery();
+} else {
+  await runCensus();
 }
-
-if (wanted.size === 0) {
-  console.log("Nothing matches those filters.");
-  station.close();
-  process.exit(0);
-}
-
-const byProvider = new Map<string, string[]>();
-for (const ref of wanted.keys()) {
-  const { provider } = parseModelRef(ref);
-  byProvider.set(provider, [...(byProvider.get(provider) ?? []), ref]);
-}
-
-const entries: Record<string, CensusEntry> = { ...(loadCensus()?.entries ?? {}) };
-let probedAny = false;
-
-// Providers run in parallel; models within a provider run one after another (rate limits).
-await Promise.all([...byProvider].map(([id, refs]) => censusProvider(id, refs)));
-
-const file: CensusFile = {
-  generatedAt: new Date().toISOString(),
-  entries: Object.fromEntries(Object.entries(entries).sort(([a], [b]) => a.localeCompare(b))),
-};
-fs.writeFileSync(CENSUS_FILE, `${JSON.stringify(file, null, 2)}\n`);
-printResults(file);
 station.close();
 
-async function censusProvider(id: string, refs: string[]): Promise<void> {
+async function runCensus(): Promise<void> {
+  // Capabilities to probe per ref: the union over every tier that lists it.
+  const wanted = new Map<string, Set<Capability>>();
+  for (const tier of TIERS) {
+    if (onlyTier && onlyTier !== tier) continue;
+    const config = tiers.tiers[tier];
+    const caps: Capability[] = config.requires.includes("embed")
+      ? ["embed"]
+      : config.requires.includes("vision")
+        ? ["chat", "vision"]
+        : ["chat", "json", "tools"];
+    for (const lane of LANES) {
+      for (const ref of config[lane]) {
+        if (onlyRef && onlyRef !== ref) continue;
+        if (onlyProvider && parseModelRef(ref).provider !== onlyProvider) continue;
+        const set = wanted.get(ref) ?? new Set<Capability>();
+        for (const cap of caps) set.add(cap);
+        wanted.set(ref, set);
+      }
+    }
+  }
+  if (wanted.size === 0) {
+    console.log("Nothing matches those filters.");
+    return;
+  }
+
+  const byProvider = new Map<string, string[]>();
+  for (const ref of wanted.keys()) {
+    const { provider } = parseModelRef(ref);
+    byProvider.set(provider, [...(byProvider.get(provider) ?? []), ref]);
+  }
+
+  const entries: Record<string, CensusEntry> = { ...(loadCensus()?.entries ?? {}) };
+  if (!onlyProvider && !onlyTier && !onlyRef) {
+    // A full run also forgets models that are no longer listed in any tier.
+    for (const ref of Object.keys(entries)) if (!wanted.has(ref)) delete entries[ref];
+  }
+  let probedAny = false;
+
+  // Providers run in parallel; within a provider, models run up to its concurrency limit.
+  await Promise.all(
+    [...byProvider].map(async ([id, refs]) => {
+      if (await censusProvider(id, refs, wanted, entries)) probedAny = true;
+    }),
+  );
+
+  const file: CensusFile = {
+    generatedAt: new Date().toISOString(),
+    entries: Object.fromEntries(Object.entries(entries).sort(([a], [b]) => a.localeCompare(b))),
+  };
+  fs.writeFileSync(CENSUS_FILE, `${JSON.stringify(file, null, 2)}\n`);
+  printResults(file, [...wanted.keys()].sort(), probedAny);
+}
+
+/** Probe one provider's refs. Returns whether any probe ran. */
+async function censusProvider(
+  id: string,
+  refs: string[],
+  wanted: Map<string, Set<Capability>>,
+  entries: Record<string, CensusEntry>,
+): Promise<boolean> {
   const provider = providers[id];
-  if (!provider) return;
+  if (!provider) return false;
   let listed: Set<string> | undefined;
   if (provider.apiKey || provider.publicModelList) {
     try {
@@ -109,7 +139,8 @@ async function censusProvider(id: string, refs: string[]): Promise<void> {
   if (!listOnly && !canProbe) log(id, `not probing: ${missing.join(", ")} not set`);
 
   let keyRejected = false;
-  for (const ref of refs) {
+  let probed = false;
+  await mapLimit(refs, provider.limits.concurrency, async (ref) => {
     const { model } = parseModelRef(ref);
     const previous = entries[ref];
     const entry: CensusEntry = {
@@ -119,16 +150,17 @@ async function censusProvider(id: string, refs: string[]): Promise<void> {
       probes: { ...(previous?.probes ?? {}) },
     };
     if (canProbe && !keyRejected) {
-      probedAny = true;
+      probed = true;
       entry.testedAt = new Date().toISOString();
       entry.probes = {};
       const caps = ORDER.filter((cap) => wanted.get(ref)?.has(cap));
       for (const [i, cap] of caps.entries()) {
         const result = await runProbe(id, model, cap);
         entry.probes[cap] = result;
-        // A missing model or a bad key fails every probe the same way; don't spend calls on it.
-        const fatal = /^(not-found|forbidden|auth):/.exec(result.note ?? "");
-        if (fatal) {
+        // A missing model, a bad key, or a model that never answers fails every probe the same
+        // way; don't spend more calls (or minutes) on it.
+        const fatal = /^(not-found|forbidden|auth|timeout):/.exec(result.note ?? "");
+        if (fatal && (fatal[1] !== "timeout" || i === 0)) {
           for (const rest of caps.slice(i + 1)) {
             entry.probes[rest] = { ok: false, note: `skipped after ${fatal[1]}` };
           }
@@ -142,8 +174,49 @@ async function censusProvider(id: string, refs: string[]): Promise<void> {
       log(id, `${model}: ${entry.listed ? "listed" : "NOT LISTED"}`);
     }
     entries[ref] = entry;
-  }
+  });
   if (keyRejected) log(id, `the API key was rejected; check ${provider.apiKeyEnv} in .env`);
+  return probed;
+}
+
+/** One chat ping per chat-like catalog model, to find what this account can really use. */
+async function runDiscovery(): Promise<void> {
+  const provider = onlyProvider ? providers[onlyProvider] : undefined;
+  if (!provider) {
+    console.log("--discover needs a known --provider, e.g. --discover --provider nvidia");
+    process.exitCode = 1;
+    return;
+  }
+  if (!provider.apiKey || provider.missingEnv.length > 0) {
+    console.log(`${provider.id} is not ready: set its key and URL variables in .env first.`);
+    process.exitCode = 1;
+    return;
+  }
+  const models = (await listModels(provider)).filter((id) => !NOT_CHAT.test(id));
+  console.log(
+    `[${provider.id}] pinging ${models.length} chat-like models, ${timeoutMs / 1000}s timeout each\n`,
+  );
+  const results = await mapLimit(models, provider.limits.concurrency, async (model) => {
+    const result = await runProbe(provider.id, model, "chat");
+    log(provider.id, `${model}: ${result.ok ? `ok (${result.ms} ms)` : `FAIL (${result.note})`}`);
+    return { model, result };
+  });
+  results.sort(
+    (a, b) =>
+      Number(b.result.ok) - Number(a.result.ok) ||
+      (a.result.ms ?? Number.POSITIVE_INFINITY) - (b.result.ms ?? Number.POSITIVE_INFINITY),
+  );
+  const rows = results.map(({ model, result }) => [
+    model,
+    result.ok ? "ok" : "FAIL",
+    result.ms === undefined ? "" : `${result.ms} ms`,
+    result.ok ? "" : truncate(result.note ?? "", 90),
+  ]);
+  console.log(`\n${formatTable(["model", "chat", "time", "note"], rows)}`);
+  const working = results.filter((r) => r.result.ok).length;
+  console.log(
+    `\n${working} of ${models.length} answered. Add good ones to config/tiers.yaml, then run \`npm run census\`.`,
+  );
 }
 
 async function runProbe(providerId: string, model: string, cap: Capability): Promise<ProbeResult> {
@@ -196,8 +269,7 @@ async function runProbe(providerId: string, model: string, cap: Capability): Pro
   return { ok: false, note: "rate-limited twice in a row" };
 }
 
-function printResults(census: CensusFile): void {
-  const refs = [...wanted.keys()].sort();
+function printResults(census: CensusFile, refs: string[], probedAny: boolean): void {
   const rows = refs.map((ref) => {
     const entry = census.entries[ref];
     const cells = ORDER.map((cap) => {

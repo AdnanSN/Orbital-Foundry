@@ -1,130 +1,287 @@
 {
-  "generatedAt": "2026-11-04T20:14:55.359Z",
+  "generatedAt": "2026-11-04T20:42:32.981Z",
   "entries": {
     "cloudflare:@cf/baai/bge-base-en-v1.5": {
       "ref": "cloudflare:@cf/baai/bge-base-en-v1.5",
-      "testedAt": "2026-11-04T20:14:55.231Z",
-      "probes": {}
+      "testedAt": "2026-11-04T20:40:03.751Z",
+      "probes": {
+        "embed": {
+          "ok": true,
+          "ms": 135,
+          "note": "768 dimensions"
+        }
+      }
     },
     "cloudflare:@cf/meta/llama-3.1-8b-instruct-fp8-fast": {
       "ref": "cloudflare:@cf/meta/llama-3.1-8b-instruct-fp8-fast",
-      "testedAt": "2026-11-04T20:14:55.231Z",
-      "probes": {}
+      "testedAt": "2026-11-04T20:40:03.048Z",
+      "probes": {
+        "chat": {
+          "ok": false,
+          "ms": 345,
+          "note": "replied: What's next?"
+        },
+        "json": {
+          "ok": true,
+          "ms": 545
+        },
+        "tools": {
+          "ok": true,
+          "ms": 255
+        }
+      }
     },
     "cloudflare:@cf/meta/llama-3.2-11b-vision-instruct": {
       "ref": "cloudflare:@cf/meta/llama-3.2-11b-vision-instruct",
-      "testedAt": "2026-11-04T20:14:55.231Z",
-      "probes": {}
+      "testedAt": "2026-11-04T20:42:31.323Z",
+      "probes": {
+        "chat": {
+          "ok": false,
+          "ms": 494,
+          "note": "forbidden: 403 {\"errors\":[{\"message\":\"AiError: Model Agreement: Prior to using this model, you must submit the prompt 'agree'. By submitting ‘agree’, you hereby agree to …"
+        },
+        "vision": {
+          "ok": false,
+          "note": "skipped after forbidden"
+        }
+      }
     },
     "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast": {
       "ref": "cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-      "testedAt": "2026-11-04T20:14:55.231Z",
-      "probes": {}
+      "testedAt": "2026-11-04T20:40:03.048Z",
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 426
+        },
+        "json": {
+          "ok": true,
+          "ms": 744
+        },
+        "tools": {
+          "ok": true,
+          "ms": 5727
+        }
+      }
     },
-    "groq:llama-3.1-8b-instant": {
-      "ref": "groq:llama-3.1-8b-instant",
-      "testedAt": "2026-11-04T20:14:55.231Z",
-      "probes": {}
+    "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct": {
+      "ref": "cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct",
+      "testedAt": "2026-11-04T20:42:31.322Z",
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 309
+        },
+        "vision": {
+          "ok": true,
+          "ms": 444
+        }
+      }
     },
-    "groq:llama-3.3-70b-versatile": {
-      "ref": "groq:llama-3.3-70b-versatile",
-      "testedAt": "2026-11-04T20:14:55.231Z",
-      "probes": {}
+    "cloudflare:@cf/mistralai/mistral-small-3.1-24b-instruct": {
+      "ref": "cloudflare:@cf/mistralai/mistral-small-3.1-24b-instruct",
+      "testedAt": "2026-11-04T20:42:31.322Z",
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 498
+        },
+        "vision": {
+          "ok": true,
+          "ms": 671
+        }
+      }
     },
     "groq:openai/gpt-oss-120b": {
       "ref": "groq:openai/gpt-oss-120b",
-      "testedAt": "2026-11-04T20:14:55.231Z",
-      "probes": {}
-    },
-    "nvidia:deepseek-ai/deepseek-v4.1-flash": {
-      "ref": "nvidia:deepseek-ai/deepseek-v4.1-flash",
-      "testedAt": "2026-11-04T20:14:55.358Z",
+      "testedAt": "2026-11-04T20:40:03.191Z",
       "listed": true,
-      "probes": {}
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 475
+        },
+        "json": {
+          "ok": true,
+          "ms": 670
+        },
+        "tools": {
+          "ok": true,
+          "ms": 825
+        }
+      }
     },
-    "nvidia:google/gemma-4-31b-it": {
-      "ref": "nvidia:google/gemma-4-31b-it",
-      "testedAt": "2026-11-04T20:14:55.358Z",
+    "groq:openai/gpt-oss-20b": {
+      "ref": "groq:openai/gpt-oss-20b",
+      "testedAt": "2026-11-04T20:40:03.841Z",
       "listed": true,
-      "probes": {}
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 476
+        },
+        "json": {
+          "ok": true,
+          "ms": 472
+        },
+        "tools": {
+          "ok": true,
+          "ms": 136
+        }
+      }
     },
-    "nvidia:meta/llama-3.2-11b-vision-instruct": {
-      "ref": "nvidia:meta/llama-3.2-11b-vision-instruct",
-      "testedAt": "2026-11-04T20:14:55.359Z",
+    "groq:qwen/qwen3.8-27b": {
+      "ref": "groq:qwen/qwen3.8-27b",
+      "testedAt": "2026-11-04T20:40:03.191Z",
       "listed": true,
-      "probes": {}
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 159
+        },
+        "json": {
+          "ok": true,
+          "ms": 248
+        },
+        "tools": {
+          "ok": true,
+          "ms": 242
+        }
+      }
     },
-    "nvidia:meta/llama-3.2-90b-vision-instruct": {
-      "ref": "nvidia:meta/llama-3.2-90b-vision-instruct",
-      "testedAt": "2026-11-04T20:14:55.359Z",
+    "nvidia:meta/muse-glimmer-30b": {
+      "ref": "nvidia:meta/muse-glimmer-30b",
+      "testedAt": "2026-11-04T20:40:03.020Z",
       "listed": true,
-      "probes": {}
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 11537
+        },
+        "json": {
+          "ok": true,
+          "ms": 18983
+        },
+        "tools": {
+          "ok": true,
+          "ms": 3560
+        }
+      }
     },
     "nvidia:mistralai/mistral-large-4-1t-a52b": {
       "ref": "nvidia:mistralai/mistral-large-4-1t-a52b",
-      "testedAt": "2026-11-04T20:14:55.358Z",
+      "testedAt": "2026-11-04T20:40:03.020Z",
       "listed": true,
-      "probes": {}
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 657
+        },
+        "json": {
+          "ok": true,
+          "ms": 9239
+        },
+        "tools": {
+          "ok": true,
+          "ms": 1562
+        }
+      }
     },
-    "nvidia:moonshotai/kimi-k2.6": {
-      "ref": "nvidia:moonshotai/kimi-k2.6",
-      "testedAt": "2026-11-04T20:14:55.357Z",
+    "nvidia:nvidia/nemotron-3-ultra-550b-a55b": {
+      "ref": "nvidia:nvidia/nemotron-3-ultra-550b-a55b",
+      "testedAt": "2026-11-04T20:40:03.019Z",
       "listed": true,
-      "probes": {}
-    },
-    "nvidia:nvidia/nemotron-3-super-120b-a12b": {
-      "ref": "nvidia:nvidia/nemotron-3-super-120b-a12b",
-      "testedAt": "2026-11-04T20:14:55.358Z",
-      "listed": true,
-      "probes": {}
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 1934
+        },
+        "json": {
+          "ok": true,
+          "ms": 5872
+        },
+        "tools": {
+          "ok": true,
+          "ms": 2754
+        }
+      }
     },
     "nvidia:nvidia/nemotron-3.5-bolt-e4b": {
       "ref": "nvidia:nvidia/nemotron-3.5-bolt-e4b",
-      "testedAt": "2026-11-04T20:14:55.359Z",
+      "testedAt": "2026-11-04T20:40:13.580Z",
       "listed": true,
-      "probes": {}
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 127
+        },
+        "json": {
+          "ok": true,
+          "ms": 309
+        },
+        "tools": {
+          "ok": true,
+          "ms": 341
+        }
+      }
     },
     "nvidia:nvidia/nemotron-3.5-embed-1b": {
       "ref": "nvidia:nvidia/nemotron-3.5-embed-1b",
-      "testedAt": "2026-11-04T20:14:55.359Z",
+      "testedAt": "2026-11-04T20:40:14.274Z",
       "listed": true,
-      "probes": {}
+      "probes": {
+        "embed": {
+          "ok": true,
+          "ms": 228,
+          "note": "2048 dimensions"
+        }
+      }
     },
     "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b": {
       "ref": "nvidia:nvidia/nemotron-3.5-lightning-30b-a3b",
-      "testedAt": "2026-11-04T20:14:55.359Z",
+      "testedAt": "2026-11-04T20:40:08.395Z",
       "listed": true,
-      "probes": {}
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 660
+        },
+        "json": {
+          "ok": true,
+          "ms": 4579
+        },
+        "tools": {
+          "ok": true,
+          "ms": 640
+        }
+      }
     },
     "nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b": {
       "ref": "nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b",
-      "testedAt": "2026-11-04T20:14:55.359Z",
+      "testedAt": "2026-11-04T20:42:31.366Z",
       "listed": true,
-      "probes": {}
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 659
+        },
+        "vision": {
+          "ok": true,
+          "ms": 955
+        }
+      }
     },
     "nvidia:nvidia/nv-embedqa-mistral-7b-v2": {
       "ref": "nvidia:nvidia/nv-embedqa-mistral-7b-v2",
-      "testedAt": "2026-11-04T20:14:55.359Z",
+      "testedAt": "2026-11-04T20:40:14.357Z",
       "listed": true,
-      "probes": {}
-    },
-    "nvidia:openai/gpt-oss-20b": {
-      "ref": "nvidia:openai/gpt-oss-20b",
-      "testedAt": "2026-11-04T20:14:55.359Z",
-      "listed": true,
-      "probes": {}
-    },
-    "nvidia:writer/palmyra-creative-122b": {
-      "ref": "nvidia:writer/palmyra-creative-122b",
-      "testedAt": "2026-11-04T20:14:55.358Z",
-      "listed": true,
-      "probes": {}
-    },
-    "nvidia:z-ai/glm-5.3-flash": {
-      "ref": "nvidia:z-ai/glm-5.3-flash",
-      "testedAt": "2026-11-04T20:14:55.358Z",
-      "listed": true,
-      "probes": {}
+      "probes": {
+        "embed": {
+          "ok": false,
+          "ms": 148,
+          "note": "not-found: 404 {\"status\":404,\"title\":\"Not Found\",\"detail\":\"Function '6caf65cf-1c3a-4823-89a5-21b821640d99': Not found for account '[redacted]'\"}"
+        }
+      }
     }
   }
 }

@@ -27,30 +27,53 @@ function chunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([length, typed, crc]);
 }
 
-/** A solid-colour RGB PNG, for vision checks and tests that need no image library. */
-export function solidPng(
+export type Rgb = [number, number, number];
+
+/** An RGB PNG whose pixels come from `pixel(x, y)`, for checks and tests that need no image library. */
+export function drawPng(
   width: number,
   height: number,
-  [r, g, b]: [number, number, number],
+  pixel: (x: number, y: number) => Rgb,
 ): Buffer {
   const header = Buffer.alloc(13);
   header.writeUInt32BE(width, 0);
   header.writeUInt32BE(height, 4);
   header[8] = 8; // bit depth
   header[9] = 2; // colour type: truecolour RGB
-  const row = Buffer.alloc(1 + width * 3); // leading 0 = no filter
-  for (let x = 0; x < width; x++) {
-    row[1 + x * 3] = r;
-    row[2 + x * 3] = g;
-    row[3 + x * 3] = b;
+  const rows: Buffer[] = [];
+  for (let y = 0; y < height; y++) {
+    const row = Buffer.alloc(1 + width * 3); // leading 0 = no filter
+    for (let x = 0; x < width; x++) {
+      const [r, g, b] = pixel(x, y);
+      row[1 + x * 3] = r;
+      row[2 + x * 3] = g;
+      row[3 + x * 3] = b;
+    }
+    rows.push(row);
   }
-  const pixels = Buffer.concat(Array.from({ length: height }, () => row));
   return Buffer.concat([
     PNG_SIGNATURE,
     chunk("IHDR", header),
-    chunk("IDAT", deflateSync(pixels)),
+    chunk("IDAT", deflateSync(Buffer.concat(rows))),
     chunk("IEND", Buffer.alloc(0)),
   ]);
+}
+
+/**
+ * A solid-colour PNG. Don't use one for vision probes: NVIDIA's media screening rejects uniform
+ * images with "422 media could not be screened".
+ */
+export function solidPng(width: number, height: number, colour: Rgb): Buffer {
+  return drawPng(width, height, () => colour);
+}
+
+/** A filled circle on a plain background. This is the vision-probe image; it passes NVIDIA's screening. */
+export function circlePng(size: number, fill: Rgb, background: Rgb = [245, 245, 245]): Buffer {
+  const centre = size / 2;
+  const radius = size * 0.35;
+  return drawPng(size, size, (x, y) =>
+    Math.hypot(x - centre, y - centre) < radius ? fill : background,
+  );
 }
 
 export type ImageMime = "image/png" | "image/jpeg" | "image/webp";

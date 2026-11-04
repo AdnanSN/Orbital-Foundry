@@ -12,6 +12,7 @@ export type FailureKind =
   | "timeout"
   | "network"
   | "invalid-output"
+  | "truncated"
   | "circuit-open"
   | "unknown";
 
@@ -39,8 +40,21 @@ export class ProviderHttpError extends Error {
     readonly retryAfterMs?: number,
     readonly hint?: FailureKind,
   ) {
-    super(message);
+    super(redact(message));
   }
+}
+
+/**
+ * Strip account identifiers and anything key-shaped from provider error text before it is logged
+ * or written to committed files. NVIDIA's 404s, for example, include the caller's account id.
+ */
+export function redact(text: string): string {
+  return text
+    .replace(/(account\s+(?:id\s+)?')[^']+(')/gi, "$1[redacted]$2")
+    .replace(/(accounts\/)[0-9a-f]{32}/gi, "$1[redacted]")
+    .replace(/nvapi-[\w-]+/g, "nvapi-[redacted]")
+    .replace(/\bgsk_[\w-]+/g, "gsk_[redacted]")
+    .replace(/(Bearer\s+)[\w.~+/=-]+/gi, "$1[redacted]");
 }
 
 export class QuotaExhaustedError extends Error {
@@ -112,7 +126,7 @@ export function classifyError(err: unknown): FailureInfo {
     ) {
       return { kind: "network", message: err.message };
     }
-    return { kind: "unknown", message: err.message };
+    return { kind: "unknown", message: redact(err.message) };
   }
   return { kind: "unknown", message: String(err) };
 }

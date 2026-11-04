@@ -11,7 +11,7 @@ import path from "node:path";
 import type { Lane } from "@orbital/shared";
 import { z } from "zod";
 import { MIME_EXT } from "../images/png";
-import { ADD_NUMBERS_TOOL, redSquareDataUrl, snippet } from "../llm/probes";
+import { ADD_NUMBERS_TOOL, redCircleDataUrl, snippet } from "../llm/probes";
 import { ARTIFACTS_DIR, REPO_ROOT } from "../paths";
 import { createStation } from "../station";
 import { formatTable, keyReport, parseArgs, stringFlag } from "./cli";
@@ -88,8 +88,11 @@ checks.push({
         {
           role: "user",
           content: [
-            { type: "text", text: "What colour is this image? Answer with one word." },
-            { type: "image_url", image_url: { url: redSquareDataUrl() } },
+            {
+              type: "text",
+              text: "What colour is the circle in this image? Answer with one word.",
+            },
+            { type: "image_url", image_url: { url: redCircleDataUrl() } },
           ],
         },
       ],
@@ -128,7 +131,8 @@ if (!args.flags.has("no-images")) {
         const stamp = new Date().toISOString().replace(/[:.]/g, "-");
         const file = path.join(dir, `${stamp}-${id}.${MIME_EXT[r.mime]}`);
         fs.writeFileSync(file, r.bytes);
-        return `${r.latencyMs} ms, seed ${r.seed}, saved ${path.relative(REPO_ROOT, file)}`;
+        const seed = r.seed === undefined ? "" : `, seed ${r.seed}`;
+        return `${r.latencyMs} ms${seed}, saved ${path.relative(REPO_ROOT, file)}`;
       },
     });
   }

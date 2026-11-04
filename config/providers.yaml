@@ -70,6 +70,7 @@ images:
     license: Apache-2.0 model; NVIDIA trial terms apply to outputs, so never sell them
     maxSteps: 4
     supportsSize: true
+    pollSeconds: 30 # answer 202 + request id instead of hanging
 
   cloudflare-flux-schnell:
     provider: cloudflare
@@ -79,3 +80,4 @@ images:
     license: Apache-2.0
     maxSteps: 8
     supportsSize: false # always 1024x1024
+    supportsSeed: false # its input schema rejects a seed

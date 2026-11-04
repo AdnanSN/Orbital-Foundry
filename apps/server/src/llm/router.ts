@@ -160,24 +160,47 @@ export class ModelRouter {
         continue;
       }
       let messages = buildMessages(opts);
-      for (let round = 0; round <= REPAIR_ROUNDS; round++) {
-        const call = await this.callChat(ref, provider, model, messages, opts, attempts);
-        if (!call) break;
-        if (!opts.schema) return this.finish(ref, provider, model, call, undefined, attempts, opts);
-        const parsed = parseStructured(call.result.content, opts.schema);
-        if (parsed.ok) return this.finish(ref, provider, model, call, parsed.data, attempts, opts);
-        attempts.push({ ref, outcome: "invalid-output", message: truncate(parsed.error) });
-        this.emit({
-          type: "failure",
+      let maxTokens = opts.maxTokens;
+      let boosted = false;
+      let repairs = 0;
+      // At most: the first call, one retry with a bigger token budget, and the JSON repair rounds.
+      for (let step = 0; step < 2 + REPAIR_ROUNDS; step++) {
+        const call = await this.callChat(
           ref,
-          tier: opts.tier,
-          lane: opts.lane,
-          outcome: "invalid-output",
-          message: parsed.error,
-        });
+          provider,
+          model,
+          messages,
+          { ...opts, maxTokens },
+          attempts,
+        );
+        if (!call) break;
+        const { result } = call;
+        if (result.finishReason === "length" && !boosted) {
+          // Reasoning models can spend the whole budget thinking. Retry once with more room.
+          boosted = true;
+          maxTokens = boostTokens(maxTokens);
+          attempts.push({
+            ref,
+            outcome: "truncated",
+            message: `hit the token limit; retrying with ${maxTokens}`,
+          });
+          continue;
+        }
+        if (!opts.schema) {
+          if (!result.content && result.toolCalls.length === 0) {
+            this.invalid(ref, opts, attempts, "empty reply");
+            break;
+          }
+          return this.finish(ref, provider, model, call, undefined, attempts, opts);
+        }
+        const parsed = parseStructured(result.content, opts.schema);
+        if (parsed.ok) return this.finish(ref, provider, model, call, parsed.data, attempts, opts);
+        this.invalid(ref, opts, attempts, parsed.error);
+        if (repairs >= REPAIR_ROUNDS) break;
+        repairs++;
         messages = [
           ...messages,
-          { role: "assistant", content: call.result.content },
+          { role: "assistant", content: result.content },
           {
             role: "user",
             content: `That reply did not match the required JSON schema:\n${parsed.error}\nReply again with ONLY the corrected JSON.`,
@@ -437,6 +460,23 @@ export class ModelRouter {
     });
   }
 
+  private invalid<T>(
+    ref: string,
+    opts: GenerateOptions<T>,
+    attempts: Attempt[],
+    message: string,
+  ): void {
+    attempts.push({ ref, outcome: "invalid-output", message: truncate(message) });
+    this.emit({
+      type: "failure",
+      ref,
+      tier: opts.tier,
+      lane: opts.lane,
+      outcome: "invalid-output",
+      message,
+    });
+  }
+
   private emit(event: RouterEvent): void {
     try {
       this.deps.onEvent?.(event);
@@ -457,6 +497,11 @@ export function censusProblems(
   const probed = Object.keys(entry.probes).length > 0;
   if (entry.listed === false && !probed) return ["not in the provider's model list"];
   return required.filter((cap) => entry.probes[cap]?.ok === false).map((cap) => `failed ${cap}`);
+}
+
+/** A bigger budget for the retry after a model hit its token limit (often while reasoning). */
+function boostTokens(current: number | undefined): number {
+  return Math.min(Math.max((current ?? 1024) * 4, 2048), 8192);
 }
 
 function hasImages(messages: ChatMessage[] | undefined): boolean {

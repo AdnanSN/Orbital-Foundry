@@ -77,6 +77,10 @@ export const imageEndpointSchema = z.object({
   maxSteps: z.number().int().positive().default(4),
   /** Whether width/height are honoured (otherwise the model's default size is used). */
   supportsSize: z.boolean().default(false),
+  /** Whether the endpoint accepts a `seed` (Cloudflare's FLUX.1-schnell rejects one). */
+  supportsSeed: z.boolean().default(true),
+  /** NVIDIA genai only: seconds the server may hold a request before answering 202 + request id. */
+  pollSeconds: z.number().int().positive().default(30),
 });
 export type ImageEndpointConfig = z.infer<typeof imageEndpointSchema>;
 

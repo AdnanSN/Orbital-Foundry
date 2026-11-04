@@ -248,3 +248,43 @@ describe("ModelRouter census and quirks", () => {
     ]);
   });
 });
+
+describe("ModelRouter token budget and empty replies", () => {
+  it("retries with a bigger token budget when a model runs out mid-thought", async () => {
+    const transport = new FakeTransport({
+      "alpha:a1": (req) =>
+        (req.maxTokens ?? 0) < 1600
+          ? reply("", { finishReason: "length" })
+          : reply("Welcome aboard!", { finishReason: "stop" }),
+    });
+    const { router } = makeRouter({
+      providers,
+      transport,
+      tiers: tiersWith({ fast: { sandbox: ["alpha:a1"] } }),
+    });
+    const res = await router.generate({
+      tier: "fast",
+      lane: "sandbox",
+      prompt: "hi",
+      maxTokens: 400,
+    });
+    expect(res.text).toBe("Welcome aboard!");
+    expect(transport.calls.map((c) => c.req.maxTokens)).toEqual([400, 2048]);
+    expect(res.attempts.map((a) => a.outcome)).toEqual(["truncated", "ok"]);
+  });
+
+  it("falls back when a model returns an empty reply", async () => {
+    const transport = new FakeTransport({
+      "alpha:a1": () => reply("", { finishReason: "stop" }),
+      "beta:b1": () => reply("hello"),
+    });
+    const { router } = makeRouter({
+      providers,
+      transport,
+      tiers: tiersWith({ fast: { sandbox: ["alpha:a1", "beta:b1"] } }),
+    });
+    const res = await router.generate({ tier: "fast", lane: "sandbox", prompt: "hi" });
+    expect(res.ref).toBe("beta:b1");
+    expect(res.attempts[0]).toMatchObject({ outcome: "invalid-output", message: "empty reply" });
+  });
+});

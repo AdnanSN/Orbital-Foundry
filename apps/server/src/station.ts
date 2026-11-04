@@ -23,6 +23,8 @@ export interface Station {
 export interface StationOptions {
   dbFile?: string;
   onEvent?: (event: RouterEvent) => void;
+  /** Per-request timeout for chat and embedding calls (default 120 s). */
+  requestTimeoutMs?: number;
 }
 
 /** Wire config, database, rate gates, transport, router and image service together. */
@@ -32,7 +34,7 @@ export function createStation(options: StationOptions = {}): Station {
   const db = openDb(options.dbFile);
   const usage = new SqliteUsageLog(db);
   const gates = createGates(config.providers, (provider) => usage.countToday(provider));
-  const transport = new OpenAICompatibleTransport(config.providers);
+  const transport = new OpenAICompatibleTransport(config.providers, options.requestTimeoutMs);
   const router = new ModelRouter({
     providers: config.providers,
     tiers: config.tiers,

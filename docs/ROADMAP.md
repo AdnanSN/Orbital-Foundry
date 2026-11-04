@@ -13,8 +13,8 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 
 | # | Stage | Size | Status |
 |---|---|---|---|
-| 0 | Prep: keys, folder, decisions | you, ~30 min | ◐ folder and decisions done; API keys still needed |
-| 1 | Foundation & model router | 1 session | ◐ built and tested; the real census and smoke runs need keys |
+| 0 | Prep: keys, folder, decisions | you, ~30 min | ✅ done (NVIDIA, Cloudflare and Groq keys set) |
+| 1 | Foundation & model router | 1 session | ✅ done, except NVIDIA image generation (down on NVIDIA's side) |
 | 2 | The station: visuals with a mock crew | 1 session | ☐ |
 | 3 | Sim engine, persistence, realtime link | 1 session | ☐ |
 | 4 | Agent brains: runtime, Overseer, task board | 1–2 sessions | ☐ |
@@ -79,7 +79,7 @@ The model router enforces this with **lanes**:
 
 | Provider | Free allowance (as reported, Nov 2026) | Lane | Notes |
 |---|---|---|---|
-| NVIDIA NIM (build.nvidia.com) | ~40 req/min (reports say 30–40) | Sandbox only | 85 chat models live today; FLUX.1-schnell image endpoint; OpenAI-compatible API |
+| NVIDIA NIM (build.nvidia.com) | ~40 req/min (reports say 30–40) | Sandbox only | 85 models listed, but only 7 chat models answered for this account on 2026-11-04 (D-007); its FLUX endpoint is failing on NVIDIA's side; OpenAI-compatible API |
 | Cloudflare Workers AI | 10,000 neurons/day, reset at 00:00 UTC | Live ✅ | FLUX.1-schnell (Apache-2.0) ≈ 58 neurons per 1024² image at 4 steps, so **~170 free images/day**. Small vision models are cheap; the big LLMs need a paid plan. |
 | Groq | ~30 req/min, ~1K req/day per model (varies) | Live (verify terms in Stage 7) | Very fast. Terms reportedly prohibit consumer use and rule out training on your data. |
 | Google Gemini API (free quota) | Small (cut in Dec 2025); image models now paid-only | Live, with caveats | Free-tier content is used to improve Google products. Apps serving the EEA, UK or Switzerland must be on paid. |
@@ -99,6 +99,9 @@ vision and latency. Starting candidates:
 | `image` | Designs, scenes, assets | `black-forest-labs/flux.1-schnell` (NVIDIA genai endpoint) | Cloudflare `@cf/black-forest-labs/flux-1-schnell` |
 | `embed` | Memory search | `nvidia/nemotron-3.5-embed-1b` | Cloudflare bge; local |
 | `safety` | Content and policy screening | `nvidia/nemotron-3.5-content-safety`, `meta/llama-guard-4-12b` | Cloudflare or local guard model |
+
+These were the starting candidates. Since the first real runs, the working lists live in
+`config/tiers.yaml` (DECISIONS D-007), and `npm run census` keeps them honest.
 
 **Budget math.** While busy, a station of about 9 agents makes roughly 10–30 LLM calls a minute. The router
 queues calls per provider (on screen, agents wait in line at the terminal), so the free limits are
@@ -373,9 +376,9 @@ Every stage ends with green tests, a demo you can see, updated docs and a git co
 ### Stage 0: Prep (you, ~30 min, no code)
 
 - [x] Pick the project folder: `C:\Users\adnan\dev\New folder`.
-- [ ] Get an NVIDIA API key: build.nvidia.com → sign in → API Keys → Generate (`nvapi-…`).
-- [ ] Set up Cloudflare (free): note your Account ID, then create an API token with Workers AI permission.
-- [ ] Optional fallbacks: Groq, OpenRouter and Google AI Studio keys.
+- [x] Get an NVIDIA API key: build.nvidia.com → sign in → API Keys → Generate (`nvapi-…`).
+- [x] Set up Cloudflare (free): note your Account ID, then create an API token with Workers AI permission.
+- [x] Optional fallbacks: Groq is set. OpenRouter, Gemini and Cerebras are not needed yet.
 - [ ] If you plan to go live on Etsy: apply for an Etsy developer app now, since review can take a while.
 - [x] Confirm or change the decisions in §11. All defaults were kept (DECISIONS D-002).
 
@@ -409,11 +412,14 @@ Keys go in `.env`. I'll create `.env.example` in Stage 1, so there's no need to 
 
 **Done when:**
 
-- [ ] the census shows at least one working model per tier on NVIDIA. *(Needs `NVIDIA_API_KEY`.
-      All 15 candidate IDs are already confirmed in NVIDIA's live catalog.)*
-- [ ] the smoke test saves FLUX images from both NVIDIA and Cloudflare. *(Needs the keys.)*
-- [x] unit tests for the limiter, fallback and lane enforcement pass (46 tests).
-- [ ] the first commit is made.
+- [x] the census shows at least one working model per tier on NVIDIA: Nemotron-3 Ultra (reasoning),
+      Mistral Large 4 (creative), Nemotron-3.5 Lightning (fast), Nemotron-3.5 Super VL (vision) and
+      Nemotron-3.5 Embed (embed).
+- [ ] the smoke test saves FLUX images from both NVIDIA and Cloudflare. **Cloudflare works** (about
+      3 s per image). NVIDIA's FLUX function fails on NVIDIA's side (HTTP 504, `nvcf-status:
+      errored`), so sandbox images use Cloudflare until it recovers (DECISIONS D-011).
+- [x] unit tests for the limiter, fallback and lane enforcement pass (59 tests).
+- [x] the first commit is made (`5ea5d6c`).
 
 **You provide:** the NVIDIA key and the Cloudflare token and Account ID, in `.env`.
 
@@ -691,3 +697,14 @@ your phone.
   scripts; 46 tests; lint and typecheck clean. All 15 NVIDIA candidates are confirmed in the live
   catalog. **Next:** you add keys to `.env`; then `npm run census` and `npm run smoke` close out
   Stage 1, and Stage 2 (station visuals) starts.
+- **2026-11-04:** Keys added (NVIDIA, Cloudflare, Groq) and Stage 1 closed out with real calls.
+  - Discovery found that only 7 of NVIDIA's 61 catalog chat models answer for this account, so
+    the tiers were rebuilt around them, with Groq and Cloudflare as fallbacks.
+  - The census passes every tier in both lanes, and NVIDIA alone covers all five sandbox tiers.
+  - Sandbox smoke passed 8 of 9 checks (NVIDIA's FLUX endpoint is down on NVIDIA's side); live
+    smoke passed 8 of 8, and the first station image was generated.
+  - The router now retries a truncated reply with a bigger token budget and treats empty replies
+    as failures. The image service polls NVIDIA's async requests and has a circuit breaker.
+    Provider errors no longer contain account IDs. 59 tests.
+  - **Next:** Stage 2 (station visuals). Open owner decision: whether to accept Meta's Llama 3.2
+    license on Cloudflare (D-012). It isn't needed today.
