@@ -2,7 +2,7 @@
   "name": "orbital-foundry",
   "version": "0.1.0",
   "private": true,
-  "description": "An always-on pixel-art space station where AI agents run small online businesses.",
+  "description": "An always-on pixel-art space station where AI agents run a faceless video channel studio.",
   "type": "module",
   "engines": {
     "node": ">=22.12"
@@ -27,6 +27,7 @@
     "smoke": "npm run smoke --workspace @orbital/server --",
     "models": "npm run models --workspace @orbital/server --",
     "printify": "npm run printify --workspace @orbital/server --",
+    "studio": "npm run studio --workspace @orbital/server --",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "tsc -p packages/shared && tsc -p apps/server && tsc -p apps/client && tsc -p apps/client/tsconfig.node.json",
     "lint": "biome check .",

@@ -21,6 +21,7 @@ tools, licences, free allowances and platform rules, with sources.
 | `npm run smoke` | One real call per tier plus one image per endpoint, saved to `data/artifacts/smoke/`. Flags: `--lane live`, `--no-images`. |
 | `npm run models -- nvidia [filter]` | Lists a provider's model IDs. |
 | `npm run printify -- shops` | Browses Printify with your token (shops, blueprints, providers, variants). Read-only. |
+| `npm run studio -- smoke` | Renders the 20-second test short with Kokoro and ElevenLabs (`--voice kokoro` is free) into `data/artifacts/studio/smoke/`. |
 | `npm run station` | Keeps the station server running (restarts, health checks, daily logs). See docs/OPERATIONS.md. |
 | `npm run backup` | Backs up the database and new artifact files now. |
 | `npm run pool:up` | Starts the FreeLLMAPI pool of free model tiers in Docker (`pool:down`, `pool:logs`). See infra/freellmapi/README.md. |
@@ -51,6 +52,10 @@ tools, licences, free allowances and platform rules, with sources.
   - `src/thumbs/studio.ts`: Factory 2, the Thumbnail Studio (concepts, layout, readability, ZIP
     delivery, revisions, gig kit). `src/forge/forge.ts`: Factory 3, the Asset Forge (sheets, cutting
     out items, pack palette, review, package, butler dry run).
+  - `src/studio/`: the faceless studio (D-050 to D-055): `media.ts` (media providers, lanes,
+    budgets, `media_calls`), `voice.ts` (ElevenLabs, Kokoro), `captions.ts`, `timeline.ts` and
+    `compose.ts` (timeline to HyperFrames HTML), `render.ts`, `ffmpeg.ts`, `library.ts` and `stock.ts`
+    (the clip library; Pixabay, NASA, Openverse). Providers live in `config/media.yaml`.
   - `src/uplink/tiktok.ts`: the studio's TikTok connection (sign-in, token refresh, draft uploads to
     the owner's inbox); routes in `src/http/uplink.ts`. Tokens live in `data/secrets/`.
 - `site/`: the studio's public website (privacy policy, terms, data deletion, TikTok's sign-in

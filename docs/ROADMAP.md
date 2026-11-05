@@ -28,8 +28,8 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 9 | Factory 3: Asset forge | 1 session | 🟡 built and tested; ⏸ parked (D-049) |
 | 10 | Economy, KPIs, learning loop | 1 session | ✅ done; its retro loop moves to platform stats (Stage 19) |
 | 11 | Always-on ops & polish | 1 session | 🟡 built; the 72-hour run and a phone approval need you |
-| **12** | **Studio prep: accounts and keys** | you, ~1–2 hours | ⬜ **next**, alongside Stage 13 |
-| 13 | Studio core: media router, voice-over, captions, render | 1 session | ⬜ |
+| 12 | Studio prep: accounts and keys | you, ~1–2 hours | 🟡 TikTok in review, ElevenLabs and Pixabay set; YouTube and Instagram wait |
+| 13 | Studio core: media router, voice-over, captions, render | 1 session | ✅ done (`npm run studio -- smoke`) |
 | 14 | Visual sources: stock library, camera moves, music | 1 session | ⬜ |
 | 15 | Writers' Room: channel bible, ideas, research, scripts | 1 session | ⬜ |
 | 16 | Edit Bay: script to finished video, screening, preview approval | 1–2 sessions | ⬜ |
@@ -753,23 +753,23 @@ days. Keys go in `.env`; Stage 13 adds their names to `.env.example`.
 
 **Goal:** a script becomes a voiced, captioned, rendered short on this laptop.
 
-- [ ] Park the old businesses: the Etsy autopilot off by config, the open shop objectives from the
+- [~] Park the old businesses: the Etsy autopilot off by config, the open shop objectives from the
       first production run closed, the Stores, Thumbs and Forge panels kept but marked parked, and
       their tests still running.
-- [ ] `config/media.yaml` and a media router: providers with lanes, licence notes and budgets per day
+- [x] `config/media.yaml` and a media router: providers with lanes, licence notes and budgets per day
       and per month, in each provider's own unit (characters, credits, requests, GPU seconds), behind
       the existing `ProviderGate` and circuit breakers, with a `media_calls` usage log.
-- [ ] Voice: an ElevenLabs client (speech with timestamps; the subscription's remaining credits read
+- [x] Voice: an ElevenLabs client (speech with timestamps; the subscription's remaining credits read
       before each job; a hard stop before the monthly quota) and Kokoro-82M through `kokoro-js` as the
       local voice. Pronunciation fixes per channel.
-- [ ] Word timings from ElevenLabs' alignment, or from whisper.cpp for local voices. Caption chunking
+- [x] Word timings from ElevenLabs' alignment, or from whisper.cpp for local voices. Caption chunking
       for shorts (two to four words, highlighted as they're spoken) and SRT files for long-form.
-- [ ] Render: a timeline schema (scenes, voice, captions, music) compiled to a HyperFrames
+- [x] Render: a timeline schema (scenes, voice, captions, music) compiled to a HyperFrames
       composition and rendered with FFmpeg, on NVENC when the GPU is free. First scene templates:
       title card, kinetic captions, list item, quote, still with Ken Burns, lower third.
-- [ ] `npm run studio:smoke`: a 20-second vertical test short from a fixed script, saved to
+- [x] `npm run studio:smoke`: a 20-second vertical test short from a fixed script, saved to
       `data/artifacts/studio/smoke/`.
-- [ ] Tests for the timeline schema, caption chunking, budgets and media lanes, with fake voice and
+- [x] Tests for the timeline schema, caption chunking, budgets and media lanes, with fake voice and
       render runners.
 
 **Done when:** the smoke short plays with a clear voice and captions that land on each word, in both
@@ -777,6 +777,13 @@ a Kokoro and an ElevenLabs version, and renders in a few minutes on this laptop.
 
 **You provide:** `ELEVENLABS_API_KEY`, and your OK to download FFmpeg, a headless Chrome for
 HyperFrames, Kokoro's model (about 330 MB) and whisper.cpp's base.en model (about 150 MB).
+
+**Built (2026-11-06, D-055):** `apps/server/src/studio/` (media hub, voice, captions, timeline,
+compose, render, FFmpeg helpers) and `npm run studio -- smoke`. Both smoke shorts are in
+`data/artifacts/studio/smoke/`: Kokoro (22.4 s, rendered in 48 s) and ElevenLabs with the channel
+voice (16.7 s, 264 credits, rendered in 34 s), at -14 LUFS with captions on each word. Local voices
+are timed per sentence, so whisper.cpp wasn't needed. Parking: the Etsy autopilot is off unless
+`ORBITAL_AUTOPILOT=1`; the one open shop objective and six old Desk items wait for your decision.
 
 ### Stage 14: Visual sources (1 session)
 
@@ -1235,3 +1242,15 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
   - **Next (you):** register the redirect URI in Login Kit, add your account as a sandbox user,
     connect, upload a test video, record the flow, and submit the app for review. Then the other
     Stage 12 accounts.
+- **2026-11-06:** Stage 13 built: the studio core (D-055).
+  - `config/media.yaml` and the media hub: lanes, keys, gates, budgets, and a `media_calls` log
+    beside `llm_calls`.
+  - Voice: ElevenLabs (word-exact timings, never past our budget or the plan's remaining credits,
+    Kokoro as the fallback) and Kokoro-82M on the CPU, timed sentence by sentence.
+  - Captions (2 to 4 words, highlighted as spoken; SRT for long-form), the timeline format, the
+    HyperFrames composition compiler (title, list, quote, stat, still with a camera move, footage,
+    colour; lower thirds, progress bar, watermark) and the renderer (NVENC, -14 LUFS).
+  - Installed with your OK: FFmpeg 6.1 and FFprobe (npm), HyperFrames 0.9.17 with its headless
+    Chrome, Kokoro's model (about 90 MB, in data/models), GSAP (vendored).
+  - The first smoke short exposed captions whose highlighted word swallowed the spaces around it;
+    words now carry their own margins. 15 new tests (252 in all).

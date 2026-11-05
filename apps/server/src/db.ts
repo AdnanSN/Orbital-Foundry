@@ -136,6 +136,48 @@ const MIGRATIONS: string[] = [
   "UPDATE tasks SET mock = 1 WHERE id LIKE 'T-%' AND mock = 0;",
   // Gateways (FreeLLMAPI) report which upstream answered; keep it for the terms audit.
   "ALTER TABLE llm_calls ADD COLUMN routed_via TEXT;",
+  // Stage 13: the studio's media calls (voice, stock, render), beside llm_calls (D-050).
+  `CREATE TABLE media_calls (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     ts TEXT NOT NULL,
+     provider TEXT NOT NULL,
+     kind TEXT NOT NULL,
+     lane TEXT NOT NULL,
+     units REAL NOT NULL DEFAULT 0,
+     unit TEXT,
+     ms INTEGER,
+     ok INTEGER NOT NULL,
+     error TEXT,
+     ref TEXT
+   );
+   CREATE INDEX idx_media_calls ON media_calls (provider, ts);`,
+  // Stage 14: the clip library (every asset with its licence and credit) and a 24-hour cache of
+  // stock searches (Pixabay's terms ask for one).
+  `CREATE TABLE assets (
+     id TEXT PRIMARY KEY,
+     kind TEXT NOT NULL,
+     source TEXT NOT NULL,
+     source_id TEXT,
+     title TEXT,
+     tags TEXT NOT NULL DEFAULT '',
+     licence TEXT NOT NULL,
+     credit TEXT NOT NULL DEFAULT '',
+     url TEXT,
+     path TEXT NOT NULL,
+     bytes INTEGER,
+     duration REAL,
+     width INTEGER,
+     height INTEGER,
+     uses INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL,
+     last_used_at TEXT
+   );
+   CREATE INDEX idx_assets_kind ON assets (kind, source);
+   CREATE TABLE media_cache (
+     key TEXT PRIMARY KEY,
+     body TEXT NOT NULL,
+     fetched_at TEXT NOT NULL
+   );`,
 ];
 
 export function openDb(file: string = DB_PATH): Database.Database {

@@ -830,3 +830,26 @@ laptop.
   never logged, and revoked on Disconnect, as the privacy policy says.
 - Until Stage 17 routes posts through the Owner's Desk, an upload happens only when the owner
   presses the button in the Uplink panel; the kill switch blocks it.
+
+## D-055: How the studio core is built (2026-11-06)
+
+- **Rendering.** The HyperFrames CLI (0.9.17) runs as a child process with telemetry, update checks
+  and auto-installs off (`HYPERFRAMES_NO_TELEMETRY`, `DO_NOT_TRACK` and friends, set in
+  `studio/ffmpeg.ts`). FFmpeg 6.1 and FFprobe come from npm (`ffmpeg-static`, `ffprobe-static`) and
+  are put on its PATH; HyperFrames downloads its own headless Chrome on the first render. GSAP is
+  vendored from npm into each project, so nothing loads from a CDN. On this laptop a render takes
+  about 2 to 2.5 seconds per second of 1080×1920 video (3 workers, GPU capture, NVENC).
+- **Fonts.** Montserrat and Inter, open-licence Google Fonts that HyperFrames resolves itself.
+  Windows system fonts fail its lint, and their licences aren't ours to rely on.
+- **Kokoro** runs through kokoro-js (q8, CPU), cached in `data/models/hf`. Its words are timed per
+  sentence: each sentence is synthesized on its own, the speech inside it is found by energy, and
+  the words are spread over it by length. That is accurate enough for 2 to 4 word captions and
+  needs no whisper.cpp model.
+- **ElevenLabs** uses speech with timestamps, in chunks of at most 2,400 characters with the
+  neighbouring text for continuity. Before a job it checks both our monthly budget (110,000 of the
+  plan's 121,000 credits) and the plan's own remaining count less a 3,000-credit reserve, and falls
+  back to Kokoro when either is short. The voice id comes from `ELEVENLABS_VOICE_ID` or
+  `ELEVENLABSVOICE_ID`.
+- **Loudness.** Every final file is brought to -14 LUFS integrated, -1.5 dB true peak.
+- **Parking.** The Etsy autopilot starts only with `ORBITAL_AUTOPILOT=1`. The open shop objective
+  and the old Desk items are the owner's decisions, so they stay as they are.

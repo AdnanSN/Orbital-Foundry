@@ -1,0 +1,84 @@
+# Orbital Foundry media providers (D-050): voice, word timings, stock, stills, video, music and
+# render runners. Like config/providers.yaml, each one names the lanes it may serve:
+#   sandbox  development and tests; outputs are never published.
+#   live     anything that reaches a platform. Needs `production: allowed` after a terms check
+#            recorded in docs/DECISIONS.md. Config validation and the media hub both enforce it.
+# `budget` is our own ceiling in the provider's own unit, kept under the real allowance.
+
+providers:
+  elevenlabs:
+    name: ElevenLabs (Creator plan)
+    kind: tts
+    lanes: [sandbox, live]
+    production: allowed
+    termsChecked: 2026-11-05
+    licence: Paid plans include a commercial licence for generated speech.
+    apiKeyEnv: ELEVENLABS_API_KEY
+    limits: { rpm: 20, concurrency: 2 }
+    # The plan has 121,000 credits a month and bills usage past them, so we stop well short.
+    budget: { unit: credits, monthly: 110000 }
+    settings:
+      model: eleven_multilingual_v2
+      # Credits per character for that model (Flash and Turbo cost 0.5).
+      creditsPerChar: 1
+      voiceEnv: [ELEVENLABS_VOICE_ID, ELEVENLABSVOICE_ID]
+      # Keep this many credits unused at all times.
+      reserve: 3000
+
+  kokoro:
+    name: Kokoro-82M on this laptop (kokoro-js)
+    kind: tts
+    local: true
+    lanes: [sandbox, live]
+    production: allowed
+    termsChecked: 2026-11-05
+    licence: Kokoro-82M weights Apache-2.0; kokoro-js Apache-2.0.
+    limits: { rpm: 600, concurrency: 1 }
+    settings:
+      model: onnx-community/Kokoro-82M-v1.0-ONNX
+      dtype: q8
+      voice: am_michael
+      speed: 1
+
+  hyperframes:
+    name: HyperFrames on this laptop
+    kind: render
+    local: true
+    lanes: [sandbox, live]
+    production: allowed
+    termsChecked: 2026-11-05
+    licence: Apache-2.0 renderer; fonts are open-licence Google Fonts (OFL).
+    limits: { rpm: 60, concurrency: 1 }
+    settings:
+      workers: 3
+      quality: looks
+      gpuEncode: true
+
+  pixabay:
+    name: Pixabay API
+    kind: stock
+    lanes: [sandbox, live]
+    production: allowed
+    termsChecked: 2026-11-05
+    licence: Pixabay Content License (free commercial use, no attribution required; no resale as is).
+    apiKeyEnv: PIXABAY_API_KEY
+    # The API allows 100 requests a minute and asks for 24-hour caching and no mass downloads.
+    limits: { rpm: 60, rpd: 2000, concurrency: 2 }
+
+  nasa:
+    name: NASA Image and Video Library
+    kind: stock
+    lanes: [sandbox, live]
+    production: allowed
+    termsChecked: 2026-11-05
+    licence: Generally public domain; credit NASA; no NASA endorsement implied; third-party items excluded.
+    limits: { rpm: 30, rpd: 1000, concurrency: 2 }
+
+  openverse:
+    name: Openverse (Creative Commons and public-domain images)
+    kind: stock
+    lanes: [sandbox, live]
+    production: allowed
+    termsChecked: 2026-11-05
+    licence: Per item; only CC0, the Public Domain Mark and CC BY (credited). No BY-SA, since a crop or zoom may adapt it.
+    limits: { rpm: 10, rpd: 200, concurrency: 1 }

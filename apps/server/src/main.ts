@@ -128,8 +128,8 @@ const pod = new PodFactory({
   blocklist,
   dir: path.join(ARTIFACTS_DIR, "packages"),
   lane,
-  // Each store's daily listings start on their own in working hours; ORBITAL_AUTOPILOT=0 stops it.
-  autopilot: process.env.ORBITAL_AUTOPILOT !== "0",
+  // Parked for the studio (D-049): the stores' daily listings start only with ORBITAL_AUTOPILOT=1.
+  autopilot: process.env.ORBITAL_AUTOPILOT === "1",
   imagesReadyAt: () => station.images.readyAt(lane),
   log: (m) => console.log(`[pod] ${m}`),
 });
