@@ -30,7 +30,12 @@ export function ArtifactViewer({ ctx, id }: { ctx: Ctx; id: string }) {
               <div className="text-dim text-[11px]">
                 {id} · by {world.name(meta.createdBy)}
                 {meta.taskId ? ` · ${meta.taskId}` : ""}
-                {meta.objectiveId ? ` · ${meta.objectiveId}` : ""} · sandbox: not published
+                {meta.objectiveId ? ` · ${meta.objectiveId}` : ""}
+                {meta.info?.lane === "live"
+                  ? " · live lane"
+                  : meta.info?.lane === "sandbox"
+                    ? " · sandbox: never sold"
+                    : ""}
               </div>
             )}
             {(meta?.kind === "listing-package" ||

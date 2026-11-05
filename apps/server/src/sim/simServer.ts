@@ -33,6 +33,8 @@ export interface SimServerOptions {
   saveEveryMs?: number;
   /** Crew banter in the café and on the Bridge (Stage 11 polish). */
   banter?: boolean;
+  /** Invented ambient tasks for idle crew (default true). Production turns them off (D-046). */
+  ambientWork?: boolean;
 }
 
 type Listener = (events: StationEvent[]) => void;
@@ -62,6 +64,7 @@ export class SimServer {
       seed: options.seed ?? Date.now() % 1_000_000,
       mockProviders: options.mockProviders ?? true,
       banter: options.banter ?? false,
+      ambientWork: options.ambientWork ?? true,
     };
     if (save) {
       this.sim = StationSim.restore(options.map, save, {

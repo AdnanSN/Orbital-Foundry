@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T20:42:32.981Z",
+  "generatedAt": "2026-11-05T14:58:45.949Z",
   "entries": {
     "cloudflare:@cf/baai/bge-base-en-v1.5": {
       "ref": "cloudflare:@cf/baai/bge-base-en-v1.5",
@@ -92,60 +92,121 @@
         }
       }
     },
-    "groq:openai/gpt-oss-120b": {
-      "ref": "groq:openai/gpt-oss-120b",
-      "testedAt": "2026-11-04T20:40:03.191Z",
+    "freellm:auto": {
+      "ref": "freellm:auto",
+      "testedAt": "2026-11-05T14:41:35.364Z",
       "listed": true,
       "probes": {
         "chat": {
           "ok": true,
-          "ms": 475
+          "ms": 225
         },
         "json": {
           "ok": true,
-          "ms": 670
+          "ms": 144
         },
         "tools": {
           "ok": true,
-          "ms": 825
+          "ms": 208
+        },
+        "vision": {
+          "ok": true,
+          "ms": 369
+        }
+      }
+    },
+    "freellm:auto:fast": {
+      "ref": "freellm:auto:fast",
+      "testedAt": "2026-11-05T14:41:35.364Z",
+      "listed": false,
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 260
+        },
+        "json": {
+          "ok": true,
+          "ms": 509
+        },
+        "tools": {
+          "ok": true,
+          "ms": 212
+        }
+      }
+    },
+    "freellm:auto:smart": {
+      "ref": "freellm:auto:smart",
+      "testedAt": "2026-11-05T14:41:35.364Z",
+      "listed": false,
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 217
+        },
+        "json": {
+          "ok": true,
+          "ms": 146
+        },
+        "tools": {
+          "ok": true,
+          "ms": 236
+        }
+      }
+    },
+    "groq:openai/gpt-oss-120b": {
+      "ref": "groq:openai/gpt-oss-120b",
+      "testedAt": "2026-11-05T14:58:44.453Z",
+      "listed": true,
+      "probes": {
+        "chat": {
+          "ok": true,
+          "ms": 243
+        },
+        "json": {
+          "ok": true,
+          "ms": 634
+        },
+        "tools": {
+          "ok": true,
+          "ms": 386
         }
       }
     },
     "groq:openai/gpt-oss-20b": {
       "ref": "groq:openai/gpt-oss-20b",
-      "testedAt": "2026-11-04T20:40:03.841Z",
+      "testedAt": "2026-11-05T14:58:45.010Z",
       "listed": true,
       "probes": {
         "chat": {
           "ok": true,
-          "ms": 476
+          "ms": 213
         },
         "json": {
           "ok": true,
-          "ms": 472
+          "ms": 400
         },
         "tools": {
           "ok": true,
-          "ms": 136
+          "ms": 325
         }
       }
     },
     "groq:qwen/qwen3.8-27b": {
       "ref": "groq:qwen/qwen3.8-27b",
-      "testedAt": "2026-11-04T20:40:03.191Z",
+      "testedAt": "2026-11-05T14:58:44.454Z",
       "listed": true,
       "probes": {
         "chat": {
           "ok": true,
-          "ms": 159
+          "ms": 208
         },
         "json": {
           "ok": true,
-          "ms": 248
+          "ms": 114
         },
         "tools": {
           "ok": true,
-          "ms": 242
+          "ms": 175
         }
       }
     },

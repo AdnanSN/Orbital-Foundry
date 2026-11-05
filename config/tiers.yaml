@@ -18,7 +18,11 @@ tiers:
       - nvidia:mistralai/mistral-large-4-1t-a52b
       - groq:openai/gpt-oss-120b
       - nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b
+    # Live: Groq first (its production models only, D-045), Cloudflare behind it. Groq lists
+    # llama-3.3-70b-versatile and llama-3.1-8b-instant, but they answer 404 for this account (census
+    # 2026-11-05).
     live:
+      - groq:openai/gpt-oss-120b # Apache-2.0
       - cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast
 
   creative:
@@ -33,6 +37,7 @@ tiers:
       - nvidia:meta/muse-glimmer-30b
       - nvidia:nvidia/nemotron-3.5-lightning-30b-a3b
     live:
+      - groq:openai/gpt-oss-120b
       - cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast
       - cloudflare:@cf/mistralai/mistral-small-3.1-24b-instruct
 
@@ -45,6 +50,7 @@ tiers:
       - nvidia:nvidia/nemotron-3.5-bolt-e4b
       - groq:openai/gpt-oss-20b
     live:
+      - groq:openai/gpt-oss-20b # Apache-2.0
       - cloudflare:@cf/meta/llama-3.1-8b-instruct-fp8-fast
       - cloudflare:@cf/mistralai/mistral-small-3.1-24b-instruct
       - cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast

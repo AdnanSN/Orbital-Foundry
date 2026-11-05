@@ -20,7 +20,7 @@ import type { PodFactory } from "../pod/factory";
 import type { PodPublisher } from "../printify/publisher";
 import type { SimServer } from "../sim/simServer";
 import { type ThumbnailStudio, thumbBriefSchema } from "../thumbs/studio";
-import type { Economy } from "../vault/economy";
+import { type Economy, SimulationOffError } from "../vault/economy";
 import type { KpiService } from "../vault/kpis";
 import { LEDGER_KINDS, type Ledger } from "../vault/ledger";
 import type { WorkDirector } from "../work/director";
@@ -335,6 +335,7 @@ export async function buildApp(
       const ledger = work.ledger;
       app.get("/api/vault", async () => ({
         ...kpis.snapshot({ simNow: sim.sim.now }),
+        simulation: economy.simulation,
         experiments: economy.experiments(),
         lastRetro: JSON.parse(work.store.getKv("economy.lastRetro") ?? "null") as unknown,
       }));
@@ -351,14 +352,19 @@ export async function buildApp(
         });
         return reply.code(added ? 201 : 409).send({ added });
       });
-      app.post("/api/vault/simulate", async (req) => {
+      app.post("/api/vault/simulate", async (req, reply) => {
         const seed = z
           .object({ seed: z.coerce.number().int().optional() })
           .parse(req.body ?? {}).seed;
+        if (!economy.simulation)
+          return reply.code(409).send({ error: new SimulationOffError().message });
         return economy.simulateWeek(seed ?? Date.now() % 100_000);
       });
       app.post("/api/vault/retro", async (req, reply) => {
         const body = z.object({ simulated: z.boolean().optional() }).parse(req.body ?? {});
+        if (body.simulated && !economy.simulation) {
+          return reply.code(409).send({ error: new SimulationOffError().message });
+        }
         const { plan, artifact } = await economy.retro(body.simulated ? { simulated: true } : {});
         return reply.code(201).send({ plan, artifact });
       });

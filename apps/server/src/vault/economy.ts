@@ -60,6 +60,8 @@ export interface Experiment {
   change: string;
   hypothesis: string;
   until: string;
+  /** Learned from a simulated week. Production acts only on experiments marked false (D-046). */
+  simulated?: boolean;
 }
 
 export interface EconomyDeps {
@@ -71,8 +73,17 @@ export interface EconomyDeps {
   director: Pick<WorkDirector, "fileDeskItem" | "onDecision">;
   pod: Pick<PodFactory, "businesses" | "settings" | "updateSettings" | "packages">;
   lane: Lane;
+  /** Simulated weeks, and plans learned from them (default true). Production turns them off. */
+  simulation?: boolean;
   clock?: () => Date;
   log?: (m: string) => void;
+}
+
+/** Production refuses simulated sales and retros on them (D-046). */
+export class SimulationOffError extends Error {
+  constructor() {
+    super("Simulated sales are off in production (ORBITAL_MODE=production).");
+  }
 }
 
 /** A small seeded generator (mulberry32), so a simulated week is repeatable. */
@@ -94,10 +105,13 @@ function hash(text: string): number {
 }
 
 export class Economy {
+  /** False in production: no simulated weeks, and nothing learned from one steers real work. */
+  readonly simulation: boolean;
   private readonly clock: () => Date;
   private readonly log: (m: string) => void;
 
   constructor(private readonly deps: EconomyDeps) {
+    this.simulation = deps.simulation ?? true;
     this.clock = deps.clock ?? (() => new Date());
     this.log = deps.log ?? (() => {});
     deps.director.onDecision((a) => this.onDecision(a));
@@ -108,7 +122,13 @@ export class Economy {
   experiments(store?: string): Experiment[] {
     const all = JSON.parse(this.deps.store.getKv("economy.experiments") ?? "[]") as Experiment[];
     const now = this.clock().toISOString();
-    return all.filter((e) => e.until > now && (!store || e.store === store));
+    return all.filter(
+      (e) =>
+        e.until > now &&
+        (!store || e.store === store) &&
+        // Production follows only what real sales taught; older entries carry no flag (D-046).
+        (this.simulation || e.simulated === false),
+    );
   }
 
   /** The price multiplier an active price experiment asks for (1 when none). */
@@ -135,6 +155,7 @@ export class Economy {
    * and a fixed per-design appeal, so different stores really do perform differently.
    */
   simulateWeek(seed = 1): { sales: number; revenue: number; days: number } {
+    if (!this.simulation) throw new SimulationOffError();
     const rand = rng(seed);
     const end = this.clock();
     const storeBase: Record<string, number> = {};
@@ -256,6 +277,7 @@ export class Economy {
     opts: { simulated?: boolean } = {},
   ): Promise<{ plan: RetroPlan; artifact: ArtifactMeta }> {
     const simulated = opts.simulated ?? false;
+    if (simulated && !this.simulation) throw new SimulationOffError();
     const k = this.deps.kpis.snapshot({ simNow: this.deps.world.sim.now });
     const money = simulated ? k.simulated : k.real;
     const settings = this.deps.pod.businesses.map((b) => ({
@@ -429,7 +451,7 @@ export class Economy {
     );
     this.deps.store.setKv(
       "economy.experiments",
-      JSON.stringify([...active, ...plan.experiments.map((e) => ({ ...e, until }))]),
+      JSON.stringify([...active, ...plan.experiments.map((e) => ({ ...e, until, simulated }))]),
     );
     for (const m of plan.crewMoves) {
       try {

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { getStationMap } from "@orbital/shared";
+import { getStationMap, type Lane } from "@orbital/shared";
 import { loadBlocklist, loadCreativeConfig, loadStyles } from "./creative/config";
 import { CreativeStudio } from "./creative/studio";
 import { creativeTools } from "./creative/tools";
@@ -30,11 +30,18 @@ import { loadWebConfig, WebClient } from "./work/web";
 /**
  * The station server: restores the station from SQLite (or starts fresh), runs the sim clock and
  * the agents' work (Overseer, runtime, reviews), and serves the client over HTTP and WebSocket on
- * http://127.0.0.1:8787. All model calls use the sandbox lane.
+ * http://127.0.0.1:8787.
  */
 loadEnv();
 const host = process.env.ORBITAL_HOST ?? "127.0.0.1";
 const port = Number(process.env.ORBITAL_PORT ?? 8787);
+/**
+ * ORBITAL_MODE=production (D-046): every model call uses the live lane (providers whose terms allow
+ * selling the output), the crew invent no tasks, and simulated sales are off. Anything else is
+ * development: the sandbox lane, ambient crew work and the sales simulator.
+ */
+const production = process.env.ORBITAL_MODE === "production";
+const lane: Lane = production ? "live" : "sandbox";
 
 let director: WorkDirector | null = null;
 // Reasoning models think before they answer: background work can wait up to 3 minutes a call.
@@ -45,7 +52,13 @@ const station = createStation({
 const store = new SimStore(station.db);
 store.prune();
 // Real provider status drives the racks and café breaks now; the sim invents none.
-const sim = new SimServer({ map: getStationMap(), store, mockProviders: false, banter: true });
+const sim = new SimServer({
+  map: getStationMap(),
+  store,
+  mockProviders: false,
+  banter: true,
+  ambientWork: !production,
+});
 const work = new WorkStore(station.db);
 const styles = loadStyles();
 const blocklist = loadBlocklist();
@@ -54,7 +67,7 @@ const studio = new CreativeStudio({
   router: station.router,
   store: work,
   dir: path.join(ARTIFACTS_DIR, "images"),
-  lane: "sandbox",
+  lane,
   config: loadCreativeConfig(),
   styles,
   blocklist,
@@ -80,6 +93,7 @@ director = new WorkDirector({
   studio,
   web: new WebClient(loadWebConfig()),
   gates: station.gates,
+  lane,
   log: (m) => console.log(`[work] ${m}`),
 });
 const businesses = loadBusinesses();
@@ -98,7 +112,7 @@ const pod = new PodFactory({
   rules: etsyRules,
   blocklist,
   dir: path.join(ARTIFACTS_DIR, "packages"),
-  lane: "sandbox",
+  lane,
   // Each store's daily listings start on their own in working hours; ORBITAL_AUTOPILOT=0 stops it.
   autopilot: process.env.ORBITAL_AUTOPILOT !== "0",
   log: (m) => console.log(`[pod] ${m}`),
@@ -124,7 +138,7 @@ const publisher = new PodPublisher({
   businesses,
   products,
   rules: etsyRules,
-  lane: "sandbox",
+  lane,
   shopId: process.env.PRINTIFY_SHOP_ID ? Number(process.env.PRINTIFY_SHOP_ID) : null,
   dailyCap: Number(process.env.ORBITAL_PUBLISH_CAP ?? 3),
   storePaused: (id) => pod.settings(id).paused,
@@ -146,7 +160,7 @@ const thumbs = new ThumbnailStudio({
   store: work,
   world: sim,
   director,
-  lane: "sandbox",
+  lane,
   dir: path.join(ARTIFACTS_DIR, "thumbs"),
   log: (m) => console.log(`[thumbs] ${m}`),
 });
@@ -157,7 +171,7 @@ const forge = new AssetForge({
   store: work,
   world: sim,
   director,
-  lane: "sandbox",
+  lane,
   dir: path.join(ARTIFACTS_DIR, "forge"),
   butler:
     process.env.BUTLER_PATH && process.env.ITCH_TARGET
@@ -175,7 +189,8 @@ const economy = new Economy({
   kpis,
   director,
   pod,
-  lane: "sandbox",
+  lane,
+  simulation: !production,
   log: (m) => console.log(`[vault] ${m}`),
 });
 pod.experiments = economy;
@@ -250,7 +265,7 @@ director.start();
 await app.listen({ host, port });
 const snap = sim.snapshot();
 console.log(
-  `Orbital Foundry station server on http://${host}:${port} (${sim.restored ? "resumed" : "new station"}, ${snap.type === "snapshot" ? snap.crew.length : 0} crew)`,
+  `Orbital Foundry station server on http://${host}:${port} (${production ? "PRODUCTION, live lane" : "development, sandbox lane"}; ${sim.restored ? "resumed" : "new station"}, ${snap.type === "snapshot" ? snap.crew.length : 0} crew; publishing: ${publisher.mode})`,
 );
 
 let closing = false;

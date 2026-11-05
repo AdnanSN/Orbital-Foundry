@@ -9,7 +9,7 @@ import { loadBusinesses, loadEtsyRules, loadProducts, type Product } from "../sr
 import { priceFor } from "../src/pod/listing";
 import { SimServer } from "../src/sim/simServer";
 import { SimStore } from "../src/sim/store";
-import { Economy } from "../src/vault/economy";
+import { Economy, SimulationOffError } from "../src/vault/economy";
 import { KpiService, loadVaultConfig, vaultConfigSchema } from "../src/vault/kpis";
 import { Ledger } from "../src/vault/ledger";
 import { WorkStore } from "../src/work/store";
@@ -60,6 +60,7 @@ function setup(
       reply: { content: JSON.stringify(PLAN) },
     },
   ],
+  opts: { simulation?: boolean } = {},
 ) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "orbital-vault-"));
   const db = openDb(path.join(dir, "station.db"));
@@ -118,6 +119,7 @@ function setup(
     },
     pod,
     lane: "sandbox",
+    ...(opts.simulation === false ? { simulation: false } : {}),
     clock: () => new Date(2026, 10, 8, 19, 0),
   });
   return { db, store, world, ledger, kpis, economy, desk, hooks, settings };
@@ -292,5 +294,58 @@ describe("the learning loop", () => {
     const s = setup();
     s.economy.tick();
     expect(s.desk).toHaveLength(0); // no real sales yet
+  });
+});
+
+describe("production (D-046)", () => {
+  it("refuses simulated weeks and ignores plans learned from them", () => {
+    const s = setup(undefined, { simulation: false });
+    expect(() => s.economy.simulateWeek(1)).toThrow(SimulationOffError);
+    // One experiment from before the flag existed, one from a simulated week, one from real sales.
+    const until = new Date(2026, 10, 20).toISOString();
+    s.store.setKv(
+      "economy.experiments",
+      JSON.stringify([
+        { store: "store-a", kind: "title", change: "Lead with the scent", hypothesis: "h", until },
+        { store: "store-b", kind: "price", change: "1.1", hypothesis: "h", until, simulated: true },
+        {
+          store: "store-c",
+          kind: "price",
+          change: "0.9",
+          hypothesis: "h",
+          until,
+          simulated: false,
+        },
+      ]),
+    );
+    expect(s.economy.experiments().map((e) => e.store)).toEqual(["store-c"]);
+    expect(s.economy.priceFactor("store-b")).toBe(1);
+    expect(s.economy.priceFactor("store-c")).toBe(0.9);
+    expect(s.economy.hints("store-a").title).toBeNull();
+  });
+
+  it("refuses a retro on simulated sales", async () => {
+    const s = setup(undefined, { simulation: false });
+    await expect(s.economy.retro({ simulated: true })).rejects.toThrow(SimulationOffError);
+  });
+
+  it("marks what a simulated retro sets up, so production can tell it apart", async () => {
+    const s = setup();
+    s.economy.simulateWeek(3);
+    const { artifact } = await s.economy.retro({ simulated: true });
+    await s.hooks[0]?.({
+      ...(s.desk[0] as Approval),
+      id: "A-1",
+      status: "approved",
+      createdAt: 0,
+      decidedAt: 1,
+      note: null,
+      artifactId: artifact.id,
+    });
+    const stored = JSON.parse(s.store.getKv("economy.experiments") ?? "[]") as {
+      simulated?: boolean;
+    }[];
+    expect(stored.length).toBeGreaterThan(0);
+    expect(stored.every((e) => e.simulated === true)).toBe(true);
   });
 });

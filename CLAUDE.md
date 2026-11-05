@@ -71,7 +71,8 @@ An always-on pixel-art space station where AI agents run small online businesses
    anything that reaches customers or marketplaces. NVIDIA's free trial is sandbox-only because its
    terms forbid production use and distributing outputs. Never add `live` to a provider without
    checking its terms and recording that in `docs/DECISIONS.md`. Config validation and the router
-   both enforce lanes; don't bypass them.
+   both enforce lanes; don't bypass them. `ORBITAL_MODE=production` in `.env` puts every station
+   model call in the live lane, turns off invented crew work and simulated sales (D-046).
 2. **Models are data.** Never hardcode model IDs in code. Add them to `config/tiers.yaml` and
    re-run the census.
 3. **External side effects need the owner's approval** (from Stage 4 on): publishing, messaging

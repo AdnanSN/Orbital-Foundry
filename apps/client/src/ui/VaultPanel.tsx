@@ -56,7 +56,10 @@ export function VaultPanel({ ctx }: { ctx: Ctx }) {
     }
   };
 
-  const rows = v ? (showSim ? v.simulated : v.real) : [];
+  // Production (D-046) has no simulated sales: the toggle and the simulator disappear.
+  const simOn = v?.simulation !== false;
+  const sim = showSim && simOn;
+  const rows = v ? (sim ? v.simulated : v.real) : [];
   const total = rows.reduce((s, r) => s + r.net, 0);
   return (
     <Panel
@@ -98,15 +101,17 @@ export function VaultPanel({ ctx }: { ctx: Ctx }) {
             </div>
           </Section>
 
-          <Section title={showSim ? "Simulated money (not real)" : "Money (real)"}>
-            <label className="flex items-center gap-1 text-[11px] text-dim mb-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showSim}
-                onChange={(e) => setShowSim(e.target.checked)}
-              />
-              Show simulated sales instead
-            </label>
+          <Section title={sim ? "Simulated money (not real)" : "Money (real)"}>
+            {simOn && (
+              <label className="flex items-center gap-1 text-[11px] text-dim mb-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showSim}
+                  onChange={(e) => setShowSim(e.target.checked)}
+                />
+                Show simulated sales instead
+              </label>
+            )}
             <table className="w-full text-[11px]">
               <thead className="text-dim">
                 <tr>
@@ -202,26 +207,30 @@ export function VaultPanel({ ctx }: { ctx: Ctx }) {
               </ul>
             )}
             <div className="flex gap-1">
-              <button
-                type="button"
-                disabled={busy !== null}
-                onClick={() =>
-                  void act("sim", async () => {
-                    const r = await link.commands.simulateWeek();
-                    return `Simulated ${r.sales} sales ($${r.revenue.toFixed(2)}), flagged as not real.`;
-                  })
-                }
-                className="flex-1 h-7 rounded-md border border-white/15 hover:bg-white/10 cursor-pointer disabled:opacity-40"
-                title="Add a week of simulated sales (never counted as real money)"
-              >
-                {busy === "sim" ? "Simulating…" : "Simulate a week"}
-              </button>
+              {simOn && (
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() =>
+                    void act("sim", async () => {
+                      const r = await link.commands.simulateWeek();
+                      return `Simulated ${r.sales} sales (${r.revenue.toFixed(2)}), flagged as not real.`;
+                    })
+                  }
+                  className="flex-1 h-7 rounded-md border border-white/15 hover:bg-white/10 cursor-pointer disabled:opacity-40"
+                  title="Add a week of simulated sales (never counted as real money)"
+                >
+                  {busy === "sim" ? "Simulating…" : "Simulate a week"}
+                </button>
+              )}
               <button
                 type="button"
                 disabled={busy !== null}
                 onClick={() =>
                   void act("retro", async () => {
-                    await link.commands.weeklyRetro(showSim || v.real.every((r) => r.orders === 0));
+                    await link.commands.weeklyRetro(
+                      simOn && (showSim || v.real.every((r) => r.orders === 0)),
+                    );
                     return "WARDEN's weekly plan is at your Desk.";
                   })
                 }

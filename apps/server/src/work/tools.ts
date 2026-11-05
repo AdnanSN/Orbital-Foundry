@@ -194,7 +194,10 @@ export const BUILTIN_TOOLS = [
     }),
     status: () => "Checking memory…",
     run: async ({ query, limit }, ctx) => {
-      const memories = ctx.store.memories(ctx.agent.id);
+      // Real work doesn't learn from simulated sales (D-046).
+      const memories = ctx.store
+        .memories(ctx.agent.id)
+        .filter((m) => ctx.lane !== "live" || !m.tags.includes("simulated"));
       if (memories.length === 0) return "Memory is empty.";
       const vector = memories.some((m) => m.embedding)
         ? (await ctx.embed([query]))?.[0]
@@ -202,8 +205,10 @@ export const BUILTIN_TOOLS = [
       const scored = memories
         .map((m) => ({
           m,
+          // Vectors from different embedding models (the sandbox and live lanes use different
+          // ones) can't be compared, so those memories fall back to keywords.
           score:
-            vector && m.embedding
+            vector && m.embedding?.length === vector.length
               ? cosine(vector, m.embedding)
               : keywordScore(query, `${m.text} ${m.tags.join(" ")}`),
         }))

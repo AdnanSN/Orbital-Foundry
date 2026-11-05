@@ -77,6 +77,12 @@ export interface SimOptions {
    * Server Room and café breaks (Stage 4).
    */
   mockProviders?: boolean;
+  /**
+   * Crew on autopilot invent ambient tasks ("Label: lavender candle") so the station looks busy
+   * (the default, for the client's offline mode and the seeded tests). Production turns it off:
+   * crew without real work stand easy, and no invented task reaches the board (D-046).
+   */
+  ambientWork?: boolean;
   /** On restore: never reuse sequence numbers already in the event log. */
   minSeq?: number;
   /**
@@ -208,6 +214,7 @@ export class StationSim {
   private readonly rng: Rng;
   private readonly timing: SimTiming;
   private readonly mockProviders: boolean;
+  private readonly ambientWork: boolean;
   private readonly actors: Actor[] = [];
   private readonly byId = new Map<string, Actor>();
   private readonly tasks = new Map<string, Task>();
@@ -238,6 +245,7 @@ export class StationSim {
     this.rng = new Rng(options.seed ?? 1);
     this.timing = { ...DEFAULT_TIMING, ...options.timing };
     this.mockProviders = options.mockProviders ?? true;
+    this.ambientWork = options.ambientWork ?? true;
     this.banterOn = options.banter ?? false;
     this.banterRng = new Rng((options.seed ?? 1) * 7919 + 17);
     this.nextBanter = (options.start ?? 0) + 45_000;
@@ -281,6 +289,8 @@ export class StationSim {
     for (const task of save.tasks) {
       // Saves from before real work existed held only ambient tasks.
       const legacy = task.mock === undefined && task.objectiveId === undefined;
+      // Production leaves invented tasks out, so the crew and the board start clean.
+      if ((legacy || task.mock === true) && options.ambientWork === false) continue;
       sim.tasks.set(task.id, legacy ? { ...task, mock: true } : { ...task });
       if (task.status === "done" || task.status === "failed") sim.markFinished(task.id);
     }
@@ -950,6 +960,8 @@ export class StationSim {
         task = rework;
         sessions = 1;
         steps.push(this.say(this.rng.pick(CREW_REPLIES.rework)));
+      } else if (!this.ambientWork) {
+        return this.offDuty(actor);
       } else {
         task = this.newTask(actor);
         const created = task;
@@ -1110,6 +1122,17 @@ export class StationSim {
     });
   }
 
+  /** Production with no real work for this crew member: stand easy in their room for a while. */
+  private offDuty(actor: Actor): Step[] {
+    const spot = this.looseSpot(actor, actor.crew.room);
+    return [
+      this.act({ activity: "idle", status: null, taskId: null, carrying: null, anchor: null }),
+      ...(spot ? this.goToTile(actor, spot) : []),
+      this.act({ activity: "idle", facing: "down" }),
+      this.wait(this.rng.range(20_000, 45_000)),
+    ];
+  }
+
   private maybeIdle(actor: Actor): Step[] {
     if (!this.rng.chance(this.timing.idleChance)) return [];
     const spot = this.looseSpot(actor, actor.crew.room);
@@ -1131,6 +1154,8 @@ export class StationSim {
     const taskId = this.intake.shift();
     const task = taskId ? this.tasks.get(taskId) : undefined;
     if (!task) {
+      // Real reviews are run by the agent runtime; production invents no policy checks.
+      if (!this.ambientWork) return this.offDuty(actor);
       const station = this.pickStation(actor, false);
       const work: ActFields = { activity: "work", status: "Policy checks", taskId: null };
       const steps: Step[] = station ? this.goTo(actor, station, work) : [this.act(work)];
@@ -1225,6 +1250,8 @@ export class StationSim {
   }
 
   private findIdle(overseer: Actor): Actor | undefined {
+    // Without invented work, idle crew are simply off duty: nothing to nudge them back to.
+    if (!this.ambientWork) return undefined;
     let pick: Actor | undefined;
     for (const a of this.actors) {
       if (a === overseer || a.nudgedBy || a.idleSince === null || a.controlled) continue;

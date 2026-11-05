@@ -251,7 +251,9 @@ export class AgentRuntime {
         ? `Your last submission was sent back. Reviewer feedback:\n${task.feedback}`
         : "",
       earlier ? `Earlier work on this objective (build on it; do not repeat it):\n${earlier}` : "",
-      `You are ${agent.name}. Work in the sandbox lane: nothing you produce is published or sold.`,
+      this.deps.lane === "live"
+        ? `You are ${agent.name}. This is real work for a real business: what you produce can reach customers once the owner approves it, so keep it accurate, original and ready to use.`
+        : `You are ${agent.name}. Work in the sandbox lane: nothing you produce is published or sold.`,
     ];
     return parts.filter(Boolean).join("\n\n");
   }

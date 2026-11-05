@@ -908,3 +908,9 @@ your phone.
   up in `infra/freellmapi` and wired in as the first sandbox choice for reasoning, creative and
   fast, sandbox-only by config, with the answering upstream logged per call. Starting the
   container and adding provider keys are yours: infra/freellmapi/README.md.
+- **2026-11-05:** Production. `ORBITAL_MODE=production` (D-046): every model call runs in the live
+  lane, the crew invent no tasks, and simulated sales are off. Groq's production models joined the
+  live lane after a terms check, and Cloudflare's terms were re-checked before the first sale
+  (D-045). Stages 2 to 11 merged into `main` and pushed to GitHub.
+  - **Still needs you:** a Printify token and shop id (with Etsy connected in Printify) to publish,
+    a Telegram bot for phone approvals, and butler plus an itch.io page for the Forge's packs.

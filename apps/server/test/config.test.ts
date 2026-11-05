@@ -31,6 +31,18 @@ describe("config files", () => {
     expect(file.images["nvidia-flux-schnell"]?.lanes).toEqual(["sandbox"]);
   });
 
+  it("serve the live lane only from providers whose terms allow it (D-045)", () => {
+    const allowed = Object.entries(loadProvidersFile().providers)
+      .filter(([, p]) => p.production === "allowed")
+      .map(([id]) => id)
+      .sort();
+    expect(allowed).toEqual(["cloudflare", "groq"]);
+    const live = Object.values(loadTiersFile().tiers).flatMap((t) => t.live);
+    for (const ref of live) expect(allowed).toContain(ref.split(":")[0]);
+    // Groq's preview models are for evaluation only, so none of them serves the live lane.
+    expect(live).not.toContain("groq:qwen/qwen3.8-27b");
+  });
+
   it("flag a live tier that names a sandbox-only provider", () => {
     const tiers = loadTiersFile();
     tiers.tiers.fast.live.push("nvidia:openai/gpt-oss-20b");

@@ -28,21 +28,33 @@ providers:
     baseURL: https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1
     apiKeyEnv: CLOUDFLARE_API_TOKEN
     lanes: [sandbox, live]
-    production: allowed # re-verify before the first live sale (owner to-do, D-032)
-    termsChecked: 2026-11-04
+    production: allowed # re-checked 2026-11-05 before the first sale (D-045)
+    termsChecked: 2026-11-05
     # The real free budget is 10,000 neurons/day (≈170 FLUX.1-schnell images); these just cap bursts.
     limits: { rpm: 120, rpd: 2000, concurrency: 4 }
     terms: >-
-      Free allocation of 10,000 neurons/day on the normal Workers plans, resetting 00:00 UTC
-      (checked 2026-11-04). Not a trial. Model licenses apply (FLUX.1-schnell is Apache-2.0).
+      Free allocation of 10,000 neurons/day on the normal Workers plans, resetting 00:00 UTC. Not a
+      trial. Service-Specific Terms, Developer Platform (updated 2026-09-28, checked 2026-11-05): no
+      limit on commercial or production use; the customer is responsible for outputs and follows
+      each model's licence and acceptable use policy; Cloudflare does not train on customer
+      content. FLUX.1-schnell and Mistral Small 3.1 are Apache-2.0; Llama models carry Meta's
+      community licences.
 
   groq:
     name: Groq
     baseURL: https://api.groq.com/openai/v1
     apiKeyEnv: GROQ_API_KEY
-    lanes: [sandbox] # candidate for live once its terms are checked and recorded
-    production: unverified
-    limits: { rpm: 25, rpd: 900, concurrency: 2, maxTokens: 1500 }
+    lanes: [sandbox, live] # live: Groq's "production" models only, never "preview" ones (D-045)
+    production: allowed
+    termsChecked: 2026-11-05
+    # Free plan (checked 2026-11-05): per model 30 rpm, 1K requests and 200K tokens a day, 8K
+    # tokens a minute. The token cap keeps bursts under the per-minute limit.
+    limits: { rpm: 25, rpd: 2500, concurrency: 2, maxTokens: 1500 }
+    terms: >-
+      Groq Services Agreement (updated 2026-06-22, checked 2026-11-05): it covers fee-free use; the
+      customer keeps all rights in inputs and outputs; Groq may not train on them; each hosted
+      model's own terms apply. Groq's model list says preview models "are intended for evaluation
+      purposes only", so only production models go in the live lane.
 
   openrouter:
     name: OpenRouter (":free" models)

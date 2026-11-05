@@ -83,6 +83,8 @@ export interface OpsInfo {
 }
 
 export interface VaultInfo {
+  /** False in production (ORBITAL_MODE=production): no simulated sales at all. */
+  simulation?: boolean;
   real: { id: string; name: string; orders: number; sales: number; net: number }[];
   simulated: { id: string; name: string; orders: number; sales: number; net: number }[];
   month: { net: number; goal: number; progress: number };

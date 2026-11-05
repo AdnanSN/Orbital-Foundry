@@ -638,3 +638,53 @@ tracking and failover.
   socket). The encryption key is generated into a git-ignored `.env` beside it. Signing up for
   provider keys, pasting them into the pool's dashboard and copying the unified key into `.env`
   are the owner's steps.
+
+## D-045: Groq joins the live lane; Cloudflare re-checked before the first sale (2026-11-05)
+
+The owner asked to go to production. The live lane had only Cloudflare's free 10,000 neurons a day,
+so the terms of the providers we already use were checked again.
+
+- **Groq: allowed.** The Groq Services Agreement (updated 2026-06-22) covers fee-free use, leaves
+  all rights in inputs and outputs with the customer, bars Groq from training on them, and applies
+  each hosted model's own terms. Groq's model list marks some models "preview", for evaluation
+  only, so only its production models serve the live lane: `openai/gpt-oss-120b` (reasoning,
+  creative) and `openai/gpt-oss-20b` (fast), both Apache-2.0. `qwen/qwen3.8-27b` is a preview
+  model and stays in the sandbox. Groq also lists `llama-3.3-70b-versatile` and
+  `llama-3.1-8b-instant` as production models, but both answer 404 for this account (census,
+  2026-11-05).
+- **Free plan limits** (checked 2026-11-05): per model, 30 requests a minute, 1,000 a day, 8,000
+  tokens a minute and 200,000 a day. Our gate: 25 a minute and 2,500 a day across models, with
+  1,500 output tokens a call.
+- **Cloudflare: still allowed.** Its Developer Platform terms (updated 2026-09-28) put no limit on
+  commercial or production use; the customer is responsible for outputs and follows each model's
+  licence and acceptable use policy; Cloudflare doesn't train on customer content. This was the
+  owner's "re-verify before the first sale" item (D-032).
+- **Licences of the live models:** gpt-oss, Mistral Small 3.1 and FLUX.1-schnell are Apache-2.0.
+  The Llama 3.x and 4 models on Cloudflare carry Meta's community licences, which allow commercial
+  use below 700 million monthly users. Llama 3.2 Vision still waits for the owner (D-012).
+
+## D-046: Production mode (2026-11-05)
+
+`ORBITAL_MODE=production` in `.env` runs the station for real; anything else is development.
+
+- **Every model call uses the live lane:** WARDEN, the crew, the three factories, QA, the IP screen,
+  memory and the weekly retro. NVIDIA's trial terms forbid production use of the service itself,
+  not just selling its output, and the FreeLLMAPI pool says it is not for production, so neither
+  takes part. Text runs on Groq first with Cloudflare behind it; images, vision and embeddings run
+  on Cloudflare.
+- **No invented work.** Crew on autopilot no longer make up ambient tasks. Without real work they
+  stand easy in their rooms, and WARDEN doesn't nudge them. Invented tasks from earlier runs are
+  left out when the station restores (they stay in the database).
+- **No simulated sales.** The simulator and retros on simulated sales are refused (HTTP 409), and
+  the Vault hides them. Experiments now record whether they came from simulated sales, and
+  production follows only those that didn't; older experiments carry no mark, so production
+  ignores them too. Lessons tagged "simulated" are left out of memory searches in the live lane.
+- **Memory across lanes.** The two lanes embed with different models, so vectors of a different
+  length are never compared; those memories fall back to keyword search.
+- **Approvals are unchanged.** Every external action still waits for the owner (D-002, D-033).
+  `PRINTIFY_MODE=live` sends real writes once `PRINTIFY_API_TOKEN` and `PRINTIFY_SHOP_ID` are set;
+  until then the publish guard says what is missing.
+- **Capacity.** Images are the bottleneck: Cloudflare's 10,000 neurons a day (about 170 images) are
+  shared by the three factories. Text has Groq's per-model daily budgets with Cloudflare behind
+  them. Development keeps the large free sandbox (the pool, NVIDIA), and its output never mixes
+  with production's.

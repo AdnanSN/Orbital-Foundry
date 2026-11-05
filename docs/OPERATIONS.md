@@ -24,6 +24,23 @@ restart is then redundant but harmless).
 
 Open the station with `npm run client` (http://localhost:5173), or `npm run dev` to run both.
 
+## Production mode
+
+`.env` has `ORBITAL_MODE=production`, which the station reads when it starts (D-046):
+
+- every model call uses the live lane (Groq first, then Cloudflare), so whatever the crew make may
+  be sold;
+- the crew don't invent tasks, and the Vault has no simulated sales;
+- `PRINTIFY_MODE=live` sends real writes to Printify once `PRINTIFY_API_TOKEN` and
+  `PRINTIFY_SHOP_ID` are set, and only after your two approvals per product (D-033).
+
+The station log's first line says which mode it is in. Cloudflare's free 10,000 neurons a day (about
+170 images) are shared by the three factories; when they run out, image work waits for the 00:00 UTC
+reset. Workers AI's paid plan lifts that cap (your call).
+
+To go back to the sandbox for development, set `ORBITAL_MODE=development` (or remove the line) and
+restart. Both modes share `data/orbital.db`, so don't run them at the same time.
+
 ## Quiet hours
 
 `config/ops.yaml`, `quietHours: [23, 7]`. No phone messages or sounds in that window; waiting
