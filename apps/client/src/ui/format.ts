@@ -26,6 +26,8 @@ export const ACTIVITY_LABEL: Record<Activity, string> = {
   coffee: "Coffee break",
   patrol: "Patrolling",
   nudge: "Nudging",
+  blocked: "Needs help",
+  await: "Waiting for you",
 };
 
 export const ACTIVITY_COLOR: Record<Activity, string> = {
@@ -36,6 +38,8 @@ export const ACTIVITY_COLOR: Record<Activity, string> = {
   coffee: "#ffcf8a",
   patrol: "#ffd166",
   nudge: "#ff5f6d",
+  blocked: "#ff5f6d",
+  await: "#ffd166",
 };
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {

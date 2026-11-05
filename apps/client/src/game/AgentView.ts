@@ -118,6 +118,10 @@ export class AgentView {
         return "search";
       case "nudge":
         return "alert";
+      case "await":
+        return "alert";
+      case "blocked":
+        return "alarm";
       case "idle":
         return now - s.since > 2_500 ? "zzz" : "";
       default:

@@ -1,8 +1,11 @@
 import {
   type AgentState,
+  type Approval,
+  type ArtifactMeta,
   type CrewMember,
   type Direction,
   findPath,
+  type Objective,
   type ProviderState,
   pathDurationMs,
   type SimStatus,
@@ -72,6 +75,10 @@ export class World {
   /** Who is aboard, in roster order. */
   readonly crew = new Map<string, CrewMember>();
   readonly feed: FeedEntry[] = [];
+  /** Real work (Stage 4): objectives, Owner's Desk items and deliverables. */
+  readonly objectives = new Map<string, Objective>();
+  readonly approvals = new Map<string, Approval>();
+  readonly artifacts = new Map<string, ArtifactMeta>();
   sim: SimStatus = { paused: false, speed: 1 };
   /** Bumped on every applied event; React panels re-render when it changes. */
   version = 0;
@@ -150,6 +157,12 @@ export class World {
     this.tasks.clear();
     this.providers.clear();
     this.crew.clear();
+    this.objectives.clear();
+    this.approvals.clear();
+    this.artifacts.clear();
+    for (const o of e.objectives ?? []) this.objectives.set(o.id, o);
+    for (const a of e.approvals ?? []) this.approvals.set(a.id, a);
+    for (const a of e.artifacts ?? []) this.artifacts.set(a.id, a);
     this.lastSeq = e.seq;
     this.sim = { ...e.sim };
     for (const c of e.crew) this.crew.set(c.id, structuredClone(c));
@@ -185,6 +198,29 @@ export class World {
         }
         return;
       }
+      case "objective.updated": {
+        const before = this.objectives.get(e.objective.id);
+        this.objectives.set(e.objective.id, e.objective);
+        if (before?.status !== e.objective.status) {
+          this.feedLine(
+            e.t,
+            `${e.objective.id} ${OBJECTIVE_WORDS[e.objective.status]}: ${e.objective.text}`,
+            null,
+            "task",
+          );
+        }
+        return;
+      }
+      case "approval.updated": {
+        const before = this.approvals.get(e.approval.id);
+        this.approvals.set(e.approval.id, e.approval);
+        if (!before)
+          this.feedLine(e.t, `Owner's Desk: ${e.approval.title}`, e.approval.requestedBy, "sim");
+        return;
+      }
+      case "artifact.created":
+        this.artifacts.set(e.artifact.id, e.artifact);
+        return;
       case "sim.status":
         this.sim = { ...e.status };
         this.feedLine(
@@ -269,6 +305,20 @@ export class World {
     }
   }
 
+  /** Owner's Desk items waiting for a decision, newest first. */
+  pendingApprovals(): Approval[] {
+    return [...this.approvals.values()]
+      .filter((a) => a.status === "pending")
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  /** Real (non-mock) tasks, newest first. */
+  realTasks(): Task[] {
+    return [...this.tasks.values()]
+      .filter((t) => !t.mock)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
   /** Display name for a crew id. */
   name(id: string): string {
     return this.crew.get(id)?.name ?? id;
@@ -295,4 +345,13 @@ const STATUS_WORDS: Record<Task["status"], string> = {
   awaiting_approval: "waiting for approval",
   done: "done",
   failed: "failed",
+};
+
+const OBJECTIVE_WORDS: Record<Objective["status"], string> = {
+  planning: "is being planned",
+  active: "is in progress",
+  awaiting_owner: "is waiting for you",
+  done: "is done",
+  failed: "failed",
+  cancelled: "was cancelled",
 };

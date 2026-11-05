@@ -287,3 +287,61 @@ and the client runs the same code offline (`?mock=1`).
   Stage 11 decision.
 - **Role templates** (title, room, tiers, whether the role can be hired) live in
   `packages/shared/src/station/roles.ts`. Stage 4 adds prompts and tools on the server side.
+
+## D-021: The agent runtime and its tools (2026-11-05)
+
+- **Roles are data.** `config/roles/<role>.yaml` holds the title, tier, step cap, tools, KPIs,
+  schedule and system prompt (`{name}` and `{business}` are filled in). The prompt is not code.
+- **The work loop** (`apps/server/src/work/runtime.ts`) calls the role's tier with the role's tools
+  until the agent calls `submit_for_review` or `escalate`, or the step cap runs out.
+  - Tool arguments are validated with zod, and numbers sent as strings are coerced.
+  - A repeated identical tool call is not run again; the agent is told to move on.
+  - The last step offers only `submit_for_review` and `escalate`, so a run ends with a
+    deliverable or a reason. Every role always has both.
+  - A long plain-text reply (no tool call) after the first step counts as the deliverable.
+  - Router errors back off once (the avatar goes to the café), then the run fails.
+- **Tool metadata** (`defineTool`): `sideEffect` (none, internal, external), `lane` (any, sandbox,
+  live) and `approval` (never, policy, always). The runtime never runs an external tool: it files
+  an Owner's Desk request. After approval the director runs it once, keyed by the approval id.
+- **Untrusted text** (web pages, later customer briefs) comes back wrapped in an `<untrusted>` block
+  with a warning. Web research only reaches hosts in `config/web.yaml` (Wikipedia for now).
+- **Memory** is per agent and per scope, with embeddings from the embed tier when available and a
+  keyword fallback.
+
+## D-022: WARDEN's loop (2026-11-05)
+
+`WorkDirector` (`apps/server/src/work/director.ts`) ticks every second.
+
+- **Plan:** the reasoning tier turns an objective into 1 to 4 tasks (zod schema). Each task goes to
+  the least-loaded crew member with the role.
+- **Order:** tasks of one objective run in plan order, and each sees the earlier deliverables.
+  Reworks and owner revisions are never held back.
+- **Concurrency:** at most two agent runs at once (free tiers are scarce), plus one review.
+- **Review:** Lens reviews factory work and WARDEN reviews the rest. A rework carries the feedback;
+  after two reworks the task passes with a note, so nothing loops forever.
+- **Finish:** when every task is done or failed, WARDEN writes the final deliverable and sends it to
+  the Owner's Desk. Accepting it closes the objective and saves a station memory. Sending it back
+  with a note starts a revision.
+- **Escalation:** a task that fails twice, or whose agent calls `escalate`, goes to the Owner's
+  Desk, and the crew member's avatar shows the red alert. Retry puts it back in the queue with
+  your note; Cancel fails it.
+- **Stuck runs:** after 8 minutes WARDEN walks over and asks for a status (once per run).
+- **Standup:** once a day after `standupHour` (18:00 in `overseer.yaml`), if there is real work, and
+  on demand from the Work panel.
+- **Restarts:** nothing is running after a restart, so in-progress tasks go back to the queue.
+
+## D-023: The Owner's Desk (2026-11-05)
+
+One inbox (`approvals` table) for everything that waits for you: final results (`deliverable`),
+actions that would leave the station (`action`), and stuck crew (`escalation`). The Desk button
+shows a badge, and WARDEN's avatar waits at the Owner's Desk with a ❗ while anything is pending.
+Decisions carry an optional note for the crew. Nothing is published, sent or bought without a
+click here (rule 3 in CLAUDE.md).
+
+## D-024: Deterministic end-to-end tests with a fixture transport (2026-11-05)
+
+`FixtureTransport` (`apps/server/src/llm/fixtures.ts`) answers chat requests from a list of
+fixtures matched on the system prompt, the user text, the latest tool result, or the tools on
+offer. A fixture can be used once. `RecordingTransport` wraps a real transport to capture new
+fixtures. The work tests run the whole loop (plan, work, review, rework, synthesis, Desk,
+escalation, café back-off, restart recovery) without a network.

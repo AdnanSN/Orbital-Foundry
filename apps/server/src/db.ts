@@ -51,6 +51,58 @@ const MIGRATIONS: string[] = [
      value TEXT NOT NULL,
      updated_at TEXT NOT NULL
    );`,
+  // Stage 4: real work. Objectives, Owner's Desk items, deliverables, memory and task notes.
+  `ALTER TABLE tasks ADD COLUMN objective_id TEXT;
+   ALTER TABLE tasks ADD COLUMN brief TEXT;
+   ALTER TABLE tasks ADD COLUMN artifact_id TEXT;
+   ALTER TABLE tasks ADD COLUMN feedback TEXT;
+   ALTER TABLE tasks ADD COLUMN mock INTEGER NOT NULL DEFAULT 0;
+   CREATE TABLE objectives (
+     id TEXT PRIMARY KEY,
+     status TEXT NOT NULL,
+     data TEXT NOT NULL,
+     created_at REAL NOT NULL,
+     updated_at REAL NOT NULL
+   );
+   CREATE TABLE approvals (
+     id TEXT PRIMARY KEY,
+     kind TEXT NOT NULL,
+     status TEXT NOT NULL,
+     data TEXT NOT NULL,
+     created_at REAL NOT NULL,
+     updated_at REAL NOT NULL
+   );
+   CREATE INDEX idx_approvals_status ON approvals (status);
+   CREATE TABLE artifacts (
+     id TEXT PRIMARY KEY,
+     kind TEXT NOT NULL,
+     title TEXT NOT NULL,
+     mime TEXT NOT NULL,
+     task_id TEXT,
+     objective_id TEXT,
+     created_by TEXT NOT NULL,
+     created_at REAL NOT NULL,
+     size INTEGER NOT NULL,
+     content TEXT,
+     path TEXT
+   );
+   CREATE TABLE memories (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     agent_id TEXT NOT NULL,
+     scope TEXT NOT NULL,
+     text TEXT NOT NULL,
+     tags TEXT NOT NULL,
+     embedding TEXT,
+     created_at TEXT NOT NULL
+   );
+   CREATE TABLE notes (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     task_id TEXT NOT NULL,
+     agent_id TEXT NOT NULL,
+     text TEXT NOT NULL,
+     created_at TEXT NOT NULL
+   );
+   CREATE INDEX idx_notes_task ON notes (task_id);`,
 ];
 
 export function openDb(file: string = DB_PATH): Database.Database {

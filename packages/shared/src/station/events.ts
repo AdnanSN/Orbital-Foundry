@@ -26,6 +26,10 @@ export const ACTIVITIES = [
   "patrol",
   /** WARDEN talking an idle crew member back to work. */
   "nudge",
+  /** Stuck: a task failed or needs help (a red alert light on screen). */
+  "blocked",
+  /** Waiting at the Owner's Desk for the owner's approval (a ❗ on screen). */
+  "await",
 ] as const;
 export const activitySchema = z.enum(ACTIVITIES);
 export type Activity = z.infer<typeof activitySchema>;
@@ -73,8 +77,77 @@ export const taskSchema = z.object({
   reworks: z.number().int().nonnegative(),
   createdAt: z.number(),
   updatedAt: z.number(),
+  /** Ambient work invented by the sim engine, not real work. Real tasks leave this unset. */
+  mock: z.boolean().optional(),
+  /** The objective this task serves (real tasks). */
+  objectiveId: z.string().nullable().optional(),
+  /** What the Overseer asked for. */
+  brief: z.string().optional(),
+  /** The deliverable, once submitted. */
+  artifactId: z.string().nullable().optional(),
+  /** The reviewer's feedback on the last review. */
+  feedback: z.string().nullable().optional(),
 });
 export type Task = z.infer<typeof taskSchema>;
+
+/** Objectives: what the owner asks the station for (ROADMAP §6). */
+export const OBJECTIVE_STATUSES = [
+  "planning",
+  "active",
+  "awaiting_owner",
+  "done",
+  "failed",
+  "cancelled",
+] as const;
+export const objectiveSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  status: z.enum(OBJECTIVE_STATUSES),
+  /** Task ids, in plan order. */
+  taskIds: z.array(z.string()),
+  /** The Overseer's summary deliverable, once written. */
+  artifactId: z.string().nullable(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  note: z.string().nullable(),
+});
+export type Objective = z.infer<typeof objectiveSchema>;
+
+/** Items waiting at the Owner's Desk: approvals for external actions, deliverables, escalations. */
+export const APPROVAL_KINDS = ["action", "deliverable", "escalation"] as const;
+export const APPROVAL_STATUSES = ["pending", "approved", "rejected"] as const;
+export const approvalSchema = z.object({
+  id: z.string(),
+  kind: z.enum(APPROVAL_KINDS),
+  status: z.enum(APPROVAL_STATUSES),
+  title: z.string(),
+  summary: z.string(),
+  requestedBy: z.string(),
+  objectiveId: z.string().nullable(),
+  taskId: z.string().nullable(),
+  artifactId: z.string().nullable(),
+  /** For actions: the tool and its arguments, run only after approval. */
+  action: z.object({ tool: z.string(), input: z.unknown() }).nullable(),
+  createdAt: z.number(),
+  decidedAt: z.number().nullable(),
+  note: z.string().nullable(),
+});
+export type Approval = z.infer<typeof approvalSchema>;
+
+/** A deliverable's metadata. Content is fetched separately (GET /api/artifacts/:id). */
+export const artifactMetaSchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  title: z.string(),
+  mime: z.string(),
+  taskId: z.string().nullable(),
+  objectiveId: z.string().nullable(),
+  createdBy: z.string(),
+  createdAt: z.number(),
+  /** Bytes, for files; characters, for text. */
+  size: z.number().int().nonnegative(),
+});
+export type ArtifactMeta = z.infer<typeof artifactMetaSchema>;
 
 export const PROVIDER_STATES = ["ok", "limited", "down"] as const;
 export const providerStateSchema = z.object({
@@ -104,6 +177,10 @@ export const snapshotEventSchema = z.object({
   tasks: z.array(taskSchema),
   providers: z.array(providerStateSchema),
   sim: simStatusSchema,
+  /** Real work (Stage 4): recent objectives, open approvals and recent deliverables. */
+  objectives: z.array(objectiveSchema).optional(),
+  approvals: z.array(approvalSchema).optional(),
+  artifacts: z.array(artifactMetaSchema).optional(),
 });
 
 export const agentSpawnedEventSchema = z.object({
@@ -172,6 +249,24 @@ export const providerStatusEventSchema = z.object({
   status: providerStateSchema,
 });
 
+export const objectiveUpdatedEventSchema = z.object({
+  ...base,
+  type: z.literal("objective.updated"),
+  objective: objectiveSchema,
+});
+
+export const approvalUpdatedEventSchema = z.object({
+  ...base,
+  type: z.literal("approval.updated"),
+  approval: approvalSchema,
+});
+
+export const artifactCreatedEventSchema = z.object({
+  ...base,
+  type: z.literal("artifact.created"),
+  artifact: artifactMetaSchema,
+});
+
 export const stationEventSchema = z.discriminatedUnion("type", [
   snapshotEventSchema,
   agentSpawnedEventSchema,
@@ -182,6 +277,9 @@ export const stationEventSchema = z.discriminatedUnion("type", [
   providerStatusEventSchema,
   crewUpdatedEventSchema,
   simStatusEventSchema,
+  objectiveUpdatedEventSchema,
+  approvalUpdatedEventSchema,
+  artifactCreatedEventSchema,
 ]);
 export type StationEvent = z.infer<typeof stationEventSchema>;
 export type StationEventType = StationEvent["type"];

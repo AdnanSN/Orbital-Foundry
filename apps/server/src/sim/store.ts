@@ -17,11 +17,15 @@ export class SimStore {
       "INSERT OR IGNORE INTO events (seq, t, type, data) VALUES (?, ?, ?, ?)",
     );
     this.upsertTask = db.prepare(
-      `INSERT INTO tasks (id, title, room, assignee, status, reworks, created_at, updated_at)
-       VALUES (@id, @title, @room, @assignee, @status, @reworks, @createdAt, @updatedAt)
+      `INSERT INTO tasks (id, title, room, assignee, status, reworks, created_at, updated_at,
+         objective_id, brief, artifact_id, feedback, mock)
+       VALUES (@id, @title, @room, @assignee, @status, @reworks, @createdAt, @updatedAt,
+         @objectiveId, @brief, @artifactId, @feedback, @mock)
        ON CONFLICT(id) DO UPDATE SET title = excluded.title, room = excluded.room,
          assignee = excluded.assignee, status = excluded.status, reworks = excluded.reworks,
-         updated_at = excluded.updated_at`,
+         updated_at = excluded.updated_at, objective_id = excluded.objective_id,
+         brief = excluded.brief, artifact_id = excluded.artifact_id,
+         feedback = excluded.feedback, mock = excluded.mock`,
     );
     this.upsertAgent = db.prepare(
       `INSERT INTO agents (id, data, hired_at, updated_at) VALUES (?, ?, ?, ?)
@@ -116,6 +120,11 @@ interface TaskRow {
   reworks: number;
   created_at: number;
   updated_at: number;
+  objective_id: string | null;
+  brief: string | null;
+  artifact_id: string | null;
+  feedback: string | null;
+  mock: number;
 }
 
 function taskRow(t: Task) {
@@ -128,6 +137,11 @@ function taskRow(t: Task) {
     reworks: t.reworks,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
+    objectiveId: t.objectiveId ?? null,
+    brief: t.brief ?? null,
+    artifactId: t.artifactId ?? null,
+    feedback: t.feedback ?? null,
+    mock: t.mock ? 1 : 0,
   };
 }
 
@@ -141,5 +155,10 @@ function fromTaskRow(r: TaskRow): Task {
     reworks: r.reworks,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    ...(r.mock ? { mock: true } : {}),
+    objectiveId: r.objective_id,
+    ...(r.brief ? { brief: r.brief } : {}),
+    artifactId: r.artifact_id,
+    feedback: r.feedback,
   };
 }

@@ -107,8 +107,25 @@ export class SimServer {
     this.lastSave = Date.now();
   }
 
+  /** Extra records (objectives, approvals, deliverables) included in every snapshot. */
+  extras:
+    | (() => Pick<
+        Extract<StationEvent, { type: "snapshot" }>,
+        "objectives" | "approvals" | "artifacts"
+      >)
+    | null = null;
+
   snapshot(): StationEvent {
-    return this.sim.snapshot();
+    const snap = this.sim.snapshot();
+    if (snap.type !== "snapshot" || !this.extras) return snap;
+    return { ...snap, ...this.extras() };
+  }
+
+  /** Change the station through the engine and publish whatever events that produced. */
+  mutate<T>(fn: (sim: StationSim) => T): T {
+    const result = fn(this.sim);
+    this.publish(this.sim.drain());
+    return result;
   }
 
   subscribe(listener: Listener): () => void {

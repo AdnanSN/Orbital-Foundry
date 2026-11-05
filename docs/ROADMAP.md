@@ -17,7 +17,7 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 1 | Foundation & model router | 1 session | ✅ done, except NVIDIA image generation (down on NVIDIA's side) |
 | 2 | The station: visuals with a mock crew | 1 session | ✅ done (`npm run client`) |
 | 3 | Sim engine, persistence, realtime link | 1 session | ✅ done (`npm run dev`) |
-| 4 | Agent brains: runtime, Overseer, task board | 1–2 sessions | ☐ |
+| 4 | Agent brains: runtime, Overseer, task board | 1–2 sessions | ✅ done (Work and Desk panels) |
 | 5 | Creative toolchain (images, upscale, QA) | 1 session | ☐ |
 | 6 | Factory 1: Etsy POD studio (sandbox) | 1 session | ☐ |
 | 7 | Go live: Printify → Etsy | 1 session | ☐ |
@@ -486,24 +486,24 @@ screenshot is saved in `docs/`.
 
 **Goal:** agents do real work through the free models, and the Overseer runs the crew.
 
-- [ ] Role templates in `config/roles/*.yaml`: system prompt, tools, tier, KPIs and schedule.
-- [ ] Agent runtime:
+- [x] Role templates in `config/roles/*.yaml`: system prompt, tools, tier, KPIs and schedule.
+- [x] Agent runtime:
   - the work loop from §6, with a step cap;
   - zod-validated outputs, retries and escalation;
   - status lines shown as speech bubbles.
-- [ ] Tool framework with side-effect, lane and approval metadata. First tools:
+- [x] Tool framework with side-effect, lane and approval metadata. First tools:
   - notes, memory search and save;
   - create a subtask, ask the Overseer;
   - web research (allowlisted sites only);
   - submit for review.
-- [ ] Overseer loop:
+- [x] Overseer loop:
   - objectives → tasks → assignment;
   - idle and stuck detection, with nudges;
   - a review gate and a daily standup;
   - escalations to you.
-- [ ] UI: a task board (kanban), the **Owner's Desk** approval inbox, and an objective input box.
-- [ ] The game mappings from §5: café on rate limits, alert lights, ❗ at the desk.
-- [ ] A mock LLM provider with recorded fixtures, for deterministic end-to-end tests.
+- [x] UI: a task board (kanban), the **Owner's Desk** approval inbox, and an objective input box.
+- [x] The game mappings from §5: café on rate limits, alert lights, ❗ at the desk.
+- [x] A mock LLM provider with recorded fixtures, for deterministic end-to-end tests.
 
 **Done when:** you type an objective (for example "Find 10 winter candle niches and rank them") and
 watch it get split up, worked on, reviewed and delivered. Rate limits are handled visibly, and the
@@ -750,3 +750,22 @@ your phone.
   - New in the client: the Recruitment Bay, the station log, and room reassignment in the
     inspector.
   - 123 tests (15 new). **Next:** Stage 4 (agent brains).
+- **2026-11-05:** Stage 4 built: the crew do real work through the free models.
+  - Seven role templates in `config/roles/`. The agent runtime runs a tool loop with a step cap,
+    validated tool arguments, repeat-call guards and a forced final step. Avatars type during calls,
+    walk to the café while a provider makes them wait, and say each step's status line.
+  - Tools: notes, memory search and save (embeddings), web research (Wikipedia only, untrusted
+    text flagged), ask the Overseer, create a subtask, submit for review, escalate. External tools
+    become Owner's Desk requests and run once, only after approval.
+  - WARDEN plans objectives into tasks, assigns by role and load, runs tasks in order with the
+    earlier deliverables as context, reviews (Lens for factory work), allows two reworks, writes
+    the final deliverable, nudges stuck runs, posts a daily standup, and escalates to you.
+  - The client gains the Work panel (objective box and task board), the Owner's Desk inbox and a
+    deliverable viewer. A fixture LLM transport makes the end-to-end tests deterministic.
+  - Real run on NVIDIA's sandbox models: "Find 10 winter candle niches for our Etsy candle store
+    and rank them" became two tasks. Scout's ranked table passed review after two reworks and
+    reached the Owner's Desk; Gift's task hit its step cap, escalated, and was retried from the
+    Desk. That loop led to the repeat-call guard and the forced final step.
+  - Restarts put in-progress work back in the queue, and retrying a task reopens its objective.
+    132 tests (9 new).
+  - **Next:** Stage 5 (creative toolchain).

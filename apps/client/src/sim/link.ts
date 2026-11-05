@@ -25,7 +25,16 @@ export interface StationCommands {
   setSim(change: Partial<SimStatus>): Promise<void>;
   hire(req: HireRequest): Promise<void>;
   reassign(id: string, room: string): Promise<void>;
+  /** Real work (station server only). */
+  createObjective(text: string): Promise<void>;
+  decide(id: string, decision: "approve" | "reject", note?: string): Promise<void>;
+  standup(): Promise<void>;
+  artifact(id: string): Promise<{ title: string; content: string | null; mime: string }>;
 }
+
+const SERVER_ONLY = async (): Promise<never> => {
+  throw new Error("Real work needs the station server (npm run dev).");
+};
 
 export type LinkStatus = "mock" | "connecting" | "online" | "offline";
 
@@ -78,6 +87,10 @@ export class MockLink implements StationLink {
         this.sim.reassign(id, room);
         this.flush();
       },
+      createObjective: SERVER_ONLY,
+      decide: SERVER_ONLY,
+      standup: SERVER_ONLY,
+      artifact: SERVER_ONLY,
     };
   }
 
@@ -141,6 +154,18 @@ export class SocketLink implements StationLink {
       setSim: (change) => post("/sim", change),
       hire: (req) => post("/agents", req),
       reassign: (id, room) => post(`/agents/${encodeURIComponent(id)}`, { room }, "PATCH"),
+      createObjective: (text) => post("/objectives", { text }),
+      decide: (id, decision, note) =>
+        post(`/approvals/${encodeURIComponent(id)}/decide`, {
+          decision,
+          ...(note ? { note } : {}),
+        }),
+      standup: () => post("/overseer/standup", {}),
+      artifact: async (id) => {
+        const res = await fetch(`${this.base}/api/artifacts/${encodeURIComponent(id)}`);
+        if (!res.ok) throw new Error(`Could not load ${id} (${res.status})`);
+        return (await res.json()) as { title: string; content: string | null; mime: string };
+      },
     };
   }
 

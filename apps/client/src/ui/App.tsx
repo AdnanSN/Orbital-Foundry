@@ -3,12 +3,15 @@ import type { SimClock } from "../sim/clock";
 import type { LinkStatus, StationLink } from "../sim/link";
 import type { World } from "../sim/world";
 import { AgentInspector } from "./AgentInspector";
+import { ArtifactViewer } from "./ArtifactViewer";
+import { DeskPanel } from "./DeskPanel";
 import { ACTIVITY_COLOR, ACTIVITY_LABEL, stationTime } from "./format";
 import { Portrait } from "./Portrait";
 import { RecruitmentBay } from "./RecruitmentBay";
 import { RoomPanel } from "./RoomPanel";
 import { StationLog } from "./StationLog";
 import { type UiStore, useUi } from "./store";
+import { WorkPanel } from "./WorkPanel";
 
 export interface Ctx {
   world: World;
@@ -55,6 +58,7 @@ export function App({
   const now = useTick(clock);
   const selection = useUi(ui, (s) => s.selection);
   const panel = useUi(ui, (s) => s.panel);
+  const viewing = useUi(ui, (s) => s.viewing);
   const status = useLinkStatus(link);
   const ctx: Ctx = { world, clock, ui, link, now };
   return (
@@ -63,12 +67,15 @@ export function App({
       <Roster ctx={ctx} />
       <StationLog ctx={ctx} />
       {panel === "hire" && <RecruitmentBay ctx={ctx} />}
-      {panel !== "hire" && selection?.kind === "agent" && (
+      {panel === "work" && <WorkPanel ctx={ctx} />}
+      {panel === "desk" && <DeskPanel ctx={ctx} />}
+      {panel === null && selection?.kind === "agent" && (
         <AgentInspector key={selection.id} ctx={ctx} id={selection.id} />
       )}
-      {panel !== "hire" && selection?.kind === "room" && (
+      {panel === null && selection?.kind === "room" && (
         <RoomPanel key={selection.id} ctx={ctx} id={selection.id} />
       )}
+      {viewing && <ArtifactViewer key={viewing} ctx={ctx} id={viewing} />}
       {(status === "offline" || (status === "connecting" && world.crew.size === 0)) && (
         <Offline status={status} />
       )}
@@ -159,6 +166,25 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
         </span>
       </div>
       <div className="panel rounded-xl px-2.5 py-2 flex items-center gap-1.5">
+        <Button
+          title="Objectives and the task board"
+          onClick={() => ui.set({ panel: panel === "work" ? null : "work" })}
+          active={panel === "work"}
+        >
+          Work
+        </Button>
+        <Button
+          title="Owner's Desk: results, approvals and escalations waiting for you"
+          onClick={() => ui.set({ panel: panel === "desk" ? null : "desk" })}
+          active={panel === "desk"}
+        >
+          Desk
+          {world.pendingApprovals().length > 0 && (
+            <span className="ml-1 px-1 rounded bg-[#ff5f6d] text-white text-[10px] font-bold">
+              {world.pendingApprovals().length}
+            </span>
+          )}
+        </Button>
         <Button
           title="Recruitment Bay: hire crew"
           onClick={() => ui.set({ panel: panel === "hire" ? null : "hire" })}

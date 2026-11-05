@@ -1,0 +1,6 @@
+# Sites the agents' web_research tool may read (ROADMAP §6: allowlisted sites only). Requests are
+# GETs with a descriptive User-Agent; nothing is posted anywhere.
+allow:
+  - en.wikipedia.org
+userAgent: OrbitalFoundry/0.4 (local research agent; contact via repository owner)
+maxBytes: 400000

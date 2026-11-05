@@ -14,7 +14,9 @@ export interface UiState {
   zoom: number;
   hoverRoom: string | null;
   /** A side panel that replaces the inspector: the Recruitment Bay. */
-  panel: "hire" | null;
+  panel: "hire" | "work" | "desk" | null;
+  /** A deliverable open in the viewer. */
+  viewing: string | null;
   /** A short message at the top of the screen. */
   toast: { id: number; text: string } | null;
 }
@@ -40,6 +42,7 @@ export class UiStore {
     zoom: 1,
     hoverRoom: null,
     panel: null,
+    viewing: null,
     toast: null,
   };
   private toastTimer: ReturnType<typeof setTimeout> | null = null;

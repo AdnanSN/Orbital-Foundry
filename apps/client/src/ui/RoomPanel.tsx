@@ -208,8 +208,14 @@ function RoomDetails({ ctx, id, tasks }: { ctx: Ctx; id: string; tasks: Task[] }
     case "owners-desk":
       return (
         <Section title="Approvals">
-          <Stat label="Waiting for you" value={0} />
-          <div className="mt-1 text-dim text-[11px]">The approval inbox arrives in Stage 4.</div>
+          <Stat label="Waiting for you" value={world.pendingApprovals().length} />
+          <button
+            type="button"
+            onClick={() => ctx.ui.set({ panel: "desk" })}
+            className="mt-1 text-cyan hover:underline cursor-pointer text-[11px]"
+          >
+            Open the Owner's Desk
+          </button>
         </Section>
       );
     case "airlock":

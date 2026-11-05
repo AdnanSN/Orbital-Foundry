@@ -97,6 +97,10 @@ export type SimCommand =
   | { kind: "break"; status: string; until: number }
   /** Stand somewhere free in the home room. */
   | { kind: "idle"; status?: string | null }
+  /** Wait at the Owner's Desk for an approval (❗). */
+  | { kind: "await"; status: string; taskId?: string | null }
+  /** Stuck: stand at the workstation with a red alert light until told otherwise. */
+  | { kind: "blocked"; status: string; taskId?: string | null }
   /** Walk to a room and stand there. */
   | { kind: "go"; room: string; status?: string | null };
 
@@ -246,7 +250,9 @@ export class StationSim {
     sim.providers.clear();
     for (const p of save.providers) sim.providers.set(p.provider, { ...p });
     for (const task of save.tasks) {
-      sim.tasks.set(task.id, { ...task });
+      // Saves from before real work existed held only ambient tasks.
+      const legacy = task.mock === undefined && task.objectiveId === undefined;
+      sim.tasks.set(task.id, legacy ? { ...task, mock: true } : { ...task });
       if (task.status === "done" || task.status === "failed") sim.finished.push(task.id);
     }
     sim.intake.push(...save.intake.filter((id) => sim.tasks.has(id)));
@@ -454,7 +460,10 @@ export class StationSim {
   command(id: string, cmd: SimCommand): void {
     const actor = this.actor(id);
     if (!actor.controlled) throw new Error(`"${id}" is on autopilot; call control() first`);
-    this.interrupt(actor, this.commandSteps(actor, cmd));
+    const steps = this.commandSteps(actor, cmd);
+    // The new activity shows straight away, even if a walk in progress finishes first.
+    while (steps[0]?.kind === "act") this.execute(actor, steps.shift() as Step);
+    this.interrupt(actor, steps);
   }
 
   /** A speech bubble, without changing what the crew member is doing. */
@@ -472,6 +481,11 @@ export class StationSim {
     this.emit({ type: "task.updated", t: this.t, task: { ...merged } });
   }
 
+  /** Publish another station record (objective, approval, deliverable) in the event stream. */
+  publish(event: UnsequencedEvent): void {
+    this.emit({ ...event, t: this.t } as UnsequencedEvent);
+  }
+
   /** Real provider status (Stage 4); also shows on the Server Room racks. */
   setProviderStatus(
     provider: string,
@@ -484,6 +498,16 @@ export class StationSim {
       return;
     }
     this.setProvider(provider, state, until, note);
+  }
+
+  /** Tasks in memory: open ones and recently finished ones. */
+  get taskList(): Task[] {
+    return [...this.tasks.values()].map((t) => ({ ...t }));
+  }
+
+  task(id: string): Task | undefined {
+    const t = this.tasks.get(id);
+    return t ? { ...t } : undefined;
   }
 
   agentState(id: string): AgentState {
@@ -816,6 +840,32 @@ export class StationSim {
               : undefined;
           }),
         ];
+      case "await":
+        return [
+          this.act({
+            activity: "await",
+            status: cmd.status,
+            taskId: cmd.taskId ?? null,
+            carrying: "datapad",
+          }),
+          this.call(() => {
+            const spot = this.freeAnchor(actor, this.map.anchorsFor("queue", DESK_ROOM));
+            if (spot) return this.goTo(actor, spot, { activity: "await", carrying: null });
+            const loose = this.looseSpot(actor, DESK_ROOM);
+            return loose
+              ? [...this.goToTile(actor, loose), this.act({ activity: "await", carrying: null })]
+              : undefined;
+          }),
+        ];
+      case "blocked":
+        return [
+          this.act({
+            activity: "blocked",
+            status: cmd.status,
+            taskId: cmd.taskId ?? null,
+            carrying: null,
+          }),
+        ];
       case "go":
         return [
           this.act({ activity: "idle", status: cmd.status ?? null, carrying: null }),
@@ -929,6 +979,7 @@ export class StationSim {
       reworks: 0,
       createdAt: this.t,
       updatedAt: this.t,
+      mock: true,
     };
     this.tasks.set(task.id, task);
     return task;
