@@ -79,6 +79,11 @@ export interface SimOptions {
   mockProviders?: boolean;
   /** On restore: never reuse sequence numbers already in the event log. */
   minSeq?: number;
+  /**
+   * Crew banter (Stage 11 polish): two crew members in the café or on the Bridge now and then
+   * swap a line. Off by default so seeded tests stay exact; it draws on its own random stream.
+   */
+  banter?: boolean;
 }
 
 /** What the agent runtime can tell a controlled crew member to do. */
@@ -177,6 +182,20 @@ const DELIVERY_BY_ROLE: Partial<Record<CrewRole, Delivery>> = {
 
 const REVIEW_ROOM = "qa-bay";
 const BRIDGE = "bridge";
+
+/** Short exchanges for crew banter: an opener and a reply. */
+const BANTER: readonly (readonly [string, string])[] = [
+  ["Is the coffee real or generated?", "Upscaled from a 64-pixel bean."],
+  ["Lens sent my mug back again.", "Mine too. Halo on the left, apparently."],
+  ["How many tags is that now?", "Thirteen. Always thirteen."],
+  ["Did WARDEN sleep last night?", "WARDEN doesn't sleep. WARDEN plans."],
+  ["The free tier ran dry again.", "Then we draw the scenes ourselves."],
+  ["Wall art is selling.", "Of course it is. Calm sells."],
+  ["Who keeps naming icons 'Shape 7'?", "Lens, when the sheet is blurry."],
+  ["Any orders overnight?", "Only simulated ones. Patience."],
+  ["Is it a rate limit or a break?", "Can't it be both?"],
+  ["Ledger says we're at 0.0000001% of a trillion.", "That's not nothing."],
+];
 const DESK_ROOM = "owners-desk";
 const BUBBLE_MS = 3_200;
 const MAX_REWORKS = 2;
@@ -204,6 +223,10 @@ export class StationSim {
   private seq = 0;
   private taskCount = 0;
   private nextRateLimit: number;
+  private readonly banterOn: boolean;
+  private readonly banterRng: Rng;
+  private nextBanter: number;
+  private readonly replies: { at: number; id: string; text: string }[] = [];
   private nextOutage: number;
   private out: StationEvent[] = [];
 
@@ -215,6 +238,9 @@ export class StationSim {
     this.rng = new Rng(options.seed ?? 1);
     this.timing = { ...DEFAULT_TIMING, ...options.timing };
     this.mockProviders = options.mockProviders ?? true;
+    this.banterOn = options.banter ?? false;
+    this.banterRng = new Rng((options.seed ?? 1) * 7919 + 17);
+    this.nextBanter = (options.start ?? 0) + 45_000;
     this.t = options.start ?? 0;
     for (const p of options.providers ?? MOCK_PROVIDERS) {
       this.providers.set(p, { provider: p, state: "ok", until: null, note: null });
@@ -565,6 +591,19 @@ export class StationSim {
     const recovery = this.recoveries[0];
     if (recovery && (!best || recovery.at < best.at)) {
       best = { at: recovery.at, run: () => this.recover() };
+    }
+    if (this.banterOn && (!best || this.nextBanter < best.at)) {
+      best = { at: this.nextBanter, run: () => this.banter() };
+    }
+    const reply = this.replies[0];
+    if (reply && (!best || reply.at < best.at)) {
+      best = {
+        at: reply.at,
+        run: () => {
+          this.replies.shift();
+          this.sayNow(reply.id, reply.text);
+        },
+      };
     }
     if (this.mockProviders) {
       if (!best || this.nextRateLimit < best.at) {
@@ -1278,6 +1317,27 @@ export class StationSim {
   }
 
   // -- Providers: rate limits send crew to the café; outages spark the Server Room racks. ----
+
+  /** Two crew members sharing the café or the Bridge swap a line. */
+  private banter(): void {
+    this.nextBanter = this.t + this.banterRng.range(60_000, 150_000);
+    const byRoom = new Map<string, Actor[]>();
+    for (const a of this.actors) {
+      const room = this.map.roomAt(a.state.tile.x, a.state.tile.y)?.id;
+      if (room !== "cafe" && room !== BRIDGE) continue;
+      byRoom.set(room, [...(byRoom.get(room) ?? []), a]);
+    }
+    const rooms = [...byRoom.values()].filter((list) => list.length >= 2);
+    const crowd = rooms[this.banterRng.int(0, Math.max(0, rooms.length - 1))];
+    if (!crowd) return;
+    const first = crowd[this.banterRng.int(0, crowd.length - 1)];
+    const others = crowd.filter((a) => a !== first);
+    const second = others[this.banterRng.int(0, others.length - 1)];
+    const pair = BANTER[this.banterRng.int(0, BANTER.length - 1)];
+    if (!first || !second || !pair) return;
+    this.sayNow(first.state.id, pair[0]);
+    this.replies.push({ at: this.t + 2_200, id: second.state.id, text: pair[1] });
+  }
 
   private rateLimit(): void {
     this.nextRateLimit = this.t + this.rng.range(...this.timing.rateLimitEveryMs);

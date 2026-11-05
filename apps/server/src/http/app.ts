@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import websocket from "@fastify/websocket";
@@ -13,6 +14,8 @@ import { z } from "zod";
 import { CUTOUTS } from "../creative/config";
 import type { CreativeStudio } from "../creative/studio";
 import { type AssetForge, packRequestSchema } from "../forge/forge";
+import type { Achievements } from "../ops/achievements";
+import type { OpsService } from "../ops/ops";
 import type { PodFactory } from "../pod/factory";
 import type { PodPublisher } from "../printify/publisher";
 import type { SimServer } from "../sim/simServer";
@@ -77,6 +80,10 @@ export interface WorkApi {
   /** The Vault's numbers and the learning loop (Stage 10). */
   kpis?: KpiService;
   economy?: Economy;
+  /** Always-on operations (Stage 11). */
+  ops?: OpsService;
+  achievements?: Achievements;
+  telegram?: boolean;
   /** Where deliverable ZIPs live (served by GET /api/artifacts/:id/zip). */
   artifactsDir?: string;
 }
@@ -110,9 +117,41 @@ const listingRequestSchema = z.object({ note: z.string().trim().max(1_000).optio
  * every event as it happens; commands are REST calls. Binds to localhost by default; remote
  * access (with authentication) is Stage 11.
  */
-export async function buildApp(sim: SimServer, work?: WorkApi): Promise<FastifyInstance> {
+export interface AppOptions {
+  /**
+   * When set, every /api and /ws request needs it (Authorization: Bearer, or ?token= for
+   * WebSocket, image and download URLs). Set it before exposing the station beyond localhost.
+   */
+  token?: string;
+}
+
+function sameSecret(given: string, expected: string): boolean {
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export async function buildApp(
+  sim: SimServer,
+  work?: WorkApi,
+  options: AppOptions = {},
+): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
   await app.register(websocket);
+
+  const token = options.token;
+  if (token) {
+    app.addHook("onRequest", async (req, reply) => {
+      const url = new URL(req.url, "http://station.local");
+      if (url.pathname === "/api/health") return;
+      if (!url.pathname.startsWith("/api") && !url.pathname.startsWith("/ws")) return;
+      const header = req.headers.authorization;
+      const given = header?.startsWith("Bearer ") ? header.slice(7) : url.searchParams.get("token");
+      if (!given || !sameSecret(given, token)) {
+        return reply.code(401).send({ error: "This station needs its access token." });
+      }
+    });
+  }
 
   app.setErrorHandler((err: unknown, _req, reply) => {
     if (err instanceof z.ZodError) {
@@ -323,6 +362,18 @@ export async function buildApp(sim: SimServer, work?: WorkApi): Promise<FastifyI
         const { plan, artifact } = await economy.retro(body.simulated ? { simulated: true } : {});
         return reply.code(201).send({ plan, artifact });
       });
+    }
+    const { ops, achievements } = work;
+    if (ops) {
+      app.get("/api/ops", async () => ({
+        quiet: ops.quiet(),
+        lastBackup: ops.lastBackup(),
+        backupDir: ops.backupDir,
+        telegram: work.telegram ?? false,
+        authRequired: Boolean(token),
+        achievements: achievements?.list() ?? [],
+      }));
+      app.post("/api/ops/backup", async (_req, reply) => reply.code(201).send(await ops.backup()));
     }
     const zipRoot = work.artifactsDir ? path.resolve(work.artifactsDir) : null;
     app.get<{ Params: { id: string } }>("/api/artifacts/:id/zip", async (req, reply) => {

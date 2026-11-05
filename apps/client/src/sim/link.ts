@@ -69,6 +69,17 @@ export interface StationCommands {
   simulateWeek(): Promise<{ sales: number; revenue: number }>;
   weeklyRetro(simulated: boolean): Promise<void>;
   addEntry(e: { business: string; kind: string; amount: number; note?: string }): Promise<void>;
+  /** Always-on operations (Stage 11). */
+  ops(): Promise<OpsInfo | null>;
+  backupNow(): Promise<void>;
+}
+
+export interface OpsInfo {
+  quiet: boolean;
+  lastBackup: { at: string; database: string; files: number } | null;
+  telegram: boolean;
+  authRequired: boolean;
+  achievements: { id: string; title: string; at: string | null }[];
 }
 
 export interface VaultInfo {
@@ -150,6 +161,38 @@ export interface StyleInfo {
   description: string;
   aspect: string;
   cutout: string;
+}
+
+/**
+ * The station's access token, when the server requires one (ORBITAL_TOKEN): taken from the page
+ * address (?token=…) once and remembered in this browser, then removed from the address bar.
+ */
+export function accessToken(): string | null {
+  try {
+    const url = new URL(window.location.href);
+    const fromUrl = url.searchParams.get("token");
+    if (fromUrl) {
+      window.localStorage.setItem("orbital.token", fromUrl);
+      url.searchParams.delete("token");
+      window.history.replaceState(null, "", url.toString());
+      return fromUrl;
+    }
+    return window.localStorage.getItem("orbital.token");
+  } catch {
+    return null;
+  }
+}
+
+/** Adds the token to URLs the browser loads itself (WebSocket, images, downloads). */
+export function withToken(url: string): string {
+  const token = accessToken();
+  if (!token) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+}
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = accessToken();
+  return token ? { ...extra, authorization: `Bearer ${token}` } : extra;
 }
 
 const SERVER_ONLY = async (): Promise<never> => {
@@ -234,6 +277,8 @@ export class MockLink implements StationLink {
       simulateWeek: SERVER_ONLY,
       weeklyRetro: SERVER_ONLY,
       addEntry: SERVER_ONLY,
+      ops: async () => null,
+      backupNow: SERVER_ONLY,
     };
   }
 
@@ -285,7 +330,7 @@ export class SocketLink implements StationLink {
     const post = async (path: string, body: unknown, method = "POST") => {
       const res = await fetch(`${this.base}/api${path}`, {
         method,
-        headers: { "content-type": "application/json" },
+        headers: authHeaders({ "content-type": "application/json" }),
         body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -298,8 +343,11 @@ export class SocketLink implements StationLink {
       const res = await fetch(`${this.base}/api${path}`, {
         method: body === undefined ? "GET" : "POST",
         ...(body === undefined
-          ? {}
-          : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+          ? { headers: authHeaders() }
+          : {
+              headers: authHeaders({ "content-type": "application/json" }),
+              body: JSON.stringify(body),
+            }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? `${path} failed (${res.status})`);
@@ -317,7 +365,9 @@ export class SocketLink implements StationLink {
         }),
       standup: () => post("/overseer/standup", {}),
       artifact: async (id) => {
-        const res = await fetch(`${this.base}/api/artifacts/${encodeURIComponent(id)}`);
+        const res = await fetch(`${this.base}/api/artifacts/${encodeURIComponent(id)}`, {
+          headers: authHeaders(),
+        });
         if (!res.ok) throw new Error(`Could not load ${id} (${res.status})`);
         return (await res.json()) as { title: string; content: string | null; mime: string };
       },
@@ -339,12 +389,13 @@ export class SocketLink implements StationLink {
       creativeStyles: async () =>
         (await json("/creative/styles")) as { styles: StyleInfo[]; aspects: string[] },
       qaArtifact: (id) => post(`/creative/qa/${encodeURIComponent(id)}`, {}),
-      fileUrl: (id) => `${this.base}/api/artifacts/${encodeURIComponent(id)}/file`,
+      fileUrl: (id) => withToken(`${this.base}/api/artifacts/${encodeURIComponent(id)}/file`),
       stores: async () => (await json("/pod/stores")) as StoreInfo[],
       startListing: (id, note) =>
         post(`/pod/stores/${encodeURIComponent(id)}/listings`, note ? { note } : {}),
       updateStore: (id, patch) => post(`/pod/stores/${encodeURIComponent(id)}`, patch, "PATCH"),
-      packageZipUrl: (id) => `${this.base}/api/pod/packages/${encodeURIComponent(id)}/zip`,
+      packageZipUrl: (id) =>
+        withToken(`${this.base}/api/pod/packages/${encodeURIComponent(id)}/zip`),
       publishing: async () =>
         (await json("/pod/publishing")) as { mode: string; dailyCap: number; killed: boolean },
       setKill: (on) => post("/kill", { on }),
@@ -352,7 +403,7 @@ export class SocketLink implements StationLink {
       startThumbs: (brief) => post("/thumbs", brief),
       reviseThumbs: (id, note) => post(`/thumbs/${encodeURIComponent(id)}/revise`, { note }),
       gigKit: async () => (await json("/thumbs/gig-kit", {})) as ArtifactMeta,
-      zipUrl: (id) => `${this.base}/api/artifacts/${encodeURIComponent(id)}/zip`,
+      zipUrl: (id) => withToken(`${this.base}/api/artifacts/${encodeURIComponent(id)}/zip`),
       packs: async () => (await json("/forge")) as PackInfo[],
       forgePack: (req) => post("/forge", req),
       vault: async () => (await json("/vault")) as VaultInfo,
@@ -362,6 +413,10 @@ export class SocketLink implements StationLink {
         await json("/vault/retro", { simulated });
       },
       addEntry: (e) => post("/vault/entries", e),
+      ops: async () => (await json("/ops")) as OpsInfo,
+      backupNow: async () => {
+        await json("/ops/backup", {});
+      },
     };
   }
 
@@ -401,7 +456,7 @@ export class SocketLink implements StationLink {
       ? `${this.base.replace(/^http/, "ws")}/ws`
       : `${proto}://${window.location.host}/ws`;
     this.setStatus(this.retry === 0 ? "connecting" : "offline");
-    const ws = new WebSocket(url);
+    const ws = new WebSocket(withToken(url));
     this.ws = ws;
     ws.onopen = () => {
       this.retry = 0;

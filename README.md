@@ -4,7 +4,8 @@ An always-on pixel-art space station where AI agents run small online businesses
 print-on-demand, a thumbnail studio and a game-asset forge. The agents answer to an Overseer, and
 you approve anything that leaves the station.
 
-**Status:** Stages 1 to 10 are built. The crew make images (generate, cut out, upscale, compose,
+**Status:** All 11 stages are built. Going live (Printify, Etsy, itch.io), phone approvals and
+remote access wait for your accounts and choices; see the roadmap's status table. The crew make images (generate, cut out, upscale, compose,
 pixelate, QA) and complete Etsy listing packages for your review. Publishing through Printify
 runs as a dry run until you add a Printify token and shop (see `.env.example`). The station runs on a server that saves it, and the crew do
 real work through free models: give WARDEN an objective and watch it get planned, worked,
@@ -38,6 +39,8 @@ reviewed and delivered to your Owner's Desk. The full plan is in [docs/ROADMAP.m
 4. Run `npm run census` to see which free models actually work.
 5. Run `npm run smoke` for one real call per tier and two test images.
 6. Run `npm run check` for lint, typecheck and tests.
+7. To leave it running, use `npm run station`; backups, phone approvals and remote access are in
+   [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Two lanes
 

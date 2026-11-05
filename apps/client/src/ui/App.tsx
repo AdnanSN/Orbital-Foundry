@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SimClock } from "../sim/clock";
 import type { LinkStatus, StationLink } from "../sim/link";
 import type { World } from "../sim/world";
@@ -13,6 +13,7 @@ import { RecruitmentBay } from "./RecruitmentBay";
 import { RoomPanel } from "./RoomPanel";
 import { StationLog } from "./StationLog";
 import { StoresPanel } from "./StoresPanel";
+import { ambientTint, muted, play, setMuted } from "./sound";
 import { type UiStore, useUi } from "./store";
 import { ThumbsPanel } from "./ThumbsPanel";
 import { VaultPanel } from "./VaultPanel";
@@ -66,8 +67,16 @@ export function App({
   const viewing = useUi(ui, (s) => s.viewing);
   const status = useLinkStatus(link);
   const ctx: Ctx = { world, clock, ui, link, now };
+  useCues(ctx);
+  const tint = ambientTint();
   return (
     <div className="absolute inset-0 text-[12px] leading-snug">
+      {/* Day and night over the station (local time); under the panels, over the map. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none transition-[background-color,opacity] duration-[4000ms]"
+        style={{ backgroundColor: tint.color, opacity: tint.opacity, mixBlendMode: "multiply" }}
+      />
       <TopBar ctx={ctx} seed={seed} status={status} />
       <Roster ctx={ctx} />
       <StationLog ctx={ctx} />
@@ -273,6 +282,7 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
         >
           Names
         </Button>
+        <SoundToggle />
         <span className="w-px h-5 bg-white/15 mx-1" />
         <span className="text-dim tabular-nums w-14 text-right" title="Frames per second">
           {fps > 0 ? fps : "–"} fps
@@ -345,5 +355,40 @@ function Offline({ status }: { status: LinkStatus }) {
         </a>
       </div>
     </div>
+  );
+}
+
+/** Sounds for station moments: a new Desk item, real work finished, a crew member stuck. */
+function useCues(ctx: Ctx): void {
+  const { world, now } = ctx;
+  const seen = useRef<{ desk: number; done: number; blocked: number } | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-checked on every clock tick
+  useEffect(() => {
+    const desk = world.pendingApprovals().length;
+    const done = world.realTasks().filter((t) => t.status === "done").length;
+    const blocked = [...world.agents.values()].filter((a) => a.state.activity === "blocked").length;
+    const last = seen.current;
+    seen.current = { desk, done, blocked };
+    if (!last) return;
+    if (blocked > last.blocked) play("alert");
+    else if (desk > last.desk) play("desk");
+    else if (done > last.done) play("done");
+  }, [now]);
+}
+
+function SoundToggle() {
+  const [off, setOff] = useState(muted());
+  return (
+    <Button
+      title={off ? "Sounds are off" : "Sounds on (quiet from 23:00 to 07:00)"}
+      onClick={() => {
+        setMuted(!off);
+        setOff(!off);
+        if (off) play("done");
+      }}
+      active={!off}
+    >
+      {off ? "🔇" : "🔊"}
+    </Button>
   );
 }

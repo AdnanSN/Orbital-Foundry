@@ -39,7 +39,7 @@ if (params.get("view") === "sprites") {
   let link: StationLink;
   let sim: StationSim | null = null;
   if (mock) {
-    sim = new StationSim(map, STARTING_CREW, { seed, start: clock.now() });
+    sim = new StationSim(map, STARTING_CREW, { seed, start: clock.now(), banter: true });
     link = new MockLink(sim, world, clock);
     link.start();
     const speed = Number(params.get("speed") ?? 1);

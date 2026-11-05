@@ -16,6 +16,8 @@
     "dev": "node scripts/dev.mjs",
     "server": "npm run dev --workspace @orbital/server",
     "start": "npm run start --workspace @orbital/server",
+    "station": "node scripts/supervise.mjs",
+    "backup": "npm run backup --workspace @orbital/server",
     "client": "npm run dev --workspace @orbital/client",
     "client:build": "npm run build --workspace @orbital/client",
     "census": "npm run census --workspace @orbital/server --",

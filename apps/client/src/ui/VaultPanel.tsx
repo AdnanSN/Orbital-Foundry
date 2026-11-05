@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { VaultInfo } from "../sim/link";
+import type { OpsInfo, VaultInfo } from "../sim/link";
 import type { Ctx } from "./App";
 import { Panel, Section } from "./Panel";
 
@@ -21,6 +21,7 @@ export function VaultPanel({ ctx }: { ctx: Ctx }) {
   const { link, ui, world } = ctx;
   const live = link.kind === "server";
   const [v, setV] = useState<VaultInfo | null>(null);
+  const [ops, setOps] = useState<OpsInfo | null>(null);
   const [showSim, setShowSim] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [entry, setEntry] = useState({ business: "thumbs", amount: "", note: "" });
@@ -30,6 +31,10 @@ export function VaultPanel({ ctx }: { ctx: Ctx }) {
       .vault()
       .then(setV)
       .catch(() => setV(null));
+    link.commands
+      .ops()
+      .then(setOps)
+      .catch(() => setOps(null));
   }, [link]);
 
   useEffect(() => {
@@ -227,6 +232,46 @@ export function VaultPanel({ ctx }: { ctx: Ctx }) {
               </button>
             </div>
           </Section>
+
+          {ops && (
+            <Section title="Achievements">
+              <ul className="text-[11px] space-y-0.5">
+                {ops.achievements.map((a) => (
+                  <li key={a.id} className={a.at ? "" : "text-dim"}>
+                    {a.at ? "🏆" : "·"} {a.title}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+          {ops && (
+            <Section title="Operations">
+              <div className="text-[11px] space-y-0.5">
+                <div>
+                  Last backup:{" "}
+                  {ops.lastBackup ? new Date(ops.lastBackup.at).toLocaleString() : "none yet"}
+                </div>
+                <div>
+                  Phone approvals: {ops.telegram ? "on (Telegram)" : "off (no bot token)"} · Access
+                  token: {ops.authRequired ? "required" : "off (localhost only)"}
+                  {ops.quiet ? " · quiet hours" : ""}
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() =>
+                  void act("backup", async () => {
+                    await link.commands.backupNow();
+                    return "Backed up.";
+                  })
+                }
+                className="mt-1 w-full h-7 rounded-md border border-white/15 hover:bg-white/10 cursor-pointer disabled:opacity-40"
+              >
+                {busy === "backup" ? "Backing up…" : "Back up now"}
+              </button>
+            </Section>
+          )}
 
           <Section title="Add income by hand">
             <div className="flex gap-1">

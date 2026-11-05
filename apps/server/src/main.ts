@@ -6,6 +6,9 @@ import { creativeTools } from "./creative/tools";
 import { loadEnv } from "./env";
 import { AssetForge } from "./forge/forge";
 import { buildApp } from "./http/app";
+import { Achievements } from "./ops/achievements";
+import { loadOpsConfig, OpsService } from "./ops/ops";
+import { TelegramNotifier } from "./ops/telegram";
 import { ARTIFACTS_DIR } from "./paths";
 import { checkCatalog, loadBusinesses, loadEtsyRules, loadProducts } from "./pod/config";
 import { PodFactory } from "./pod/factory";
@@ -42,7 +45,7 @@ const station = createStation({
 const store = new SimStore(station.db);
 store.prune();
 // Real provider status drives the racks and café breaks now; the sim invents none.
-const sim = new SimServer({ map: getStationMap(), store, mockProviders: false });
+const sim = new SimServer({ map: getStationMap(), store, mockProviders: false, banter: true });
 const work = new WorkStore(station.db);
 const styles = loadStyles();
 const blocklist = loadBlocklist();
@@ -177,19 +180,71 @@ const economy = new Economy({
 });
 pod.experiments = economy;
 const economyTimer = setInterval(() => economy.tick(), 60 * 60_000);
-const app = await buildApp(sim, {
-  kpis,
-  economy,
-  forge,
-  director,
-  store: work,
-  studio,
-  pod,
-  publisher,
-  ledger,
-  thumbs,
-  artifactsDir: ARTIFACTS_DIR,
+// Stage 11: always-on operations. Backups nightly; phone notifications when configured.
+const ops = new OpsService(station.db, loadOpsConfig(), {
+  ...(process.env.ORBITAL_BACKUP_DIR ? { backupDir: process.env.ORBITAL_BACKUP_DIR } : {}),
+  getKv: (k) => work.getKv(k),
+  setKv: (k, v) => work.setKv(k, v),
+  log: (m) => console.log(`[ops] ${m}`),
 });
+const achievements = new Achievements(station.db, work, (title) =>
+  sim.mutate((s) => {
+    const warden = s.crew.find((c) => c.role === "overseer");
+    if (warden) s.sayNow(warden.id, `Achievement: ${title}!`);
+  }),
+);
+let telegram: TelegramNotifier | null = null;
+if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+  const notifier = new TelegramNotifier({
+    token: process.env.TELEGRAM_BOT_TOKEN,
+    chatId: process.env.TELEGRAM_CHAT_ID,
+    allowedUsers: (process.env.TELEGRAM_ALLOWED_USERS ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+    quiet: () => ops.quiet(),
+    decide: (id, decision) => director.decide(id, decision),
+    pending: () => work.approvals("pending"),
+    log: (m) => console.log(`[telegram] ${m}`),
+  });
+  sim.subscribe((events) => {
+    for (const e of events) {
+      if (e.type === "approval.updated" && e.approval.status === "pending") {
+        void notifier
+          .notify(e.approval)
+          .catch((err: unknown) => console.log(`[telegram] ${String(err).slice(0, 120)}`));
+      }
+    }
+  });
+  void notifier.run();
+  telegram = notifier;
+  console.log("[telegram] phone notifications on");
+}
+const opsTimer = setInterval(() => {
+  void ops.tick().catch((err: unknown) => console.log(`[ops] backup failed: ${String(err)}`));
+  void telegram?.morningSummary().catch(() => {});
+}, 10 * 60_000);
+const achievementTimer = setInterval(() => achievements.check(), 60_000);
+const app = await buildApp(
+  sim,
+  {
+    ops,
+    achievements,
+    telegram: telegram !== null,
+    kpis,
+    economy,
+    forge,
+    director,
+    store: work,
+    studio,
+    pod,
+    publisher,
+    ledger,
+    thumbs,
+    artifactsDir: ARTIFACTS_DIR,
+  },
+  process.env.ORBITAL_TOKEN ? { token: process.env.ORBITAL_TOKEN } : {},
+);
 sim.start();
 director.start();
 await app.listen({ host, port });
@@ -207,6 +262,9 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(podTimer);
   clearInterval(syncTimer);
   clearInterval(economyTimer);
+  clearInterval(opsTimer);
+  clearInterval(achievementTimer);
+  telegram?.stop();
   sim.stop();
   await app.close();
   station.close();

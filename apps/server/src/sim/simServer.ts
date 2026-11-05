@@ -31,6 +31,8 @@ export interface SimServerOptions {
   tickMs?: number;
   /** How often the engine state is saved, in real ms. */
   saveEveryMs?: number;
+  /** Crew banter in the café and on the Bridge (Stage 11 polish). */
+  banter?: boolean;
 }
 
 type Listener = (events: StationEvent[]) => void;
@@ -59,6 +61,7 @@ export class SimServer {
     const simOptions = {
       seed: options.seed ?? Date.now() % 1_000_000,
       mockProviders: options.mockProviders ?? true,
+      banter: options.banter ?? false,
     };
     if (save) {
       this.sim = StationSim.restore(options.map, save, {

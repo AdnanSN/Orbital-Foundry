@@ -18,6 +18,8 @@ An always-on pixel-art space station where AI agents run small online businesses
 | `npm run smoke` | One real call per tier plus one image per endpoint, saved to `data/artifacts/smoke/`. Flags: `--lane live`, `--no-images`. |
 | `npm run models -- nvidia [filter]` | Lists a provider's model IDs. |
 | `npm run printify -- shops` | Browses Printify with your token (shops, blueprints, providers, variants). Read-only. |
+| `npm run station` | Keeps the station server running (restarts, health checks, daily logs). See docs/OPERATIONS.md. |
+| `npm run backup` | Backs up the database and new artifact files now. |
 | `npm run format` | Biome auto-fix and formatting. |
 
 ## Layout
@@ -40,7 +42,8 @@ An always-on pixel-art space station where AI agents run small online businesses
     (`listing.ts`), code-drawn mockups (`mockups.ts`) and its config loader.
   - `src/printify/`: the Printify client (dry run or live) and the publisher (guards, outbox, order
     sync). `src/vault/`: the ledger and outbox (`ledger.ts`), KPIs and shadow cost (`kpis.ts`), the
-    sales simulator and weekly retro (`economy.ts`).
+    sales simulator and weekly retro (`economy.ts`). `src/ops/`: backups and quiet hours
+    (`ops.ts`), Telegram approvals (`telegram.ts`), achievements.
   - `src/thumbs/studio.ts`: Factory 2, the Thumbnail Studio (concepts, layout, readability, ZIP
     delivery, revisions, gig kit). `src/forge/forge.ts`: Factory 3, the Asset Forge (sheets, cutting
     out items, pack palette, review, package, butler dry run).

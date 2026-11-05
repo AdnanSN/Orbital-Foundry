@@ -24,7 +24,7 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 8 | Factory 2: Thumbnail studio | 1 session | ✅ done (Thumbs panel; Fiverr stays manual) |
 | 9 | Factory 3: Asset forge | 1 session | 🟡 built and tested; first real pack after the image budget resets |
 | 10 | Economy, KPIs, learning loop | 1 session | ✅ done (Vault panel; real sales wait for Stage 7 live) |
-| 11 | Always-on ops & polish | 1 session | ☐ |
+| 11 | Always-on ops & polish | 1 session | 🟡 built; the 72-hour run and a phone approval need you |
 
 Dependencies run in order through Stage 7. Stages 8 and 9 depend only on Stage 5 (and 4), not on
 each other, so they can run as parallel sessions. Stage 11 can start any time after Stage 4.
@@ -620,16 +620,20 @@ visibly changes the Overseer's plan.
 
 **Goal:** the station "lives forever" and can reach you on your phone.
 
-- [ ] Run as a service (pm2 or a Windows service):
+- [x] Run as a service (pm2 or a Windows service): `npm run station`, a supervisor script (no
+      service installed; Task Scheduler or pm2 steps in docs/OPERATIONS.md):
   - auto-restart and health checks;
   - quiet hours;
   - nightly backups of the database and artifacts;
   - log rotation.
-- [ ] Phone notifications with approve and reject buttons, via a Telegram bot or a Discord webhook.
-- [ ] Safe remote access through Cloudflare Tunnel or Tailscale, always behind authentication.
-- [ ] Hosting decision: the laptop, or a small always-on machine or VM (with no GPU there, the tools
-      fall back to CPU).
-- [ ] Polish: sound effects, day/night lighting, crew banter, achievements.
+- [x] Phone notifications with approve and reject buttons, via a Telegram bot or a Discord webhook.
+      (Telegram, built and tested; on once you add a bot token.)
+- [~] Safe remote access through Cloudflare Tunnel or Tailscale, always behind authentication.
+      (The access token is built; choosing and setting up the tunnel is yours, steps in
+      docs/OPERATIONS.md.)
+- [~] Hosting decision: the laptop, or a small always-on machine or VM (with no GPU there, the tools
+      fall back to CPU). (Your call; the options are in docs/OPERATIONS.md.)
+- [x] Polish: sound effects, day/night lighting, crew banter, achievements.
 
 **Done when:** it runs unattended for 72 hours without a crash, and you've approved something from
 your phone.
@@ -883,3 +887,20 @@ your phone.
   - Real run: a simulated week (Store C 20 orders and $315 net, Store B 2 orders) went to WARDEN's retro on the reasoning model, which proposed 3 store changes, 4 experiments and 2 crew moves; the clamp dropped a contradictory second price test and a personalization niche the stores can't deliver. Accepting it at the Desk applied listings of 2, 0 and 3 a day, a ×1.1 price test on Store C, a title test on Store A and two crew moves. Because it came from simulated sales, the store settings and crew were put back afterwards (the two experiments expire in 7 days).
   - 202 tests (8 new).
   - **Next:** Stage 11 (always-on ops and polish).
+- **2026-11-05:** Stage 11 built: the station can run on its own.
+  - `npm run station`: a supervisor that restarts the server after crashes (with back-off) and
+    after three failed health checks, with daily log files kept for 14 days. No service is
+    installed; docs/OPERATIONS.md has the Task Scheduler and pm2 steps.
+  - Nightly backups at 03:00 (SQLite online backup plus new artifact files, 7 kept),
+    `npm run backup`, and *Vault → Back up now*; `ORBITAL_BACKUP_DIR` moves them off the disk.
+  - Quiet hours (23:00 to 07:00): no phone messages or sounds; a morning summary instead.
+  - Telegram approvals: each new Owner's Desk item arrives with two buttons; only the configured
+    chat and users count; `/status` lists what waits. Off until you add a bot token.
+  - `ORBITAL_TOKEN`: when set, the API and the live feed need it (the client takes `?token=`
+    once). Required before any remote access.
+  - Polish: day and night lighting over the station by local time, synthesized sounds (a new Desk
+    item, finished work, a stuck crew member) with a mute toggle, crew banter in the café and on
+    the Bridge, and achievements (WARDEN announces them; the Vault lists them).
+  - 211 tests (9 new).
+  - **Not done (needs you):** the 72-hour unattended run, an approval from your phone (a
+    Telegram bot token), the remote-access choice, and the hosting choice.

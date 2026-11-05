@@ -1,0 +1,18 @@
+# Always-on operations (Stage 11). See docs/OPERATIONS.md.
+
+# No phone notifications or sounds between these local hours (start, end). Waiting items are
+# summarized in one message when quiet hours end.
+quietHours: [23, 7]
+
+backups:
+  # Local hour for the nightly backup.
+  hour: 3
+  # Database backups kept (oldest deleted first).
+  keep: 7
+  # Where backups go. Empty: data/backups. Set ORBITAL_BACKUP_DIR to use another disk or a synced
+  # folder (OneDrive, Dropbox) so a disk failure doesn't take the backups with it.
+  dir: ""
+
+logs:
+  # Days of supervisor logs kept in data/logs.
+  keepDays: 14

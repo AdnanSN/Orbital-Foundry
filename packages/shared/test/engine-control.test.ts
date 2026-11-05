@@ -203,3 +203,32 @@ describe("finished task history", () => {
     expect(sim.task("T-399")?.status).toBe("done");
   });
 });
+
+describe("crew banter", () => {
+  it("has two crew members in the café or on the Bridge swap lines, only when turned on", () => {
+    const quiet = new StationSim(map, STARTING_CREW, { seed: 3 });
+    const chatty = new StationSim(map, STARTING_CREW, { seed: 3, banter: true });
+    for (const sim of [quiet, chatty]) {
+      sim.control("wick", true);
+      sim.control("gift", true);
+      sim.command("wick", { kind: "go", room: "cafe" });
+      sim.command("gift", { kind: "go", room: "cafe" });
+    }
+    const said = (sim: StationSim) =>
+      runFor(sim, 4 * MINUTE).filter(
+        (e): e is StationEventOf<"agent.say"> =>
+          e.type === "agent.say" && (e.id === "wick" || e.id === "gift"),
+      );
+    const lines = said(chatty).map((e) => e.text);
+    expect(
+      lines.some((t) =>
+        /coffee|tags|WARDEN|Lens|free tier|Wall art|icons|orders|rate limit|trillion/i.test(t),
+      ),
+    ).toBe(true);
+    expect(
+      said(quiet)
+        .map((e) => e.text)
+        .some((t) => /Upscaled from a 64-pixel bean/.test(t)),
+    ).toBe(false);
+  });
+});

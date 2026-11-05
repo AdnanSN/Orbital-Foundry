@@ -572,3 +572,44 @@ Real listing runs showed where the free tiers hurt, and each fix is data or a sm
   the strategy memory, marked when they come from simulated sales.
 - **Experiments** last seven days. Price experiments multiply Factory 1's computed price before
   the cents ending; title and niche experiments add one instruction to the copy and Scout prompts.
+
+## D-040: Always-on without installing a service (2026-11-05)
+
+`scripts/supervise.mjs` keeps the server alive: restart with exponential back-off (2 s to 60 s,
+reset after 10 minutes up), a health check every minute (three failures restart it), and daily log
+files kept for 14 days. A plain script keeps the machine untouched; the owner chooses Task
+Scheduler or pm2 to start it at log-on. Backups use SQLite's online backup API (consistent while
+the station writes) and mirror the immutable artifact files incrementally; 7 database copies are
+kept, at 03:00 by default, in `ORBITAL_BACKUP_DIR` when set.
+
+## D-041: Phone approvals through Telegram (2026-11-05)
+
+A Telegram bot was chosen over a Discord webhook because webhooks cannot carry buttons back to the
+station. The bot long-polls `getUpdates` (no inbound port or public webhook), sends each new
+pending Desk item with two inline buttons whose data is just `approve:<id>` or `reject:<id>`, and
+decides only presses from the configured chat id and, when set, the allowed user ids. Messages are
+held during quiet hours and summarized afterwards. The token lives in `.env` and is scrubbed from
+any logged error.
+
+## D-042: An access token before any remote access (2026-11-05)
+
+With `ORBITAL_TOKEN` set, every `/api` and `/ws` request needs `Authorization: Bearer <token>` or
+`?token=` (WebSocket, images and downloads can't send headers); the comparison is constant-time;
+`/api/health` stays open so the supervisor can check it. The client takes the token from the
+address once, keeps it in local storage and removes it from the address bar. The server still
+binds to 127.0.0.1; reaching it from elsewhere goes through Tailscale or Cloudflare Tunnel with
+Access in front (docs/OPERATIONS.md).
+
+## D-043: Polish that costs nothing (2026-11-05)
+
+- **Day and night:** a multiply-blended tint over the map by local time (blue at night, warm at
+  dawn and dusk), under the panels.
+- **Sounds** are synthesized with Web Audio (no assets): a two-tone ping for a new Desk item, a
+  soft chime for finished real work, a low buzz when a crew member is stuck. Muted in quiet hours
+  and by a toolbar toggle remembered per browser.
+- **Banter:** an engine option (on for the server and the offline client, off for seeded tests)
+  that now and then has two crew members in the café or on the Bridge swap a scripted exchange,
+  drawn from its own random stream so the rest of the simulation is unchanged.
+- **Achievements** are checked every minute from what the station records (first package, first
+  publish, first thumbnails, first pack, first weekly plan, first real sale, 100 real tasks) and
+  announced by WARDEN once.

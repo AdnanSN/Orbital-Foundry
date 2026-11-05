@@ -10,6 +10,7 @@
     "smoke": "tsx src/scripts/smoke.ts",
     "models": "tsx src/scripts/models.ts",
     "printify": "tsx src/scripts/printify.ts",
+    "backup": "tsx src/scripts/backup.ts",
     "test": "vitest run"
   },
   "dependencies": {
