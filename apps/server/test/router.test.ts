@@ -92,6 +92,38 @@ describe("ModelRouter fallbacks", () => {
     expect(gates.get("alpha")?.stats().cooldownMs).toBeGreaterThan(25_000);
   });
 
+  it("waits out a brief rate limit and tries the same provider again", async () => {
+    let calls = 0;
+    const transport = new FakeTransport({
+      "alpha:a1": () => {
+        calls += 1;
+        if (calls === 1) throw new ProviderHttpError("test", 429, "tokens per minute", 50);
+        return reply("second time lucky");
+      },
+    });
+    const { router } = makeRouter({
+      providers,
+      transport,
+      tiers: tiersWith({ fast: { sandbox: ["alpha:a1"] } }),
+    });
+    const res = await router.generate({ tier: "fast", lane: "sandbox", prompt: "hi" });
+    expect(res.text).toBe("second time lucky");
+    expect(transport.callsTo("alpha:a1")).toBe(2);
+  });
+
+  it("fails at once on a long rate limit (a daily cap) instead of waiting", async () => {
+    const transport = new FakeTransport({ "alpha:a1": fails(429, "requests per day", 3_600_000) });
+    const { router } = makeRouter({
+      providers,
+      transport,
+      tiers: tiersWith({ fast: { sandbox: ["alpha:a1"] } }),
+    });
+    await expect(
+      router.generate({ tier: "fast", lane: "sandbox", prompt: "hi" }),
+    ).rejects.toBeInstanceOf(RouterError);
+    expect(transport.callsTo("alpha:a1")).toBe(1);
+  });
+
   it("prefers a less busy provider over waiting in a long queue", async () => {
     const transport = new FakeTransport({
       "alpha:a1": () => reply("from alpha"),

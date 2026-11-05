@@ -201,7 +201,7 @@ function RoomDetails({ ctx, id, tasks }: { ctx: Ctx; id: string; tasks: Task[] }
             <Stat label="Goal" value="$1T" />
           </div>
           <div className="mt-1 text-dim text-[11px]">
-            Sandbox: nothing is sold. Real sales arrive in Stage 7.
+            Real money and the weekly plan live in the Vault.
           </div>
         </Section>
       );

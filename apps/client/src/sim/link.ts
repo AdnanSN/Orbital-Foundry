@@ -47,6 +47,8 @@ export interface StationCommands {
   packageZipUrl(id: string): string;
   /** Publishing (Stage 7): dry run or live, the daily cap, and the station kill switch. */
   publishing(): Promise<{ mode: string; dailyCap: number; killed: boolean } | null>;
+  /** The station server's lane: "live" in production, "sandbox" while developing. */
+  lane(): Promise<"live" | "sandbox">;
   setKill(on: boolean): Promise<void>;
   /** Factory 2, the Thumbnail Studio (Stage 8). */
   thumbJobs(): Promise<ThumbJobInfo[]>;
@@ -267,6 +269,7 @@ export class MockLink implements StationLink {
       updateStore: SERVER_ONLY,
       packageZipUrl: () => "",
       publishing: async () => null,
+      lane: async () => "sandbox",
       setKill: SERVER_ONLY,
       thumbJobs: async () => [],
       startThumbs: SERVER_ONLY,
@@ -400,6 +403,8 @@ export class SocketLink implements StationLink {
         withToken(`${this.base}/api/pod/packages/${encodeURIComponent(id)}/zip`),
       publishing: async () =>
         (await json("/pod/publishing")) as { mode: string; dailyCap: number; killed: boolean },
+      lane: async () =>
+        ((await json("/health")) as { lane?: string }).lane === "live" ? "live" : "sandbox",
       setKill: (on) => post("/kill", { on }),
       thumbJobs: async () => (await json("/thumbs")) as ThumbJobInfo[],
       startThumbs: (brief) => post("/thumbs", brief),

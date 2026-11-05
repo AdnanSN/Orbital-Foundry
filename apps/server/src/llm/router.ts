@@ -25,6 +25,10 @@ import type { UsageLog } from "./usage";
 const REPAIR_ROUNDS = 1;
 const DEFAULT_COOLDOWN_MS = 20_000;
 const FALLBACK_AFTER_MS = 8_000;
+/** Rounds over the candidates when the only trouble was a short rate limit (tokens a minute). */
+const RATE_LIMIT_ROUNDS = 2;
+/** Cooldowns longer than this (daily limits) fail at once instead of waiting. */
+const MAX_RATE_WAIT_MS = 30_000;
 const UNAVAILABLE_TRIP_MS = 60 * 60_000;
 
 export interface GenerateOptions<T = unknown> {
@@ -144,81 +148,103 @@ export class ModelRouter {
     if (refs.length === 0) throw new NoCandidateError(what, opts.lane, skipped);
 
     const attempts: Attempt[] = [];
-    for (const [index, ref] of refs.entries()) {
-      if (this.breaker.isOpen(ref)) {
-        attempts.push({ ref, outcome: "circuit-open" });
-        continue;
-      }
-      const { provider, model } = parseModelRef(ref);
-      const off = this.disabled.get(provider);
-      if (off) {
-        attempts.push({ ref, outcome: "auth", message: off });
-        continue;
-      }
-      if (this.shouldDefer(ref, refs.slice(index + 1))) {
-        attempts.push({ ref, outcome: "busy", message: "long queue; trying a less busy provider" });
-        continue;
-      }
-      let messages = buildMessages(opts);
-      // A provider may cap the output tokens a request asks for (config: limits.maxTokens).
-      const cap = this.deps.providers[provider]?.limits.maxTokens;
-      let maxTokens =
-        cap && opts.maxTokens ? Math.min(opts.maxTokens, cap) : (opts.maxTokens ?? cap);
-      let boosted = false;
-      let repairs = 0;
-      // At most: the first call, one retry with a bigger token budget, and the JSON repair rounds.
-      for (let step = 0; step < 2 + REPAIR_ROUNDS; step++) {
-        const call = await this.callChat(
-          ref,
-          provider,
-          model,
-          messages,
-          { ...opts, maxTokens },
-          attempts,
-        );
-        if (!call) break;
-        const { result } = call;
-        if (result.finishReason === "length" && !boosted && !(cap && (maxTokens ?? 0) >= cap)) {
-          // Some models finish the JSON and then keep writing until the limit: if what arrived
-          // already matches the schema, use it instead of paying for a longer call.
-          if (opts.schema) {
-            const early = parseStructured(result.content, opts.schema);
-            if (early.ok)
-              return this.finish(ref, provider, model, call, early.data, attempts, opts);
-          }
-          // Reasoning models can spend the whole budget thinking. Retry once with more room.
-          boosted = true;
-          maxTokens = cap ? Math.min(boostTokens(maxTokens), cap) : boostTokens(maxTokens);
+    for (let round = 0; ; round++) {
+      const before = attempts.length;
+      for (const [index, ref] of refs.entries()) {
+        if (this.breaker.isOpen(ref)) {
+          attempts.push({ ref, outcome: "circuit-open" });
+          continue;
+        }
+        const { provider, model } = parseModelRef(ref);
+        const off = this.disabled.get(provider);
+        if (off) {
+          attempts.push({ ref, outcome: "auth", message: off });
+          continue;
+        }
+        if (round === 0 && this.shouldDefer(ref, refs.slice(index + 1))) {
           attempts.push({
             ref,
-            outcome: "truncated",
-            message: `hit the token limit; retrying with ${maxTokens}`,
+            outcome: "busy",
+            message: "long queue; trying a less busy provider",
           });
           continue;
         }
-        if (!opts.schema) {
-          if (!result.content && result.toolCalls.length === 0) {
-            this.invalid(ref, opts, attempts, "empty reply");
-            break;
+        let messages = buildMessages(opts);
+        // A provider may cap the output tokens a request asks for (config: limits.maxTokens).
+        const cap = this.deps.providers[provider]?.limits.maxTokens;
+        let maxTokens =
+          cap && opts.maxTokens ? Math.min(opts.maxTokens, cap) : (opts.maxTokens ?? cap);
+        let boosted = false;
+        let repairs = 0;
+        // At most: the first call, one retry with a bigger token budget, and the JSON repair rounds.
+        for (let step = 0; step < 2 + REPAIR_ROUNDS; step++) {
+          const call = await this.callChat(
+            ref,
+            provider,
+            model,
+            messages,
+            { ...opts, maxTokens },
+            attempts,
+          );
+          if (!call) break;
+          const { result } = call;
+          if (result.finishReason === "length" && !boosted && !(cap && (maxTokens ?? 0) >= cap)) {
+            // Some models finish the JSON and then keep writing until the limit: if what arrived
+            // already matches the schema, use it instead of paying for a longer call.
+            if (opts.schema) {
+              const early = parseStructured(result.content, opts.schema);
+              if (early.ok)
+                return this.finish(ref, provider, model, call, early.data, attempts, opts);
+            }
+            // Reasoning models can spend the whole budget thinking. Retry once with more room.
+            boosted = true;
+            maxTokens = cap ? Math.min(boostTokens(maxTokens), cap) : boostTokens(maxTokens);
+            attempts.push({
+              ref,
+              outcome: "truncated",
+              message: `hit the token limit; retrying with ${maxTokens}`,
+            });
+            continue;
           }
-          return this.finish(ref, provider, model, call, undefined, attempts, opts);
+          if (!opts.schema) {
+            if (!result.content && result.toolCalls.length === 0) {
+              this.invalid(ref, opts, attempts, "empty reply");
+              break;
+            }
+            return this.finish(ref, provider, model, call, undefined, attempts, opts);
+          }
+          const parsed = parseStructured(result.content, opts.schema);
+          if (parsed.ok)
+            return this.finish(ref, provider, model, call, parsed.data, attempts, opts);
+          this.invalid(ref, opts, attempts, parsed.error);
+          if (repairs >= REPAIR_ROUNDS) break;
+          repairs++;
+          messages = [
+            ...messages,
+            { role: "assistant", content: result.content },
+            {
+              role: "user",
+              content: `That reply did not match the required JSON schema:\n${parsed.error}\nReply again with ONLY the corrected JSON.`,
+            },
+          ];
         }
-        const parsed = parseStructured(result.content, opts.schema);
-        if (parsed.ok) return this.finish(ref, provider, model, call, parsed.data, attempts, opts);
-        this.invalid(ref, opts, attempts, parsed.error);
-        if (repairs >= REPAIR_ROUNDS) break;
-        repairs++;
-        messages = [
-          ...messages,
-          { role: "assistant", content: result.content },
-          {
-            role: "user",
-            content: `That reply did not match the required JSON schema:\n${parsed.error}\nReply again with ONLY the corrected JSON.`,
-          },
-        ];
       }
+      // Free tiers often answer "try again in 2 s" (tokens a minute). When a provider this round was
+      // only briefly rate-limited, go round again: its gate holds the call until the cooldown ends.
+      // Daily limits (long cooldowns) still fail at once.
+      if (round >= RATE_LIMIT_ROUNDS || opts.signal?.aborted) break;
+      if (!this.briefRateLimit(attempts.slice(before))) break;
     }
     throw new RouterError(what, opts.lane, attempts);
+  }
+
+  /** True when some provider in these attempts was rate-limited with a short cooldown left. */
+  private briefRateLimit(round: Attempt[]): boolean {
+    return round.some((a) => {
+      if (a.outcome !== "rate-limited") return false;
+      const gate = this.deps.gates.get(parseModelRef(a.ref).provider);
+      return gate !== undefined && gate.stats().cooldownMs <= MAX_RATE_WAIT_MS;
+    });
   }
 
   async embed(opts: EmbedOptions): Promise<EmbedOutput> {

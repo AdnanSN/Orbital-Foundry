@@ -67,7 +67,9 @@ export function StoresPanel({ ctx }: { ctx: Ctx }) {
         <div>
           <div className="text-[16px] font-bold text-[#ff9f43]">Factory 1: Etsy POD</div>
           <div className="text-dim text-[11px]">
-            Sandbox: listing packages for your review. Nothing is published before Stage 7.
+            {publishing?.mode === "live"
+              ? "Live: a listing goes to Etsy through Printify only after your two approvals."
+              : "Dry run: listing packages for your review. Nothing is published."}
           </div>
         </div>
       }

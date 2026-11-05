@@ -703,3 +703,21 @@ the live vision list (this also settles D-012 for the live lane). Live vision ru
 3.1 (Apache-2.0) alone. Gemma 3 (commercial use allowed) would be the backup, but this Cloudflare
 account gets 403 for it. The text-only Llama 3.x models carry no such restriction and stay. If the
 owner is not in the EU, the two models can come back after a note here.
+
+## D-048: Fixes from the first production run (2026-11-05)
+
+Live traffic hit problems the sandbox never showed:
+
+- **Tokens a minute.** Groq's free plan allows 8,000 tokens a minute per model, and agent loops
+  ran into it ("try again in 1.5 s"). The router used to give up on the provider at once. Now, when
+  a round over the candidates fails and some provider was only rate-limited for 30 s or less, it
+  goes round again (twice at most); the provider's gate holds the call until the cooldown ends.
+  Longer cooldowns (daily caps) still fail at once. `gpt-oss-20b` also joins the live reasoning and
+  creative lists, since each Groq model has its own per-minute budget.
+- **Tool schemas.** Groq validates tool parameters against JSON Schema 2020-12, which has no array
+  form of `items`; `compose_image` used a draft-7 tuple (a two-colour gradient) and was refused.
+  Tool schemas now go through `portableSchema`, which turns tuples into one item schema (or an
+  `anyOf`) with the same length limits, valid in both drafts.
+- **Still open:** Cloudflare's Llama 3.3 answers 400 ("content is an array, not a string") from the
+  third step of an agent's tool loop, while single-turn calls pass the census. Cloudflare's daily
+  allocation was spent, so it couldn't be tested further; re-check after the 00:00 UTC reset.

@@ -6,6 +6,7 @@ import {
   ARTIFACT_REVIEWS,
   CREW_ROLES,
   crewLookSchema,
+  type Lane,
   ROLE_TEMPLATES,
   simStatusSchema,
 } from "@orbital/shared";
@@ -65,6 +66,8 @@ const pipelineSchema = z.object({
 export interface WorkApi {
   director: WorkDirector;
   store: WorkStore;
+  /** The lane every model call uses: "live" in production (D-046). */
+  lane?: Lane;
   /** The creative toolchain (Stage 5). */
   studio?: CreativeStudio;
   /** Factory 1, the Etsy POD studio (Stage 6). */
@@ -170,6 +173,7 @@ export async function buildApp(
       seq: snap.seq,
       crew: snap.type === "snapshot" ? snap.crew.length : 0,
       restored: sim.restored,
+      lane: work?.lane ?? "sandbox",
     };
   });
 

@@ -62,7 +62,36 @@ export function toolSpec(def: ToolDef<unknown>): ToolSpec {
     unknown
   >;
   delete schema.$schema;
-  return { name: def.name, description: def.description, parameters: schema };
+  return {
+    name: def.name,
+    description: def.description,
+    parameters: portableSchema(schema) as Record<string, unknown>,
+  };
+}
+
+/**
+ * A JSON Schema that draft-7 and draft 2020-12 validators both accept. Groq checks tools against
+ * 2020-12, which has no array form of `items`: a fixed-length tuple becomes one item schema (or an
+ * anyOf of them), keeping its minItems and maxItems.
+ */
+export function portableSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(portableSchema);
+  if (!schema || typeof schema !== "object") return schema;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
+    if (key === "additionalItems") continue;
+    const named = key === "properties" || key === "definitions" || key === "$defs";
+    out[key] =
+      named && value && typeof value === "object"
+        ? Object.fromEntries(Object.entries(value).map(([n, sub]) => [n, portableSchema(sub)]))
+        : portableSchema(value);
+  }
+  if (Array.isArray(out.items)) {
+    const items = out.items as unknown[];
+    const first = JSON.stringify(items[0]);
+    out.items = items.every((s) => JSON.stringify(s) === first) ? items[0] : { anyOf: items };
+  }
+  return out;
 }
 
 /**

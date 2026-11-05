@@ -134,7 +134,7 @@ export function Button({
 }
 
 const STATUS_BADGE: Record<LinkStatus, { label: string; color: string; title: string }> = {
-  online: { label: "LIVE", color: "#69e08a", title: "Connected to the station server" },
+  online: { label: "ONLINE", color: "#69e08a", title: "Connected to the station server" },
   connecting: { label: "CONNECTING", color: "#ffd166", title: "Connecting to the station server" },
   offline: {
     label: "OFFLINE",
@@ -156,6 +156,15 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
   const panel = useUi(ui, (s) => s.panel);
   const sim = world.sim;
   const badge = STATUS_BADGE[status];
+  // Production runs the live lane (D-046); the badge says which one this station is in.
+  const [lane, setLane] = useState<"live" | "sandbox">("sandbox");
+  useEffect(() => {
+    if (status !== "online") return;
+    link.commands
+      .lane()
+      .then(setLane)
+      .catch(() => {});
+  }, [link, status]);
   const run = (change: { paused?: boolean; speed?: number }) => {
     link.commands.setSim(change).catch((err: unknown) => ui.toast(String(err)));
   };
@@ -166,12 +175,21 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
           <div className="font-bold tracking-[0.2em] text-[14px] text-gold">ORBITAL FOUNDRY</div>
           <div className="text-dim text-[11px]">{stationTime(now)}</div>
         </div>
-        <span
-          className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-widest border border-cyan/40 text-cyan bg-cyan/10"
-          title="Sandbox lane: nothing here reaches customers or marketplaces"
-        >
-          SANDBOX
-        </span>
+        {lane === "live" ? (
+          <span
+            className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-widest border border-[#ff9f43]/60 text-[#ff9f43] bg-[#ff9f43]/10"
+            title="Production: the live lane. Real work for real customers; every external action waits for your approval."
+          >
+            PRODUCTION
+          </span>
+        ) : (
+          <span
+            className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-widest border border-cyan/40 text-cyan bg-cyan/10"
+            title="Sandbox lane: nothing here reaches customers or marketplaces"
+          >
+            SANDBOX
+          </span>
+        )}
         <span
           className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-widest border"
           style={{

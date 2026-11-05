@@ -271,6 +271,7 @@ const app = await buildApp(
     publisher,
     ledger,
     thumbs,
+    lane,
     artifactsDir: ARTIFACTS_DIR,
   },
   process.env.ORBITAL_TOKEN ? { token: process.env.ORBITAL_TOKEN } : {},

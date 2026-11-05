@@ -23,6 +23,7 @@ tiers:
     # 2026-11-05).
     live:
       - groq:openai/gpt-oss-120b # Apache-2.0
+      - groq:openai/gpt-oss-20b # its own 8K tokens/minute budget at Groq
       - cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast
 
   creative:
@@ -38,6 +39,7 @@ tiers:
       - nvidia:nvidia/nemotron-3.5-lightning-30b-a3b
     live:
       - groq:openai/gpt-oss-120b
+      - groq:openai/gpt-oss-20b
       - cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast
       - cloudflare:@cf/mistralai/mistral-small-3.1-24b-instruct
 
