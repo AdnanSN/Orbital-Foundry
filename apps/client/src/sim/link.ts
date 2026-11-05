@@ -66,6 +66,11 @@ export interface StationCommands {
   /** Factory 3, the Asset Forge (Stage 9). */
   packs(): Promise<PackInfo[]>;
   forgePack(req: { theme: string; size: number; count: number }): Promise<void>;
+  /** The Uplink's TikTok connection (Stage 17): drafts in the owner's TikTok inbox. */
+  tiktok(): Promise<TikTokInfo | null>;
+  tiktokConnect(returnTo: string): Promise<string>;
+  tiktokDisconnect(): Promise<void>;
+  tiktokUpload(file: File): Promise<TikTokUploadInfo>;
   /** The Vault (Stage 10). */
   vault(): Promise<VaultInfo>;
   simulateWeek(): Promise<{ sales: number; revenue: number }>;
@@ -103,6 +108,26 @@ export interface VaultInfo {
   usage: { provider: string; tier: string; calls: number; failures: number; shadowCost: number }[];
   shadowCost: number;
   experiments: { store: string; kind: string; change: string }[];
+}
+
+export interface TikTokUploadInfo {
+  id: string;
+  file: string;
+  bytes: number;
+  status: "uploading" | "processing" | "in_inbox" | "failed";
+  detail?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TikTokInfo {
+  configured: boolean;
+  connected: boolean;
+  account: { openId: string; displayName: string; avatarUrl: string } | null;
+  scopes: string[];
+  redirectUri: string;
+  killed: boolean;
+  uploads: TikTokUploadInfo[];
 }
 
 export interface PackInfo {
@@ -278,6 +303,10 @@ export class MockLink implements StationLink {
       zipUrl: () => "",
       packs: async () => [],
       forgePack: SERVER_ONLY,
+      tiktok: async () => null,
+      tiktokConnect: SERVER_ONLY,
+      tiktokDisconnect: SERVER_ONLY,
+      tiktokUpload: SERVER_ONLY,
       vault: SERVER_ONLY,
       simulateWeek: SERVER_ONLY,
       weeklyRetro: SERVER_ONLY,
@@ -413,6 +442,25 @@ export class SocketLink implements StationLink {
       zipUrl: (id) => withToken(`${this.base}/api/artifacts/${encodeURIComponent(id)}/zip`),
       packs: async () => (await json("/forge")) as PackInfo[],
       forgePack: (req) => post("/forge", req),
+      tiktok: async () => (await json("/uplink/tiktok")) as TikTokInfo,
+      tiktokConnect: async (returnTo) =>
+        ((await json("/uplink/tiktok/connect", { returnTo })) as { url: string }).url,
+      tiktokDisconnect: () => post("/uplink/tiktok/disconnect", {}),
+      tiktokUpload: async (file) => {
+        const res = await fetch(`${this.base}/api/uplink/tiktok/upload`, {
+          method: "POST",
+          headers: authHeaders({
+            "content-type": file.type || "application/octet-stream",
+            "x-file-name": encodeURIComponent(file.name),
+          }),
+          body: file,
+        });
+        const data = (await res.json().catch(() => null)) as
+          | (TikTokUploadInfo & { error?: string })
+          | null;
+        if (!res.ok || !data) throw new Error(data?.error ?? `Upload failed (${res.status})`);
+        return data;
+      },
       vault: async () => (await json("/vault")) as VaultInfo,
       simulateWeek: async () =>
         (await json("/vault/simulate", {})) as { sales: number; revenue: number },

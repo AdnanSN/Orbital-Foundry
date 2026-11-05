@@ -9,7 +9,7 @@ import { buildApp } from "./http/app";
 import { Achievements } from "./ops/achievements";
 import { loadOpsConfig, OpsService } from "./ops/ops";
 import { TelegramNotifier } from "./ops/telegram";
-import { ARTIFACTS_DIR } from "./paths";
+import { ARTIFACTS_DIR, DATA_DIR } from "./paths";
 import { checkCatalog, loadBusinesses, loadEtsyRules, loadProducts } from "./pod/config";
 import { PodFactory } from "./pod/factory";
 import { PrintifyClient } from "./printify/client";
@@ -18,6 +18,7 @@ import { SimServer } from "./sim/simServer";
 import { SimStore } from "./sim/store";
 import { createStation } from "./station";
 import { ThumbnailStudio } from "./thumbs/studio";
+import { TikTokConnector } from "./uplink/tiktok";
 import { Economy } from "./vault/economy";
 import { KpiService, loadVaultConfig } from "./vault/kpis";
 import { Ledger, Outbox } from "./vault/ledger";
@@ -250,6 +251,19 @@ if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
   telegram = notifier;
   console.log("[telegram] phone notifications on");
 }
+// Stage 17, built early: the Uplink's TikTok connection (drafts in the owner's inbox, D-051).
+const tiktok = new TikTokConnector({
+  ...(process.env.TIKTOK_CLIENT_KEY ? { clientKey: process.env.TIKTOK_CLIENT_KEY } : {}),
+  ...(process.env.TIKTOK_CLIENT_SECRET ? { clientSecret: process.env.TIKTOK_CLIENT_SECRET } : {}),
+  redirectUri:
+    process.env.TIKTOK_REDIRECT_URI ||
+    "https://adnansn.github.io/Orbital-Foundry/tiktok-callback.html",
+  stationPort: port,
+  dir: path.join(DATA_DIR, "uplink"),
+  secretsDir: path.join(DATA_DIR, "secrets"),
+  killed: () => publisher.killed(),
+  log: (m) => console.log(`[tiktok] ${m}`),
+});
 const opsTimer = setInterval(() => {
   void ops.tick().catch((err: unknown) => console.log(`[ops] backup failed: ${String(err)}`));
   void telegram?.morningSummary().catch(() => {});
@@ -261,6 +275,7 @@ const app = await buildApp(
     ops,
     achievements,
     telegram: telegram !== null,
+    tiktok,
     kpis,
     economy,
     forge,

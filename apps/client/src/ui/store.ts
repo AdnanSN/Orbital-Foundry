@@ -14,7 +14,17 @@ export interface UiState {
   zoom: number;
   hoverRoom: string | null;
   /** A side panel that replaces the inspector: the Recruitment Bay. */
-  panel: "hire" | "work" | "desk" | "gallery" | "stores" | "thumbs" | "forge" | "vault" | null;
+  panel:
+    | "hire"
+    | "work"
+    | "desk"
+    | "gallery"
+    | "stores"
+    | "thumbs"
+    | "forge"
+    | "vault"
+    | "uplink"
+    | null;
   /** The gallery's room filter ("" for every room). */
   galleryRoom: string;
   /** A deliverable open in the viewer. */

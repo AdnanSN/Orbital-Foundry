@@ -806,3 +806,27 @@ content" on 2025-07-15, with channel-level enforcement since January 2026. So th
 - labels realistic synthetic media on every platform and notes the AI narration in descriptions.
 
 TikTok's Creator Rewards pay only for videos over a minute, so some shorts get a 61 to 90 second cut.
+
+## D-054: TikTok's connection is built early, through the website (2026-11-05)
+
+**Context.** TikTok's app review needs a demo video of the real flow (sign-in, then each product
+and scope in use), and the review is the slowest item in Stage 12. Login Kit for Web accepts only
+static `https` redirect URIs, so it can't send the owner straight back to the station on this
+laptop.
+
+**Decision.**
+
+- The TikTok part of Stage 17 is built now: `TikTokConnector` (Login Kit for Web without PKCE, the
+  `state` check, token refresh five minutes before expiry, chunked `FILE_UPLOAD` to the inbox,
+  status polling) and an Uplink panel with Connect, the connected account, upload and status.
+- **The redirect goes through the website.** `site/tiktok-callback.html` (under the verified URL
+  prefix) forwards TikTok's query to `http://127.0.0.1:<port>/api/uplink/tiktok/callback`; the port
+  travels in `state` ("8787.<random>"). The code is useless without the client secret, which never
+  leaves the laptop. That one route skips `ORBITAL_TOKEN`; a single-use, 10-minute `state` guards
+  it, and the browser only ever returns to a localhost address.
+- Scopes: `user.info.basic` and `video.upload` only. Drafts land in the owner's inbox and are posted
+  by hand in TikTok; `video.publish` waits for the audit (D-051).
+- Tokens are kept in `data/secrets/tiktok.json` (git-ignored, outside the backed-up artifacts),
+  never logged, and revoked on Disconnect, as the privacy policy says.
+- Until Stage 17 routes posts through the Owner's Desk, an upload happens only when the owner
+  presses the button in the Uplink panel; the kill switch blocks it.

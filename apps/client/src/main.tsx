@@ -54,6 +54,17 @@ if (params.get("view") === "sprites") {
     link.start();
   }
   const ui = new UiStore();
+  // Back from TikTok's sign-in (?panel=uplink&tiktok=connected|denied): reopen the Uplink.
+  if (params.get("panel") === "uplink") {
+    ui.set({ panel: "uplink" });
+    const outcome = params.get("tiktok");
+    if (outcome === "connected") ui.toast("TikTok is connected.");
+    if (outcome === "denied") ui.toast("TikTok sign-in was cancelled.");
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete("panel");
+    clean.searchParams.delete("tiktok");
+    window.history.replaceState(null, "", clean);
+  }
   const zoom = Number(params.get("zoom") ?? 0);
   const initial = {
     ...(params.get("focus") ? { focus: params.get("focus") as string } : {}),

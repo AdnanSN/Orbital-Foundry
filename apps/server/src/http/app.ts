@@ -21,11 +21,13 @@ import type { PodFactory } from "../pod/factory";
 import type { PodPublisher } from "../printify/publisher";
 import type { SimServer } from "../sim/simServer";
 import { type ThumbnailStudio, thumbBriefSchema } from "../thumbs/studio";
+import type { TikTokConnector } from "../uplink/tiktok";
 import { type Economy, SimulationOffError } from "../vault/economy";
 import type { KpiService } from "../vault/kpis";
 import { LEDGER_KINDS, type Ledger } from "../vault/ledger";
 import type { WorkDirector } from "../work/director";
 import type { WorkStore } from "../work/store";
+import { registerUplinkRoutes, TIKTOK_CALLBACK_PATH } from "./uplink";
 
 const hireSchema = z.object({
   name: z.string().regex(/^[A-Za-z][A-Za-z0-9-]{0,7}$/, "Names are 1-8 letters, digits or dashes"),
@@ -87,6 +89,8 @@ export interface WorkApi {
   ops?: OpsService;
   achievements?: Achievements;
   telegram?: boolean;
+  /** The Uplink's TikTok connection (Stage 17, built early for TikTok's app review). */
+  tiktok?: TikTokConnector;
   /** Where deliverable ZIPs live (served by GET /api/artifacts/:id/zip). */
   artifactsDir?: string;
 }
@@ -146,7 +150,8 @@ export async function buildApp(
   if (token) {
     app.addHook("onRequest", async (req, reply) => {
       const url = new URL(req.url, "http://station.local");
-      if (url.pathname === "/api/health") return;
+      // TikTok's sign-in comes back through the website, without the token; `state` guards it.
+      if (url.pathname === "/api/health" || url.pathname === TIKTOK_CALLBACK_PATH) return;
       if (!url.pathname.startsWith("/api") && !url.pathname.startsWith("/ws")) return;
       const header = req.headers.authorization;
       const given = header?.startsWith("Bearer ") ? header.slice(7) : url.searchParams.get("token");
@@ -408,6 +413,7 @@ export async function buildApp(
         ? reply.code(201).send(meta)
         : reply.code(409).send({ error: "No Overseer aboard" });
     });
+    if (work.tiktok) registerUplinkRoutes(app, work.tiktok);
   }
 
   app.get("/ws", { websocket: true }, (socket) => {

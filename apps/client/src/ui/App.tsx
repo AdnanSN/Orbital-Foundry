@@ -16,6 +16,7 @@ import { StoresPanel } from "./StoresPanel";
 import { ambientTint, muted, play, setMuted } from "./sound";
 import { type UiStore, useUi } from "./store";
 import { ThumbsPanel } from "./ThumbsPanel";
+import { UplinkPanel } from "./UplinkPanel";
 import { VaultPanel } from "./VaultPanel";
 import { WorkPanel } from "./WorkPanel";
 
@@ -87,6 +88,7 @@ export function App({
       {panel === "thumbs" && <ThumbsPanel ctx={ctx} />}
       {panel === "forge" && <ForgePanel ctx={ctx} />}
       {panel === "vault" && <VaultPanel ctx={ctx} />}
+      {panel === "uplink" && <UplinkPanel ctx={ctx} />}
       {panel === null && selection?.kind === "agent" && (
         <AgentInspector key={selection.id} ctx={ctx} id={selection.id} />
       )}
@@ -249,6 +251,13 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
           active={panel === "vault"}
         >
           Vault
+        </Button>
+        <Button
+          title="Uplink: connect TikTok and send finished videos to your TikTok inbox"
+          onClick={() => ui.set({ panel: panel === "uplink" ? null : "uplink" })}
+          active={panel === "uplink"}
+        >
+          Uplink
         </Button>
         <Button
           title="Gallery: the studio's images, the one-click pipeline, approve or reject"

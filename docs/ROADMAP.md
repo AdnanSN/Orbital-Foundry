@@ -739,10 +739,12 @@ days. Keys go in `.env`; Stage 13 adds their names to `.env.example`.
 - [ ] **Instagram:** switch the account to a professional (Creator) account, and create a Meta
       developer app with the Instagram API (Instagram Login). In development mode it can post to
       accounts that have a role in the app, which covers yours.
-- [ ] **TikTok:** a TikTok for Developers app with Login Kit and the Content Posting API. It asks for a
+- [~] **TikTok:** a TikTok for Developers app with Login Kit and the Content Posting API. It asks for a
       website, a privacy policy and terms: those pages (plus a data-deletion page, which Meta also
       asks for) are in `site/`, published free by GitHub Pages through
-      `.github/workflows/pages.yml` once the branch is on `main`.
+      `.github/workflows/pages.yml` from `main`, with the URL prefix verified. (The app exists and
+      its sandbox keys are in `.env`; review waits for a demo video recorded with the Uplink panel,
+      D-054.)
 - [ ] **Optional:** a Modal account ($30 of free compute a month) for Stage 18, and a Freesound API
       key for sound effects.
 - [ ] **Your call:** a niche you already like, or let Scout propose three in Stage 15 (§11).
@@ -839,8 +841,10 @@ end, in the live lane only.
       (100 uploads and 10,000 units a day).
 - [ ] Instagram: Reels through the Instagram API (a resumable upload of the local file), the caption,
       the 100-posts-a-day cap and token refresh.
-- [ ] TikTok: upload to your inbox as a draft, with a phone notice to post it. Direct Post with
-      `is_aigc` switches on by config once the audit passes.
+- [~] TikTok: upload to your inbox as a draft, with a phone notice to post it. Direct Post with
+      `is_aigc` switches on by config once the audit passes. (Built early for TikTok's app review,
+      D-054: sign-in, token refresh and inbox uploads from the Uplink panel. The Owner's Desk flow
+      and the phone notice come with the rest of this stage.)
 - [ ] An upload kit (file, caption, hashtags, thumbnail) for any platform that isn't connected yet.
 
 **Done when:** a long-form and a short are scheduled on YouTube, the short is on Instagram and in your
@@ -1220,3 +1224,14 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
     renders the same kind of code-built animation here.
   - The plan: Stages 12 to 20 (§9). The Etsy, gig and asset businesses are parked, not deleted.
   - **Next:** Stage 12 (your accounts and keys) alongside Stage 13 (studio core).
+- **2026-11-05:** Stage 12 under way, TikTok first.
+  - The studio's website (`site/`: home, privacy policy, terms, data deletion) is live on GitHub
+    Pages, and TikTok verified its URL prefix with a signature file.
+  - TikTok's app review asks for a demo video of the real flow, so the TikTok part of Stage 17 was
+    built early (D-054): `src/uplink/tiktok.ts` (Login Kit sign-in, token refresh, chunked uploads
+    to the inbox as drafts, status polling), routes in `src/http/uplink.ts`, the website's
+    `tiktok-callback.html` that hands TikTok's sign-in back to the station, and the Uplink panel in
+    the client. 11 new tests (236 in all), checked in the browser up to TikTok's consent page.
+  - **Next (you):** register the redirect URI in Login Kit, add your account as a sandbox user,
+    connect, upload a test video, record the flow, and submit the app for review. Then the other
+    Stage 12 accounts.

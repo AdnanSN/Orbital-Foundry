@@ -51,6 +51,10 @@ tools, licences, free allowances and platform rules, with sources.
   - `src/thumbs/studio.ts`: Factory 2, the Thumbnail Studio (concepts, layout, readability, ZIP
     delivery, revisions, gig kit). `src/forge/forge.ts`: Factory 3, the Asset Forge (sheets, cutting
     out items, pack palette, review, package, butler dry run).
+  - `src/uplink/tiktok.ts`: the studio's TikTok connection (sign-in, token refresh, draft uploads to
+    the owner's inbox); routes in `src/http/uplink.ts`. Tokens live in `data/secrets/`.
+- `site/`: the studio's public website (privacy policy, terms, data deletion, TikTok's sign-in
+  callback page), published to GitHub Pages from `main` by `.github/workflows/pages.yml`.
 - `apps/client`: Vite + Phaser 4 + a React overlay (Tailwind).
   - `src/sim/`: the world model built from station events, the sim clock, and `StationLink`
     (the mock link now, a WebSocket link in Stage 3).
