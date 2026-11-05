@@ -1,0 +1,25 @@
+# The Vault (Stage 10): goals, which room each business belongs to, and shadow-cost assumptions.
+
+# A realistic first target: net profit per month across all businesses, in USD.
+monthlyGoal: 250
+
+# The joke meter on the Vault wall (log scale), in USD.
+jokeGoal: 1000000000000
+
+# Businesses and their rooms (KPIs and revenue attribution).
+businesses:
+  store-a: { name: "Store A: candles and mugs", room: factory-1 }
+  store-b: { name: "Store B: gifts", room: factory-1 }
+  store-c: { name: "Store C: wall art", room: factory-1 }
+  thumbs: { name: "Thumbnail Studio (Fiverr)", room: factory-2 }
+  forge: { name: "Asset Forge (itch.io)", room: factory-3 }
+
+# Shadow cost: what our free calls would roughly cost on paid APIs of a similar class.
+# These are assumptions for awareness, not quotes; edit them freely. USD per 1M tokens, per image.
+shadowPrices:
+  reasoning: { input: 1.0, output: 4.0 }
+  creative: { input: 0.3, output: 1.2 }
+  fast: { input: 0.1, output: 0.4 }
+  vision: { input: 0.4, output: 1.6 }
+  embed: { input: 0.02, output: 0 }
+  image: 0.004

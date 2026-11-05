@@ -23,7 +23,7 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 7 | Go live: Printify → Etsy | 1 session | 🟡 built, dry run; live needs your Printify token and Etsy shop |
 | 8 | Factory 2: Thumbnail studio | 1 session | ✅ done (Thumbs panel; Fiverr stays manual) |
 | 9 | Factory 3: Asset forge | 1 session | 🟡 built and tested; first real pack after the image budget resets |
-| 10 | Economy, KPIs, learning loop | 1 session | ☐ |
+| 10 | Economy, KPIs, learning loop | 1 session | ✅ done (Vault panel; real sales wait for Stage 7 live) |
 | 11 | Always-on ops & polish | 1 session | ☐ |
 
 Dependencies run in order through Stage 7. Stages 8 and 9 depend only on Stage 5 (and 4), not on
@@ -600,15 +600,15 @@ pushed to itch.io.
 
 **Goal:** the station learns what makes money.
 
-- [ ] Vault:
+- [x] Vault:
   - revenue sources: Printify/Etsy, itch.io, and Fiverr entered by hand;
   - fees and profit per business;
   - a realistic monthly goal beside the joke $1T meter (log scale).
-- [ ] KPIs per room and per agent:
+- [x] KPIs per room and per agent:
   - throughput, approval rate, QA pass rate;
   - calls used and shadow cost (what those calls would cost on paid APIs);
   - revenue attribution.
-- [ ] Overseer:
+- [x] Overseer:
   - a daily standup and a weekly retro that feed the strategy memory;
   - reallocating crew between rooms;
   - proposing experiments on titles, prices and niches.
@@ -864,3 +864,22 @@ your phone.
     used up by the Stage 6 and 8 runs (NVIDIA's image endpoint is down), so it waits for the
     00:00 UTC reset: open Forge and press "Forge a pack".
   - **Next:** Stage 10 (economy, KPIs, learning loop).
+- **2026-11-05:** Stage 10 built: the Vault and the weekly learning loop.
+  - `apps/server/src/vault/`: KPIs (money per business from the ledger, real and simulated kept
+    apart; tasks done, rework, QA pass and approval rates per room and crew member; model calls
+    and their shadow cost from `config/vault.yaml`), a repeatable week-of-sales simulator (flagged
+    as simulated), and WARDEN's weekly retro.
+  - The retro proposes listings per day per store, up to four experiments (price multipliers from
+    0.8 to 1.2, title and niche instructions) and up to two crew moves, clamped to safe bounds. It
+    goes to the Owner's Desk; accepting applies it (settings, experiments for 7 days, crew
+    reassigned) and saves the lessons to the strategy memory, which WARDEN's planning reads.
+    Experiments feed Factory 1's prices and prompts. The retro runs by itself on Sunday evenings
+    once there are real sales.
+  - Vault panel: the monthly goal beside the joke $1T meter (log scale), money per business (or
+    the simulated week), room and crew KPIs, model calls with shadow cost, experiments, the
+    simulate and retro buttons, and income entered by hand (Fiverr, itch.io).
+  - Fixed on the way: 122 early ambient tasks (from before the mock flag) were counted as real
+    work; a migration marks them.
+  - Real run: a simulated week (Store C 20 orders and $315 net, Store B 2 orders) went to WARDEN's retro on the reasoning model, which proposed 3 store changes, 4 experiments and 2 crew moves; the clamp dropped a contradictory second price test and a personalization niche the stores can't deliver. Accepting it at the Desk applied listings of 2, 0 and 3 a day, a ×1.1 price test on Store C, a title test on Store A and two crew moves. Because it came from simulated sales, the store settings and crew were put back afterwards (the two experiments expire in 7 days).
+  - 202 tests (8 new).
+  - **Next:** Stage 11 (always-on ops and polish).

@@ -15,6 +15,7 @@ import { StationLog } from "./StationLog";
 import { StoresPanel } from "./StoresPanel";
 import { type UiStore, useUi } from "./store";
 import { ThumbsPanel } from "./ThumbsPanel";
+import { VaultPanel } from "./VaultPanel";
 import { WorkPanel } from "./WorkPanel";
 
 export interface Ctx {
@@ -76,6 +77,7 @@ export function App({
       {panel === "stores" && <StoresPanel ctx={ctx} />}
       {panel === "thumbs" && <ThumbsPanel ctx={ctx} />}
       {panel === "forge" && <ForgePanel ctx={ctx} />}
+      {panel === "vault" && <VaultPanel ctx={ctx} />}
       {panel === null && selection?.kind === "agent" && (
         <AgentInspector key={selection.id} ctx={ctx} id={selection.id} />
       )}
@@ -213,6 +215,13 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
           active={panel === "forge"}
         >
           Forge
+        </Button>
+        <Button
+          title="Vault: money, KPIs, model usage and the weekly plan"
+          onClick={() => ui.set({ panel: panel === "vault" ? null : "vault" })}
+          active={panel === "vault"}
+        >
+          Vault
         </Button>
         <Button
           title="Gallery: the studio's images, the one-click pipeline, approve or reject"

@@ -256,6 +256,26 @@ describe("ThumbnailStudio", () => {
     expect(s.generated.length).toBe(before + 3);
   });
 
+  it("withdraws the previous version's Desk item when a revision lands", async () => {
+    const s = setup();
+    const job = await s.thumbs.make({ title: "Ten tiny habits" });
+    const v1 = job.versions[0];
+    if (!v1) throw new Error("no v1");
+    s.store.saveApproval({
+      ...(s.desk[0] as Approval),
+      id: "A-0101",
+      status: "pending",
+      createdAt: 0,
+      decidedAt: null,
+      note: null,
+    });
+    await s.thumbs.revise(job.id, "Make the hook on #2 shorter and red");
+    expect(s.store.approval("A-0101")).toMatchObject({
+      status: "rejected",
+      note: "Superseded by version 2.",
+    });
+  });
+
   it("cuts out the client's photo and uses it on every thumbnail", async () => {
     const s = setup();
     const photo = createCanvas(120, 160);

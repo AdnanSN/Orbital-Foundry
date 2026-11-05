@@ -15,6 +15,8 @@ import { SimServer } from "./sim/simServer";
 import { SimStore } from "./sim/store";
 import { createStation } from "./station";
 import { ThumbnailStudio } from "./thumbs/studio";
+import { Economy } from "./vault/economy";
+import { KpiService, loadVaultConfig } from "./vault/kpis";
 import { Ledger, Outbox } from "./vault/ledger";
 import { WorkDirector } from "./work/director";
 import { loadRoles } from "./work/roles";
@@ -160,7 +162,24 @@ const forge = new AssetForge({
       : null,
   log: (m) => console.log(`[forge] ${m}`),
 });
+// Stage 10: the Vault's numbers and the weekly learning loop.
+const kpis = new KpiService(station.db, work, ledger, loadVaultConfig());
+const economy = new Economy({
+  router: station.router,
+  store: work,
+  world: sim,
+  ledger,
+  kpis,
+  director,
+  pod,
+  lane: "sandbox",
+  log: (m) => console.log(`[vault] ${m}`),
+});
+pod.experiments = economy;
+const economyTimer = setInterval(() => economy.tick(), 60 * 60_000);
 const app = await buildApp(sim, {
+  kpis,
+  economy,
   forge,
   director,
   store: work,
@@ -187,6 +206,7 @@ async function shutdown(signal: string): Promise<void> {
   director?.stop();
   clearInterval(podTimer);
   clearInterval(syncTimer);
+  clearInterval(economyTimer);
   sim.stop();
   await app.close();
   station.close();

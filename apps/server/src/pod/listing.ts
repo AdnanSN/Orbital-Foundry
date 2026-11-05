@@ -180,12 +180,18 @@ export function etsyFees(price: number, rules: EtsyRules): number {
  * The lowest price ending in `ending` that keeps `targetMargin` of the price as profit after the
  * product cost, shipping and Etsy's fees, and is at least the store's minimum.
  */
-export function priceFor(product: Product, business: Business, rules: EtsyRules): PriceBreakdown {
+export function priceFor(
+  product: Product,
+  business: Business,
+  rules: EtsyRules,
+  /** A price experiment's multiplier (1 = none). */
+  factor = 1,
+): PriceBreakdown {
   const cost = product.baseCost + product.shipping;
   const pct = (rules.fees.transactionPct + rules.fees.processingPct) / 100;
   const fixed = rules.fees.listing + rules.fees.processingFixed;
   const raw = (cost + fixed) / (1 - pct - business.price.targetMargin);
-  let price = Math.max(raw, business.price.minPrice);
+  let price = Math.max(raw * factor, business.price.minPrice);
   const ending = business.price.ending;
   let rounded = Math.floor(price) + ending;
   if (rounded + 1e-9 < price) rounded += 1;

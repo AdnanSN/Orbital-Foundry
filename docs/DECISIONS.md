@@ -554,3 +554,21 @@ Real listing runs showed where the free tiers hurt, and each fix is data or a sm
   Uploading is `butler push <zip> <user>/<game>:<channel>` behind its own approval; without
   `BUTLER_PATH` and `ITCH_TARGET` it is a dry run that records the command. The kill switch
   blocks uploads too.
+
+## D-039: The Vault and the learning loop (2026-11-05)
+
+- **Real and simulated money never mix.** Every ledger entry is flagged; the Vault shows real
+  money by default and the simulated week only on request, labelled as not real. The monthly goal
+  and the $1T meter use real net profit only.
+- **KPIs** come from what the station already records: the tasks table (real work only), the
+  Owner's Desk decisions, image QA results and the `llm_calls` log. Shadow cost multiplies tokens
+  and images by assumed paid prices per tier in `config/vault.yaml` (assumptions, not quotes).
+- **The simulator** gives each listing a fixed appeal and each store a base demand from a seeded
+  generator, so a week is repeatable and stores really differ; conversion falls with price and
+  rises with the design's QA score. Fiverr gigs and itch.io packs get a few orders too.
+- **The retro proposes; the owner disposes.** WARDEN's plan is clamped (0 to 5 listings a day,
+  price multipliers 0.8 to 1.2, at most four experiments, at most two crew moves, never the
+  Overseer or the reviewer) and applied only when the owner accepts it at the Desk. Lessons go to
+  the strategy memory, marked when they come from simulated sales.
+- **Experiments** last seven days. Price experiments multiply Factory 1's computed price before
+  the cents ending; title and niche experiments add one instruction to the copy and Scout prompts.

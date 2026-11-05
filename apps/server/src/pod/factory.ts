@@ -227,6 +227,12 @@ export class PodFactory {
   /** Publishing (Stage 7), wired in after construction. */
   publisher: PodPublisher | null = null;
 
+  /** This week's experiments (Stage 10), wired in after construction. */
+  experiments: {
+    priceFactor(store: string): number;
+    hints(store: string): { title: string | null; niche: string | null };
+  } | null = null;
+
   /** Start a listing in the background; returns its task at once. */
   start(businessId: string, opts: { note?: string } = {}): Task {
     const business = this.business(businessId);
@@ -367,7 +373,12 @@ export class PodFactory {
       this.act(operator, "Writing the listing");
       const copy = await this.copy(business, concept, product);
       const description = fullDescription(copy, business, product, this.deps.rules);
-      const price = priceFor(product, business, this.deps.rules);
+      const price = priceFor(
+        product,
+        business,
+        this.deps.rules,
+        this.experiments?.priceFactor(business.id) ?? 1,
+      );
       step("listing", operator, `"${short(copy.title, 50)}" at $${price.price.toFixed(2)}`);
 
       // 6. Mockups (the real print file on the product).
@@ -498,6 +509,9 @@ export class PodFactory {
         "The design is an image without lettering. Keywords are phrases buyers type into Etsy search.",
         recent ? `Do not repeat these recent listings:\n${recent}` : "",
         note ? `The owner's feedback on the last attempt (follow it): ${note}` : "",
+        this.experiments?.hints(business.id).niche
+          ? `This week's niche experiment (follow it): ${this.experiments.hints(business.id).niche}`
+          : "",
         "Reply with the JSON object alone. Do not explain your reasoning or list alternatives.",
       ]
         .filter(Boolean)
@@ -597,6 +611,9 @@ export class PodFactory {
       "Description: two short paragraphs about the design and who it is for, then 3 to 5 bullet points.",
       "Never: brand, character or celebrity names; 'handmade'; health claims; promises about shipping times.",
       "Do not mention AI, the print partner or product specs; they are added automatically.",
+      this.experiments?.hints(business.id).title
+        ? `This week's title experiment (follow it): ${this.experiments.hints(business.id).title}`
+        : "",
     ].join("\n");
     const prompt = `Product: ${product.title}\nConcept: ${concept.concept}\nNiche: ${concept.niche}\nKeywords: ${concept.keywords.join(", ")}\nAudience: ${business.audience}`;
     const res = await this.deps.router.generate({

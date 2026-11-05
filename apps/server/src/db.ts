@@ -132,6 +132,8 @@ const MIGRATIONS: string[] = [
      UNIQUE (source, ref, kind)
    );
    CREATE INDEX idx_ledger_business ON ledger (business, at);`,
+  // Stage 10: ambient tasks from before the mock flag existed (ids T-…) are not real work.
+  "UPDATE tasks SET mock = 1 WHERE id LIKE 'T-%' AND mock = 0;",
 ];
 
 export function openDb(file: string = DB_PATH): Database.Database {

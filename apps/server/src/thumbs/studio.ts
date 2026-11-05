@@ -351,6 +351,7 @@ export class ThumbnailStudio {
       job.deliveredAt = new Date().toISOString();
       this.task(job, "done", undefined, version.deliveryId);
       this.save(job);
+      this.withdraw(job, version.version);
       return version;
     } finally {
       this.running.delete(jobId);
@@ -756,6 +757,24 @@ export class ThumbnailStudio {
       s.publish({ type: "artifact.created", t: s.now, artifact: meta }),
     );
     return meta;
+  }
+
+  /** Earlier versions still waiting at the Owner's Desk are superseded by a revision. */
+  private withdraw(job: ThumbJob, latest: number): void {
+    const old = new Set(job.versions.filter((v) => v.version < latest).map((v) => v.deliveryId));
+    for (const a of this.deps.store.approvals("pending")) {
+      if (!a.artifactId || !old.has(a.artifactId)) continue;
+      const withdrawn = {
+        ...a,
+        status: "rejected" as const,
+        decidedAt: this.deps.world.sim.now,
+        note: `Superseded by version ${latest}.`,
+      };
+      this.deps.store.saveApproval(withdrawn);
+      this.deps.world.mutate((s) =>
+        s.publish({ type: "approval.updated", t: s.now, approval: withdrawn }),
+      );
+    }
   }
 
   // -- Helpers -------------------------------------------------------------------------------------------

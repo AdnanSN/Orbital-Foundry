@@ -39,7 +39,8 @@ An always-on pixel-art space station where AI agents run small online businesses
   - `src/pod/`: Factory 1, the Etsy POD pipeline (`factory.ts`), listing rules and pricing
     (`listing.ts`), code-drawn mockups (`mockups.ts`) and its config loader.
   - `src/printify/`: the Printify client (dry run or live) and the publisher (guards, outbox, order
-    sync). `src/vault/ledger.ts`: the ledger and the outbox for idempotent external writes.
+    sync). `src/vault/`: the ledger and outbox (`ledger.ts`), KPIs and shadow cost (`kpis.ts`), the
+    sales simulator and weekly retro (`economy.ts`).
   - `src/thumbs/studio.ts`: Factory 2, the Thumbnail Studio (concepts, layout, readability, ZIP
     delivery, revisions, gig kit). `src/forge/forge.ts`: Factory 3, the Asset Forge (sheets, cutting
     out items, pack palette, review, package, butler dry run).

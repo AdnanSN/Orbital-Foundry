@@ -64,6 +64,30 @@ export interface StationCommands {
   /** Factory 3, the Asset Forge (Stage 9). */
   packs(): Promise<PackInfo[]>;
   forgePack(req: { theme: string; size: number; count: number }): Promise<void>;
+  /** The Vault (Stage 10). */
+  vault(): Promise<VaultInfo>;
+  simulateWeek(): Promise<{ sales: number; revenue: number }>;
+  weeklyRetro(simulated: boolean): Promise<void>;
+  addEntry(e: { business: string; kind: string; amount: number; note?: string }): Promise<void>;
+}
+
+export interface VaultInfo {
+  real: { id: string; name: string; orders: number; sales: number; net: number }[];
+  simulated: { id: string; name: string; orders: number; sales: number; net: number }[];
+  month: { net: number; goal: number; progress: number };
+  joke: { goal: number; logProgress: number };
+  rooms: {
+    room: string;
+    done: number;
+    failed: number;
+    reworkRate: number;
+    qaPassRate: number | null;
+    approvalRate: number | null;
+  }[];
+  crew: { id: string; done: number; failed: number; reworks: number }[];
+  usage: { provider: string; tier: string; calls: number; failures: number; shadowCost: number }[];
+  shadowCost: number;
+  experiments: { store: string; kind: string; change: string }[];
 }
 
 export interface PackInfo {
@@ -206,6 +230,10 @@ export class MockLink implements StationLink {
       zipUrl: () => "",
       packs: async () => [],
       forgePack: SERVER_ONLY,
+      vault: SERVER_ONLY,
+      simulateWeek: SERVER_ONLY,
+      weeklyRetro: SERVER_ONLY,
+      addEntry: SERVER_ONLY,
     };
   }
 
@@ -327,6 +355,13 @@ export class SocketLink implements StationLink {
       zipUrl: (id) => `${this.base}/api/artifacts/${encodeURIComponent(id)}/zip`,
       packs: async () => (await json("/forge")) as PackInfo[],
       forgePack: (req) => post("/forge", req),
+      vault: async () => (await json("/vault")) as VaultInfo,
+      simulateWeek: async () =>
+        (await json("/vault/simulate", {})) as { sales: number; revenue: number },
+      weeklyRetro: async (simulated) => {
+        await json("/vault/retro", { simulated });
+      },
+      addEntry: (e) => post("/vault/entries", e),
     };
   }
 

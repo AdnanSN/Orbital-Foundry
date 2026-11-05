@@ -17,7 +17,9 @@ import type { PodFactory } from "../pod/factory";
 import type { PodPublisher } from "../printify/publisher";
 import type { SimServer } from "../sim/simServer";
 import { type ThumbnailStudio, thumbBriefSchema } from "../thumbs/studio";
-import type { Ledger } from "../vault/ledger";
+import type { Economy } from "../vault/economy";
+import type { KpiService } from "../vault/kpis";
+import { LEDGER_KINDS, type Ledger } from "../vault/ledger";
 import type { WorkDirector } from "../work/director";
 import type { WorkStore } from "../work/store";
 
@@ -72,11 +74,20 @@ export interface WorkApi {
   thumbs?: ThumbnailStudio;
   /** Factory 3, the Asset Forge (Stage 9). */
   forge?: AssetForge;
+  /** The Vault's numbers and the learning loop (Stage 10). */
+  kpis?: KpiService;
+  economy?: Economy;
   /** Where deliverable ZIPs live (served by GET /api/artifacts/:id/zip). */
   artifactsDir?: string;
 }
 
 const reviseSchema = z.object({ note: z.string().trim().min(3).max(1_000) });
+const entrySchema = z.object({
+  business: z.string().min(1).max(40),
+  kind: z.enum(LEDGER_KINDS),
+  amount: z.coerce.number().min(-100_000).max(100_000),
+  note: z.string().trim().max(300).optional(),
+});
 
 const killSchema = z.object({ on: z.boolean() });
 const ledgerQuerySchema = z.object({
@@ -279,6 +290,39 @@ export async function buildApp(sim: SimServer, work?: WorkApi): Promise<FastifyI
       app.post("/api/forge", async (req, reply) =>
         reply.code(202).send(forge.start(packRequestSchema.parse(req.body ?? {}))),
       );
+    }
+    const { kpis, economy } = work;
+    if (kpis && economy && work.ledger) {
+      const ledger = work.ledger;
+      app.get("/api/vault", async () => ({
+        ...kpis.snapshot({ simNow: sim.sim.now }),
+        experiments: economy.experiments(),
+        lastRetro: JSON.parse(work.store.getKv("economy.lastRetro") ?? "null") as unknown,
+      }));
+      app.post("/api/vault/entries", async (req, reply) => {
+        const body = entrySchema.parse(req.body ?? {});
+        const signed = body.kind === "sale" ? Math.abs(body.amount) : -Math.abs(body.amount);
+        const added = ledger.add({
+          business: body.business,
+          source: "manual",
+          kind: body.kind,
+          amount: body.kind === "adjustment" ? body.amount : signed,
+          ref: `manual:${Date.now()}`,
+          note: body.note ?? "Entered by hand",
+        });
+        return reply.code(added ? 201 : 409).send({ added });
+      });
+      app.post("/api/vault/simulate", async (req) => {
+        const seed = z
+          .object({ seed: z.coerce.number().int().optional() })
+          .parse(req.body ?? {}).seed;
+        return economy.simulateWeek(seed ?? Date.now() % 100_000);
+      });
+      app.post("/api/vault/retro", async (req, reply) => {
+        const body = z.object({ simulated: z.boolean().optional() }).parse(req.body ?? {});
+        const { plan, artifact } = await economy.retro(body.simulated ? { simulated: true } : {});
+        return reply.code(201).send({ plan, artifact });
+      });
     }
     const zipRoot = work.artifactsDir ? path.resolve(work.artifactsDir) : null;
     app.get<{ Params: { id: string } }>("/api/artifacts/:id/zip", async (req, reply) => {
