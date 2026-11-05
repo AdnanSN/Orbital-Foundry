@@ -7,6 +7,7 @@ export * from "./geometry";
 export * from "./layout";
 export * from "./map";
 export * from "./pathfinding";
+export * from "./roles";
 
 let cached: StationMap | undefined;
 

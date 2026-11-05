@@ -64,9 +64,7 @@ describe("crew sprites", () => {
 
 describe("pixel font", () => {
   it("covers every character the mock crew says", async () => {
-    const { ROLE_LINES, WARDEN_LINES, CREW_REPLIES, LENS_LINES } = await import(
-      "../src/mock/lines"
-    );
+    const { ROLE_LINES, WARDEN_LINES, CREW_REPLIES, LENS_LINES } = await import("@orbital/shared");
     const all = [
       ...Object.values(ROLE_LINES).flatMap((r) => [...r.work, ...r.tasks, ...r.subjects]),
       ...Object.values(WARDEN_LINES).flat(),

@@ -170,6 +170,11 @@ export class AgentView {
     this.bubbleText = null;
   }
 
+  destroy(): void {
+    this.dropBubble();
+    for (const o of [this.sprite, this.shadow, this.ring, this.tag, this.icon]) o.destroy();
+  }
+
   /** The bubble's box in world space, for keeping bubbles from overlapping. */
   bubbleBox(): { x: number; y: number; w: number; h: number } | null {
     if (!this.bubble) return null;

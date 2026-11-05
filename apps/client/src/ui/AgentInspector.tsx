@@ -1,4 +1,3 @@
-import { crewMember } from "@orbital/shared";
 import type { Ctx } from "./App";
 import { ACTIVITY_COLOR, ACTIVITY_LABEL, ago, STATUS_COLOR, STATUS_LABEL } from "./format";
 import { Panel, Section, Stat } from "./Panel";
@@ -9,9 +8,12 @@ import { useUi } from "./store";
 export function AgentInspector({ ctx, id }: { ctx: Ctx; id: string }) {
   const { world, ui, now } = ctx;
   const follow = useUi(ui, (s) => s.follow);
-  const crew = crewMember(id);
+  const crew = world.crew.get(id);
   const agent = world.agents.get(id);
-  if (!agent) return null;
+  if (!agent || !crew) return null;
+  const workRooms = [...new Set(world.map.anchorsFor("work").map((a) => a.room))].filter(
+    (r) => r !== "bridge",
+  );
   const s = agent.state;
   const room = world.map.roomAt(s.tile.x, s.tile.y);
   const home = world.map.room(crew.room);
@@ -33,7 +35,7 @@ export function AgentInspector({ ctx, id }: { ctx: Ctx; id: string }) {
           <div className="min-w-0">
             <div
               className="text-[16px] font-bold"
-              style={{ color: id === "warden" ? "#ffd166" : undefined }}
+              style={{ color: crew.role === "overseer" ? "#ffd166" : undefined }}
             >
               {crew.name}
             </div>
@@ -137,6 +139,27 @@ export function AgentInspector({ ctx, id }: { ctx: Ctx; id: string }) {
           </ul>
         )}
       </Section>
+
+      {crew.role !== "overseer" && (
+        <Section title="Room">
+          <select
+            value={crew.room}
+            aria-label="Reassign to room"
+            onChange={(e) =>
+              ctx.link.commands
+                .reassign(id, e.target.value)
+                .catch((err: unknown) => ui.toast(err instanceof Error ? err.message : String(err)))
+            }
+            className="w-full bg-black/30 border border-white/15 rounded px-2 py-1 text-ink"
+          >
+            {workRooms.map((r) => (
+              <option key={r} value={r}>
+                {world.map.room(r).name}
+              </option>
+            ))}
+          </select>
+        </Section>
+      )}
 
       <div className="flex gap-1.5 pt-1">
         <button

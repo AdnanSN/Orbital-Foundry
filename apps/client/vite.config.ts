@@ -6,7 +6,15 @@ import { defineConfig } from "vite";
 // station server over WebSocket. Keep provider keys and server code out of it.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  server: { port: 5173, strictPort: true },
+  server: {
+    port: 5173,
+    strictPort: true,
+    // The station server (npm run server) serves the API and the event stream.
+    proxy: {
+      "/api": "http://127.0.0.1:8787",
+      "/ws": { target: "ws://127.0.0.1:8787", ws: true },
+    },
+  },
   preview: { port: 4173, strictPort: true },
   build: {
     target: "es2023",

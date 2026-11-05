@@ -78,11 +78,7 @@ export function addStrip(scene: Phaser.Scene, key: string, fx: FxStrip, frameRat
   }
 }
 
-export function buildTextures(
-  scene: Phaser.Scene,
-  map: StationMap,
-  crew: readonly CrewMember[],
-): void {
+export function buildTextures(scene: Phaser.Scene, map: StationMap): void {
   const station = canvasTexture(
     scene,
     STATION_TEXTURE,
@@ -98,12 +94,13 @@ export function buildTextures(
     tex.refresh();
   });
 
-  for (const c of crew) buildCrew(scene, c);
   buildIcons(scene);
   buildFx(scene, map);
 }
 
-function buildCrew(scene: Phaser.Scene, c: CrewMember): void {
+/** Sprite sheet, animations and name tag for one crew member. Safe to call again. */
+export function buildCrew(scene: Phaser.Scene, c: CrewMember): void {
+  if (scene.textures.exists(crewTexture(c.id))) return;
   const specs = frameSpecs();
   const key = crewTexture(c.id);
   const tex = canvasTexture(scene, key, specs.length * SPRITE_SIZE, SPRITE_SIZE);
@@ -171,7 +168,7 @@ function buildCrew(scene: Phaser.Scene, c: CrewMember): void {
   const pen = new Pen(tag.context);
   pen.pill(0, 0, w, 9, "rgba(14, 12, 28, 0.82)", "rgba(14, 12, 28, 0.82)");
   pen.hline(2, 8, w - 4, withAlpha(c.look.accent, 0.9));
-  pen.text(3, 2, name, c.id === "warden" ? "#ffe066" : "#f4f1ff");
+  pen.text(3, 2, name, c.role === "overseer" ? "#ffe066" : "#f4f1ff");
   tag.refresh();
 }
 

@@ -4,12 +4,13 @@ import {
   type Anchor,
   type CarryItem,
   type CrewMember,
+  type CrewRole,
   type Direction,
   directionTowards,
   findPath,
-  OVERSEER_ID,
   type ProviderState,
   pathDurationMs,
+  type SimStatus,
   type StationEvent,
   type StationMap,
   sameTile,
@@ -17,21 +18,26 @@ import {
   type TaskStatus,
   type Tile,
   type UnsequencedEvent,
-} from "@orbital/shared";
-import { CREW_REPLIES, fill, LENS_LINES, ROLE_LINES, type RoleLines, WARDEN_LINES } from "./lines";
+} from "../station";
+import { CREW_REPLIES, fill, LENS_LINES, linesFor, type RoleLines, WARDEN_LINES } from "./lines";
 import { Rng } from "./rng";
 
 /**
- * The Stage 2 mock director: a stand-in for the Stage 3 sim engine. It owns the logical state of
- * the crew and emits the same station events the server will send (packages/shared events.ts):
- * work at a console, deliveries to the QA Bay, café breaks for rate limits, and WARDEN patrolling
- * and nudging idle crew. It is deterministic for a given seed, has no browser dependencies, and
- * makes no model or API calls.
+ * The station's sim engine. It owns the logical state of the crew (where each one stands, what
+ * they are doing, their tasks) and emits station events (packages/shared events.ts).
+ *
+ * Crew on autopilot run mock behaviours: work at a console, carry deliverables to the QA Bay,
+ * take café breaks for rate limits, and WARDEN patrols and nudges idle crew. From Stage 4 the
+ * agent runtime takes control of a crew member and drives it with commands instead.
+ *
+ * It is deterministic for a seed, independent of frame rate, has no browser or Node
+ * dependencies, and makes no model or API calls. The server runs it (Stage 3); the client can
+ * run it offline (`?mock=1`).
  */
 
 export const MOCK_PROVIDERS = ["nvidia", "cloudflare", "groq"] as const;
 
-export interface DirectorTiming {
+export interface SimTiming {
   /** How long one work session at a station lasts; a task takes two or three. */
   workMs: readonly [number, number];
   /** WARDEN nudges crew who have been idle this long. */
@@ -49,7 +55,7 @@ export interface DirectorTiming {
   outageMs: readonly [number, number];
 }
 
-export const DEFAULT_TIMING: DirectorTiming = {
+export const DEFAULT_TIMING: SimTiming = {
   workMs: [7_000, 12_000],
   nudgeAfterMs: 6_000,
   idleMaxMs: 40_000,
@@ -60,12 +66,59 @@ export const DEFAULT_TIMING: DirectorTiming = {
   outageMs: [14_000, 22_000],
 };
 
-export interface DirectorOptions {
+export interface SimOptions {
   seed?: number;
   /** Simulation start time (ms). */
   start?: number;
   providers?: readonly string[];
-  timing?: Partial<DirectorTiming>;
+  timing?: Partial<SimTiming>;
+  /**
+   * Invent rate limits and outages (the default). Turn off once real provider status drives the
+   * Server Room and café breaks (Stage 4).
+   */
+  mockProviders?: boolean;
+  /** On restore: never reuse sequence numbers already in the event log. */
+  minSeq?: number;
+}
+
+/** What the agent runtime can tell a controlled crew member to do. */
+export type SimCommand =
+  /** Go to a workstation (or a given anchor) and keep working there. */
+  | { kind: "work"; status: string; taskId?: string | null; anchor?: string }
+  /** Carry something to the QA Bay, the Bridge or the Owner's Desk, and wait there. */
+  | {
+      kind: "deliver";
+      to: "qa" | "bridge" | "desk";
+      item: CarryItem;
+      status: string;
+      taskId?: string | null;
+    }
+  /** A café break (rate limit or back-off) until `until`, then wait at the table. */
+  | { kind: "break"; status: string; until: number }
+  /** Stand somewhere free in the home room. */
+  | { kind: "idle"; status?: string | null }
+  /** Walk to a room and stand there. */
+  | { kind: "go"; room: string; status?: string | null };
+
+/** Everything needed to resume the station after a restart. */
+export interface SimSave {
+  version: 1;
+  t: number;
+  seq: number;
+  taskCount: number;
+  rng: number;
+  nextRateLimit: number;
+  nextOutage: number;
+  recoveries: { at: number; provider: string }[];
+  sim: SimStatus;
+  crew: CrewMember[];
+  agents: AgentState[];
+  tasks: Task[];
+  providers: ProviderState[];
+  intake: string[];
+  actorTasks: Record<string, string | null>;
+  rework: Record<string, string[]>;
+  controlled: string[];
 }
 
 interface ActFields {
@@ -100,37 +153,46 @@ interface Actor {
   nudgedBy: string | null;
   /** When the actor settled into being idle (after walking to its idle spot). */
   idleSince: number | null;
+  /** Driven by the agent runtime instead of the mock behaviours. */
+  controlled: boolean;
   completed: number;
-  /** WARDEN only: recently visited patrol anchors. */
+  /** Overseers only: recently visited patrol anchors. */
   visited: string[];
   rounds: number;
 }
 
 type Delivery = "qa" | "bridge" | "ledger";
 
-const DELIVERY_BY_ROOM: Record<string, Delivery> = {
-  "factory-1": "qa",
-  "factory-2": "qa",
-  "factory-3": "qa",
-  research: "bridge",
-  vault: "ledger",
+const DELIVERY_BY_ROLE: Partial<Record<CrewRole, Delivery>> = {
+  operator: "qa",
+  thumbnailer: "qa",
+  forger: "qa",
+  researcher: "bridge",
+  bookkeeper: "ledger",
 };
 
-const REVIEWER_ROOM = "qa-bay";
+const REVIEW_ROOM = "qa-bay";
+const BRIDGE = "bridge";
+const DESK_ROOM = "owners-desk";
 const BUBBLE_MS = 3_200;
 const MAX_REWORKS = 2;
+/** Finished tasks kept in memory; the server keeps the full history. */
+const FINISHED_KEPT = 300;
 
-export class MockDirector {
+export class StationSim {
   private readonly rng: Rng;
-  private readonly timing: DirectorTiming;
+  private readonly timing: SimTiming;
+  private readonly mockProviders: boolean;
   private readonly actors: Actor[] = [];
   private readonly byId = new Map<string, Actor>();
   private readonly tasks = new Map<string, Task>();
+  private readonly finished: string[] = [];
   private readonly providers = new Map<string, ProviderState>();
   private readonly reserved = new Map<string, string>();
   /** Task ids waiting on the QA intake table, oldest first. */
   private readonly intake: string[] = [];
-  private readonly recoveries: { at: number; provider: string }[] = [];
+  private recoveries: { at: number; provider: string }[] = [];
+  private status: SimStatus = { paused: false, speed: 1 };
   private t: number;
   private seq = 0;
   private taskCount = 0;
@@ -141,52 +203,99 @@ export class MockDirector {
   constructor(
     private readonly map: StationMap,
     crew: readonly CrewMember[],
-    options: DirectorOptions = {},
+    options: SimOptions = {},
   ) {
     this.rng = new Rng(options.seed ?? 1);
     this.timing = { ...DEFAULT_TIMING, ...options.timing };
+    this.mockProviders = options.mockProviders ?? true;
     this.t = options.start ?? 0;
     for (const p of options.providers ?? MOCK_PROVIDERS) {
       this.providers.set(p, { provider: p, state: "ok", until: null, note: null });
     }
-    crew.forEach((c) => {
+    for (const c of crew) {
       const home = map.anchor(c.workstations[0] as string);
-      const actor: Actor = {
-        crew: c,
-        state: {
-          id: c.id,
-          tile: { x: home.x, y: home.y },
-          facing: home.facing,
-          activity: "idle",
-          carrying: null,
-          anchor: home.id,
-          taskId: null,
-          status: null,
-          since: this.t,
-        },
-        plan: [],
-        // Stagger the first moves so the crew does not start in lockstep.
-        busyUntil: this.t + this.rng.range(200, 3_000),
-        moveEnd: this.t,
-        held: home.id,
-        task: null,
-        rework: [],
-        nudgedBy: null,
-        idleSince: null,
-        completed: 0,
-        visited: [],
-        rounds: 0,
-      };
-      this.reserved.set(home.id, c.id);
-      this.actors.push(actor);
-      this.byId.set(c.id, actor);
-    });
+      const actor = this.makeActor(c, {
+        id: c.id,
+        tile: { x: home.x, y: home.y },
+        facing: home.facing,
+        activity: "idle",
+        carrying: null,
+        anchor: home.id,
+        taskId: null,
+        status: null,
+        since: this.t,
+      });
+      // Stagger the first moves so the crew does not start in lockstep.
+      actor.busyUntil = this.t + this.rng.range(200, 3_000);
+      this.hold(actor, home.id);
+    }
     this.nextRateLimit = this.t + this.rng.range(...this.timing.rateLimitEveryMs) * 0.5;
     this.nextOutage = this.t + this.rng.range(...this.timing.outageEveryMs);
   }
 
+  /** Rebuild a sim from a save. State resumes exactly; plans start fresh. */
+  static restore(map: StationMap, save: SimSave, options: SimOptions = {}): StationSim {
+    const sim = new StationSim(map, [], { ...options, start: save.t });
+    sim.seq = save.seq;
+    sim.taskCount = save.taskCount;
+    sim.rng.state = save.rng;
+    sim.nextRateLimit = save.nextRateLimit;
+    sim.nextOutage = save.nextOutage;
+    sim.recoveries = [...save.recoveries];
+    sim.status = { ...save.sim };
+    sim.providers.clear();
+    for (const p of save.providers) sim.providers.set(p.provider, { ...p });
+    for (const task of save.tasks) {
+      sim.tasks.set(task.id, { ...task });
+      if (task.status === "done" || task.status === "failed") sim.finished.push(task.id);
+    }
+    sim.intake.push(...save.intake.filter((id) => sim.tasks.has(id)));
+    const states = new Map(save.agents.map((a) => [a.id, a]));
+    for (const c of save.crew) {
+      const saved = states.get(c.id);
+      const home = map.anchor(c.workstations[0] as string);
+      const state: AgentState = saved
+        ? { ...saved, tile: { ...saved.tile } }
+        : {
+            id: c.id,
+            tile: { x: home.x, y: home.y },
+            facing: home.facing,
+            activity: "idle",
+            carrying: null,
+            anchor: home.id,
+            taskId: null,
+            status: null,
+            since: save.t,
+          };
+      const actor = sim.makeActor(c, state);
+      actor.busyUntil = save.t + sim.rng.range(200, 1_500);
+      actor.controlled = save.controlled.includes(c.id);
+      const taskId = save.actorTasks[c.id];
+      actor.task = taskId ? (sim.tasks.get(taskId) ?? null) : null;
+      actor.rework = (save.rework[c.id] ?? [])
+        .map((id) => sim.tasks.get(id))
+        .filter((t): t is Task => t !== undefined);
+      const anchor = state.anchor && map.hasAnchor(state.anchor) ? map.anchor(state.anchor) : null;
+      if (anchor && sameTile(anchor, state.tile)) sim.hold(actor, anchor.id);
+    }
+    sim.seq = Math.max(sim.seq, options.minSeq ?? 0);
+    return sim;
+  }
+
   get now(): number {
     return this.t;
+  }
+
+  get lastSeq(): number {
+    return this.seq;
+  }
+
+  get simStatus(): SimStatus {
+    return { ...this.status };
+  }
+
+  get crew(): CrewMember[] {
+    return this.actors.map((a) => a.crew);
   }
 
   /** The full current state, as a server sends it to a client that has just connected. */
@@ -195,15 +304,39 @@ export class MockDirector {
       seq: this.seq,
       t: this.t,
       type: "snapshot",
+      crew: this.actors.map((a) => structuredClone(a.crew)),
       agents: this.actors.map((a) => ({ ...a.state, tile: { ...a.state.tile } })),
       tasks: [...this.tasks.values()].map((t) => ({ ...t })),
       providers: [...this.providers.values()].map((p) => ({ ...p })),
+      sim: { ...this.status },
+    };
+  }
+
+  /** Everything needed to resume after a restart. */
+  save(): SimSave {
+    return {
+      version: 1,
+      t: this.t,
+      seq: this.seq,
+      taskCount: this.taskCount,
+      rng: this.rng.state,
+      nextRateLimit: this.nextRateLimit,
+      nextOutage: this.nextOutage,
+      recoveries: this.recoveries.map((r) => ({ ...r })),
+      sim: { ...this.status },
+      crew: this.actors.map((a) => structuredClone(a.crew)),
+      agents: this.actors.map((a) => ({ ...a.state, tile: { ...a.state.tile } })),
+      tasks: [...this.tasks.values()].map((t) => ({ ...t })),
+      providers: [...this.providers.values()].map((p) => ({ ...p })),
+      intake: [...this.intake],
+      actorTasks: Object.fromEntries(this.actors.map((a) => [a.crew.id, a.task?.id ?? null])),
+      rework: Object.fromEntries(this.actors.map((a) => [a.crew.id, a.rework.map((t) => t.id)])),
+      controlled: this.actors.filter((a) => a.controlled).map((a) => a.crew.id),
     };
   }
 
   /** Runs the simulation up to `target` and returns the events it produced, in time order. */
   advanceTo(target: number): StationEvent[] {
-    this.out = [];
     for (let guard = 0; guard < 100_000; guard++) {
       const next = this.nextDue();
       if (!next || next.at > target) break;
@@ -211,10 +344,191 @@ export class MockDirector {
       next.run();
     }
     this.t = Math.max(this.t, target);
-    return this.out;
+    return this.drain();
+  }
+
+  /** Pending events, including those from commands (hire, reassign...) since the last call. */
+  drain(): StationEvent[] {
+    const events = this.out;
+    this.out = [];
+    return events;
+  }
+
+  // -- Station commands (REST in Stage 3) ----------------------------------------------------
+
+  /** Records a pause or speed change so clients' clocks follow. */
+  setSimStatus(status: SimStatus): void {
+    this.status = { ...status };
+    this.emit({ type: "sim.status", t: this.t, status: { ...status } });
+  }
+
+  /** Rooms a crew member can work in: rooms with at least one workstation. */
+  workRooms(): string[] {
+    return [...new Set(this.map.anchorsFor("work").map((a) => a.room))];
+  }
+
+  /**
+   * Hire a crew member. They arrive through the airlock and walk to their room. Workstations
+   * left empty are filled with the room's work anchors.
+   */
+  hire(member: CrewMember): AgentState {
+    if (this.byId.has(member.id)) throw new Error(`Crew member "${member.id}" already exists`);
+    const crew: CrewMember = {
+      ...structuredClone(member),
+      workstations:
+        member.workstations.length > 0 ? [...member.workstations] : this.stationsFor(member.room),
+    };
+    if (crew.workstations.length === 0) {
+      throw new Error(`Room "${member.room}" has no workstations`);
+    }
+    const spawnAnchor = this.map.anchorsFor("spawn")[0];
+    const taken = this.occupied(null);
+    let spawn: Tile = spawnAnchor ?? this.map.anchor(crew.workstations[0] as string);
+    if (taken.has(`${spawn.x},${spawn.y}`)) {
+      const room = spawnAnchor ? spawnAnchor.room : crew.room;
+      spawn = this.looseSpotIn(room, taken) ?? spawn;
+    }
+    const actor = this.makeActor(crew, {
+      id: crew.id,
+      tile: { x: spawn.x, y: spawn.y },
+      facing: spawnAnchor?.facing ?? "down",
+      activity: "idle",
+      carrying: null,
+      anchor: null,
+      taskId: null,
+      status: "Just arrived",
+      since: this.t,
+    });
+    actor.busyUntil = this.t + 600;
+    actor.plan = [
+      this.say("Reporting for duty!"),
+      this.wait(1_200),
+      ...this.walkHome(actor, `Heading to ${this.map.room(crew.room).name}`),
+    ];
+    this.emit({
+      type: "agent.spawned",
+      t: this.t,
+      crew: structuredClone(crew),
+      agent: { ...actor.state, tile: { ...actor.state.tile } },
+    });
+    return { ...actor.state };
+  }
+
+  /** Move a crew member to another room. They finish walking, then head over. */
+  reassign(id: string, roomId: string): CrewMember {
+    const actor = this.actor(id);
+    this.map.room(roomId);
+    const stations = this.stationsFor(roomId, id);
+    if (stations.length === 0) throw new Error(`Room "${roomId}" has no workstations`);
+    actor.crew = { ...actor.crew, room: roomId, workstations: stations };
+    this.emit({ type: "crew.updated", t: this.t, crew: structuredClone(actor.crew) });
+    this.interrupt(actor, [
+      this.say(`Moving to ${this.map.room(roomId).name}.`),
+      ...this.walkHome(actor, `Moving to ${this.map.room(roomId).name}`),
+    ]);
+    return structuredClone(actor.crew);
+  }
+
+  /** Hand a crew member to the agent runtime (or back to autopilot). */
+  control(id: string, on: boolean): void {
+    const actor = this.actor(id);
+    if (actor.controlled === on) return;
+    actor.controlled = on;
+    actor.nudgedBy = null;
+    if (on) {
+      // Autopilot work in progress is dropped; its task goes back to "assigned".
+      if (actor.task && actor.task.status === "in_progress")
+        this.updateTask(actor.task, "assigned");
+      actor.task = null;
+      this.interrupt(actor, [this.act({ activity: "idle", status: null, taskId: null })]);
+    } else {
+      this.interrupt(actor, []);
+    }
+  }
+
+  isControlled(id: string): boolean {
+    return this.actor(id).controlled;
+  }
+
+  /** Tell a controlled crew member what to do. Walks in progress finish first. */
+  command(id: string, cmd: SimCommand): void {
+    const actor = this.actor(id);
+    if (!actor.controlled) throw new Error(`"${id}" is on autopilot; call control() first`);
+    this.interrupt(actor, this.commandSteps(actor, cmd));
+  }
+
+  /** A speech bubble, without changing what the crew member is doing. */
+  sayNow(id: string, text: string, ttl = BUBBLE_MS): void {
+    this.actor(id);
+    this.emit({ type: "agent.say", t: this.t, id, text: text.slice(0, 80), ttl });
+  }
+
+  /** Create or update a task (the runtime's tasks, from Stage 4). */
+  upsertTask(task: Task): void {
+    const existing = this.tasks.get(task.id);
+    const merged: Task = { ...existing, ...task, updatedAt: this.t };
+    this.tasks.set(task.id, merged);
+    if (merged.status === "done" || merged.status === "failed") this.markFinished(merged.id);
+    this.emit({ type: "task.updated", t: this.t, task: { ...merged } });
+  }
+
+  /** Real provider status (Stage 4); also shows on the Server Room racks. */
+  setProviderStatus(
+    provider: string,
+    state: ProviderState["state"],
+    until: number | null,
+    note: string | null,
+  ): void {
+    const current = this.providers.get(provider);
+    if (current && current.state === state && current.until === until && current.note === note) {
+      return;
+    }
+    this.setProvider(provider, state, until, note);
+  }
+
+  agentState(id: string): AgentState {
+    const a = this.actor(id);
+    return { ...a.state, tile: { ...a.state.tile } };
   }
 
   // -- Scheduling ---------------------------------------------------------------------------
+
+  private actor(id: string): Actor {
+    const a = this.byId.get(id);
+    if (!a) throw new Error(`Unknown crew member "${id}"`);
+    return a;
+  }
+
+  private makeActor(crew: CrewMember, state: AgentState): Actor {
+    const actor: Actor = {
+      crew,
+      state,
+      plan: [],
+      busyUntil: this.t,
+      moveEnd: this.t,
+      held: null,
+      task: null,
+      rework: [],
+      nudgedBy: null,
+      idleSince: null,
+      controlled: false,
+      completed: 0,
+      visited: [],
+      rounds: 0,
+    };
+    this.actors.push(actor);
+    this.byId.set(crew.id, actor);
+    return actor;
+  }
+
+  /** Work anchors in a room, the free ones (nobody's home) first. */
+  private stationsFor(roomId: string, self?: string): string[] {
+    const homes = new Set(
+      this.actors.filter((a) => a.crew.id !== self).map((a) => a.crew.workstations[0]),
+    );
+    const anchors = this.map.anchorsFor("work", roomId).map((a) => a.id);
+    return [...anchors.filter((id) => !homes.has(id)), ...anchors.filter((id) => homes.has(id))];
+  }
 
   private nextDue(): { at: number; run: () => void } | null {
     let best: { at: number; run: () => void } | null = null;
@@ -225,10 +539,12 @@ export class MockDirector {
     if (recovery && (!best || recovery.at < best.at)) {
       best = { at: recovery.at, run: () => this.recover() };
     }
-    if (!best || this.nextRateLimit < best.at) {
-      best = { at: this.nextRateLimit, run: () => this.rateLimit() };
+    if (this.mockProviders) {
+      if (!best || this.nextRateLimit < best.at) {
+        best = { at: this.nextRateLimit, run: () => this.rateLimit() };
+      }
+      if (this.nextOutage < best.at) best = { at: this.nextOutage, run: () => this.outage() };
     }
-    if (this.nextOutage < best.at) best = { at: this.nextOutage, run: () => this.outage() };
     return best;
   }
 
@@ -326,7 +642,16 @@ export class MockDirector {
     task.status = status;
     task.updatedAt = this.t;
     this.tasks.set(task.id, task);
+    if (status === "done" || status === "failed") this.markFinished(task.id);
     this.emit({ type: "task.updated", t: this.t, task: { ...task } });
+  }
+
+  private markFinished(id: string): void {
+    if (!this.finished.includes(id)) this.finished.push(id);
+    while (this.finished.length > FINISHED_KEPT) {
+      const old = this.finished.shift();
+      if (old) this.tasks.delete(old);
+    }
   }
 
   // -- Step helpers -------------------------------------------------------------------------
@@ -370,9 +695,23 @@ export class MockDirector {
     ];
   }
 
+  /** Walk to the home workstation (or somewhere free in the home room). */
+  private walkHome(actor: Actor, status: string): Step[] {
+    return [
+      this.act({ activity: "idle", status, carrying: null }),
+      this.call(() => {
+        const station = this.pickStation(actor, false);
+        if (station) return this.goTo(actor, station, { activity: "idle" });
+        const spot = this.looseSpot(actor, actor.crew.room);
+        return spot ? this.goToTile(actor, spot) : undefined;
+      }),
+    ];
+  }
+
   private hold(actor: Actor, anchorId: string | null): void {
-    if (actor.held && this.reserved.get(actor.held) === actor.crew.id)
+    if (actor.held && this.reserved.get(actor.held) === actor.crew.id) {
       this.reserved.delete(actor.held);
+    }
     actor.held = anchorId;
     if (anchorId) this.reserved.set(anchorId, actor.crew.id);
   }
@@ -387,7 +726,7 @@ export class MockDirector {
     return free.length > 0 ? this.rng.pick(free) : undefined;
   }
 
-  private occupied(except: Actor): Set<string> {
+  private occupied(except: Actor | null): Set<string> {
     const set = new Set<string>();
     for (const a of this.actors) if (a !== except) set.add(`${a.state.tile.x},${a.state.tile.y}`);
     return set;
@@ -395,29 +734,106 @@ export class MockDirector {
 
   /** A random free floor tile in a room that is not an anchor or someone else's spot. */
   private looseSpot(actor: Actor, roomId: string): Tile | undefined {
+    return this.looseSpotIn(roomId, this.occupied(actor));
+  }
+
+  private looseSpotIn(roomId: string, taken: Set<string>): Tile | undefined {
     const room = this.map.room(roomId);
     const anchors = new Set(this.map.anchors.map((a) => `${a.x},${a.y}`));
-    const taken = this.occupied(actor);
     const options: Tile[] = [];
     for (let y = room.y + 1; y < room.y + room.h - 1; y++) {
       for (let x = room.x + 1; x < room.x + room.w - 1; x++) {
         const key = `${x},${y}`;
-        if (this.map.isWalkable(x, y) && !anchors.has(key) && !taken.has(key))
+        if (this.map.isWalkable(x, y) && !anchors.has(key) && !taken.has(key)) {
           options.push({ x, y });
+        }
       }
     }
     return options.length > 0 ? this.rng.pick(options) : undefined;
   }
 
   private lines(actor: Actor): RoleLines {
-    return ROLE_LINES[actor.crew.id] ?? (ROLE_LINES.ledger as RoleLines);
+    return linesFor(actor.crew.id, actor.crew.role);
   }
 
-  // -- Planning -----------------------------------------------------------------------------
+  // -- Commands from the agent runtime -----------------------------------------------------
+
+  private commandSteps(actor: Actor, cmd: SimCommand): Step[] {
+    switch (cmd.kind) {
+      case "work": {
+        const work: ActFields = {
+          activity: "work",
+          status: cmd.status,
+          taskId: cmd.taskId ?? null,
+          carrying: null,
+        };
+        return [
+          this.act(work),
+          this.call(() => {
+            const station =
+              cmd.anchor && this.map.hasAnchor(cmd.anchor)
+                ? this.map.anchor(cmd.anchor)
+                : this.pickStation(actor, false);
+            if (station) return this.goTo(actor, station, work);
+            const spot = this.looseSpot(actor, actor.crew.room);
+            return spot ? [...this.goToTile(actor, spot), this.act(work)] : undefined;
+          }),
+        ];
+      }
+      case "deliver": {
+        const fields: ActFields = {
+          activity: "deliver",
+          carrying: cmd.item,
+          status: cmd.status,
+          taskId: cmd.taskId ?? null,
+        };
+        const target =
+          cmd.to === "qa"
+            ? { anchors: this.map.anchorsFor("deliver", REVIEW_ROOM), room: REVIEW_ROOM }
+            : cmd.to === "bridge"
+              ? { anchors: this.map.anchorsFor("report", BRIDGE), room: BRIDGE }
+              : { anchors: this.map.anchorsFor("queue", DESK_ROOM), room: DESK_ROOM };
+        return [
+          this.act(fields),
+          this.call(() => {
+            const spot = this.freeAnchor(actor, target.anchors);
+            if (spot) return this.goTo(actor, spot, { activity: "deliver" });
+            const loose = this.looseSpot(actor, target.room);
+            return loose ? this.goToTile(actor, loose) : undefined;
+          }),
+          this.act({ activity: "deliver", carrying: null }),
+        ];
+      }
+      case "break":
+        return this.coffeeBreak(actor, cmd.status, cmd.until, false);
+      case "idle":
+        return [
+          this.act({ activity: "idle", status: cmd.status ?? null, carrying: null, anchor: null }),
+          this.call(() => {
+            const spot = this.looseSpot(actor, actor.crew.room);
+            return spot
+              ? [...this.goToTile(actor, spot), this.act({ activity: "idle", facing: "down" })]
+              : undefined;
+          }),
+        ];
+      case "go":
+        return [
+          this.act({ activity: "idle", status: cmd.status ?? null, carrying: null }),
+          this.call(() => {
+            const spot = this.looseSpot(actor, cmd.room);
+            return spot ? this.goToTile(actor, spot) : undefined;
+          }),
+        ];
+    }
+  }
+
+  // -- Planning (autopilot) ----------------------------------------------------------------
 
   private planFor(actor: Actor): Step[] {
-    if (actor.crew.id === OVERSEER_ID) return this.planOverseer(actor);
-    if (actor.crew.room === REVIEWER_ROOM) return this.planReviewer(actor);
+    // Controlled crew hold still until the runtime sends the next command.
+    if (actor.controlled) return [this.wait(60_000)];
+    if (actor.crew.role === "overseer") return this.planOverseer(actor);
+    if (actor.crew.role === "reviewer") return this.planReviewer(actor);
     return this.planWorker(actor);
   }
 
@@ -451,11 +867,17 @@ export class MockDirector {
     for (let i = 0; i < sessions; i++) {
       steps.push(
         this.call(() => {
-          const station = this.pickStation(actor, i > 0);
           const work: ActFields = { activity: "work", status: current.title, taskId: current.id };
+          const station = this.pickStation(actor, i > 0);
+          const go = station
+            ? this.goTo(actor, station, work)
+            : (() => {
+                const spot = this.looseSpot(actor, actor.crew.room);
+                return spot ? [...this.goToTile(actor, spot), this.act(work)] : [this.act(work)];
+              })();
           return [
             this.act({ ...work, carrying: null }),
-            ...this.goTo(actor, station, work),
+            ...go,
             this.call(() => {
               if (current.status !== "in_progress") this.updateTask(current, "in_progress");
               return undefined;
@@ -470,19 +892,29 @@ export class MockDirector {
     return steps;
   }
 
-  /** Home most of the time; a later session of a task often moves to another station. */
-  private pickStation(actor: Actor, later: boolean): Anchor {
-    const [homeId, ...others] = actor.crew.workstations as [string, ...string[]];
-    const home = this.map.anchor(homeId);
+  /**
+   * Home most of the time; a later session of a task often moves to another station. Returns
+   * null when every station is taken (crew members can share rooms with others' homes).
+   */
+  private pickStation(actor: Actor, later: boolean): Anchor | null {
+    const ids = actor.crew.workstations;
+    const homeId = ids[0] as string;
     const here = actor.held;
-    if (others.length > 0 && this.rng.chance(later ? 0.5 : 0.2)) {
-      const alternatives = [homeId, ...others]
-        .filter((id) => id !== here)
-        .map((id) => this.map.anchor(id));
-      const alt = this.freeAnchor(actor, alternatives);
+    if (ids.length > 1 && this.rng.chance(later ? 0.5 : 0.2)) {
+      const alt = this.freeAnchor(
+        actor,
+        ids.filter((id) => id !== here).map((id) => this.map.anchor(id)),
+      );
       if (alt) return alt;
     }
-    return here && actor.crew.workstations.includes(here) ? this.map.anchor(here) : home;
+    if (here && ids.includes(here)) return this.map.anchor(here);
+    if (this.isFree(homeId, actor)) return this.map.anchor(homeId);
+    return (
+      this.freeAnchor(
+        actor,
+        ids.map((id) => this.map.anchor(id)),
+      ) ?? null
+    );
   }
 
   private newTask(actor: Actor): Task {
@@ -505,10 +937,10 @@ export class MockDirector {
   private finishTask(actor: Actor): Step[] {
     const task = actor.task;
     if (!task) return [];
-    const delivery = DELIVERY_BY_ROOM[actor.crew.room] ?? "qa";
+    const delivery = DELIVERY_BY_ROLE[actor.crew.role] ?? "qa";
     if (delivery === "qa") return this.deliverToQa(actor, task);
     if (delivery === "bridge") return this.reportToBridge(actor, task);
-    // Ledger files most reports in place and takes one in three to the Bridge.
+    // Bookkeepers file most reports in place and take one in three to the Bridge.
     actor.completed += 1;
     if (actor.completed % 3 === 0) return this.reportToBridge(actor, task);
     this.updateTask(task, "done");
@@ -517,13 +949,13 @@ export class MockDirector {
   }
 
   private deliverToQa(actor: Actor, task: Task): Step[] {
-    const drops = this.map.anchorsFor("deliver", REVIEWER_ROOM);
+    const drops = this.map.anchorsFor("deliver", REVIEW_ROOM);
     return [
       this.act({ activity: "deliver", carrying: "crate", status: `Taking "${task.title}" to QA` }),
       this.call(() => {
         const drop = this.freeAnchor(actor, drops);
         if (drop) return this.goTo(actor, drop, { activity: "deliver" });
-        const spot = this.looseSpot(actor, REVIEWER_ROOM);
+        const spot = this.looseSpot(actor, REVIEW_ROOM);
         return spot ? this.goToTile(actor, spot) : undefined;
       }),
       this.act({ activity: "deliver", carrying: null }),
@@ -541,13 +973,13 @@ export class MockDirector {
   }
 
   private reportToBridge(actor: Actor, task: Task): Step[] {
-    const spots = this.map.anchorsFor("report", "bridge");
+    const spots = this.map.anchorsFor("report", BRIDGE);
     return [
       this.act({ activity: "deliver", carrying: "datapad", status: "Report for WARDEN" }),
       this.call(() => {
         const spot = this.freeAnchor(actor, spots);
         if (spot) return this.goTo(actor, spot, { activity: "deliver" });
-        const loose = this.looseSpot(actor, "bridge");
+        const loose = this.looseSpot(actor, BRIDGE);
         return loose ? this.goToTile(actor, loose) : undefined;
       }),
       this.act({ activity: "deliver", carrying: null }),
@@ -563,15 +995,15 @@ export class MockDirector {
     ];
   }
 
-  /** WARDEN acknowledges a report if it is standing on the Bridge. */
+  /** The Overseer acknowledges a report if it is standing on the Bridge. */
   private thankFromOverseer(): void {
-    const warden = this.byId.get(OVERSEER_ID);
-    if (!warden || warden.moveEnd > this.t) return;
-    if (this.map.roomAt(warden.state.tile.x, warden.state.tile.y)?.id !== "bridge") return;
+    const overseer = this.actors.find((a) => a.crew.role === "overseer" && !a.controlled);
+    if (!overseer || overseer.moveEnd > this.t) return;
+    if (this.map.roomAt(overseer.state.tile.x, overseer.state.tile.y)?.id !== BRIDGE) return;
     this.emit({
       type: "agent.say",
       t: this.t,
-      id: warden.crew.id,
+      id: overseer.crew.id,
       text: this.rng.pick(WARDEN_LINES.reportThanks),
       ttl: BUBBLE_MS,
     });
@@ -584,7 +1016,7 @@ export class MockDirector {
       this.act({ activity: "idle", status: null, taskId: null, carrying: null, anchor: null }),
       ...(spot ? this.goToTile(actor, spot) : []),
       this.act({ activity: "idle", facing: "down" }),
-      // WARDEN's patience counts from arrival at the idle spot.
+      // The Overseer's patience counts from arrival at the idle spot.
       this.call(() => {
         actor.idleSince = this.t;
         return undefined;
@@ -593,32 +1025,26 @@ export class MockDirector {
     ];
   }
 
-  // Lens: review whatever is on the intake table, otherwise run policy checks at the console.
+  // Reviewers: review whatever is on the intake table, otherwise run policy checks.
   private planReviewer(actor: Actor): Step[] {
     const taskId = this.intake.shift();
     const task = taskId ? this.tasks.get(taskId) : undefined;
-    const consoleAnchor = this.map.anchor(actor.crew.workstations[0] as string);
     if (!task) {
-      const steps: Step[] = [];
-      steps.push(
-        ...this.goTo(actor, consoleAnchor, {
-          activity: "work",
-          status: "Policy checks",
-          taskId: null,
-        }),
-      );
+      const station = this.pickStation(actor, false);
+      const work: ActFields = { activity: "work", status: "Policy checks", taskId: null };
+      const steps: Step[] = station ? this.goTo(actor, station, work) : [this.act(work)];
       if (this.rng.chance(0.5)) steps.push(this.say(this.rng.pick(LENS_LINES.idle)));
       steps.push(this.wait(this.rng.range(4_000, 7_000)));
       return steps;
     }
-    const drops = this.map.anchorsFor("deliver", REVIEWER_ROOM);
-    const scan = this.map.anchorsFor("review", REVIEWER_ROOM)[0];
+    const drops = this.map.anchorsFor("deliver", REVIEW_ROOM);
+    const scan = this.map.anchorsFor("review", REVIEW_ROOM)[0];
     const pickUp = this.call(() => {
       const drop = this.freeAnchor(actor, drops);
       return drop ? this.goTo(actor, drop, { activity: "review" }) : undefined;
     });
-    // With a backlog, Lens checks deliverables right at the intake table instead of the scanner.
-    if (this.intake.length >= 1 || !scan) {
+    // With a backlog, the reviewer checks deliverables right at the intake table.
+    if (this.intake.length >= 1 || !scan || !this.isFree(scan.id, actor)) {
       return [
         this.act({ activity: "review", status: `Quick check: "${task.title}"`, taskId: task.id }),
         pickUp,
@@ -655,33 +1081,36 @@ export class MockDirector {
     }
     task.reworks += 1;
     this.updateTask(task, "rework");
-    this.byId.get(task.assignee)?.rework.push(task);
+    const assignee = this.byId.get(task.assignee);
+    if (assignee && !assignee.controlled) assignee.rework.push(task);
     return [this.say(this.rng.pick(LENS_LINES.fail))];
   }
 
-  // WARDEN: nudge idle crew first; otherwise alternate planning at the holo-table and patrols.
+  // Overseers: nudge idle crew first; otherwise alternate planning and patrols.
   private planOverseer(actor: Actor): Step[] {
     const idle = this.findIdle(actor);
     if (idle) return this.nudge(actor, idle);
     actor.rounds += 1;
     if (actor.rounds % 4 === 1) {
       const command = this.map.anchor(actor.crew.workstations[0] as string);
-      return [
-        ...this.goTo(actor, command, {
-          activity: "work",
-          status: "Planning objectives",
-          taskId: null,
-        }),
-        this.say(this.rng.pick(WARDEN_LINES.plan)),
-        this.wait(this.rng.range(3_500, 6_000)),
-        this.say(this.rng.pick(WARDEN_LINES.plan)),
-        this.wait(this.rng.range(2_500, 4_000)),
-      ];
+      if (this.isFree(command.id, actor)) {
+        return [
+          ...this.goTo(actor, command, {
+            activity: "work",
+            status: "Planning objectives",
+            taskId: null,
+          }),
+          this.say(this.rng.pick(WARDEN_LINES.plan)),
+          this.wait(this.rng.range(3_500, 6_000)),
+          this.say(this.rng.pick(WARDEN_LINES.plan)),
+          this.wait(this.rng.range(2_500, 4_000)),
+        ];
+      }
     }
     const choices = this.map
       .anchorsFor("patrol")
       .filter((a) => !actor.visited.includes(a.id) && this.isFree(a.id, actor));
-    const target = choices.length > 0 ? this.rng.pick(choices) : this.map.anchorsFor("patrol")[0];
+    const target = choices.length > 0 ? this.rng.pick(choices) : undefined;
     if (!target) return [this.wait(2_000)];
     actor.visited = [...actor.visited, target.id].slice(-4);
     const roomName = this.map.room(target.room).name;
@@ -697,7 +1126,7 @@ export class MockDirector {
   private findIdle(overseer: Actor): Actor | undefined {
     let pick: Actor | undefined;
     for (const a of this.actors) {
-      if (a === overseer || a.nudgedBy || a.idleSince === null) continue;
+      if (a === overseer || a.nudgedBy || a.idleSince === null || a.controlled) continue;
       if (a.state.activity !== "idle" || a.moveEnd > this.t) continue;
       if (this.t - a.idleSince < this.timing.nudgeAfterMs) continue;
       if (!pick || a.idleSince < (pick.idleSince ?? Number.POSITIVE_INFINITY)) pick = a;
@@ -732,7 +1161,8 @@ export class MockDirector {
             const listening =
               target.state.activity === "idle" &&
               target.moveEnd <= this.t &&
-              target.nudgedBy === overseer.crew.id;
+              target.nudgedBy === overseer.crew.id &&
+              !target.controlled;
             if (!listening) {
               target.nudgedBy = null;
               return undefined;
@@ -760,8 +1190,8 @@ export class MockDirector {
   }
 
   /**
-   * A free tile next to the target (or two steps away), as close to WARDEN as possible. Anchor
-   * tiles are avoided so WARDEN never stands on someone's workstation.
+   * A free tile next to the target (or two steps away), as close to the Overseer as possible.
+   * Anchor tiles are avoided so the Overseer never stands on someone's workstation.
    */
   private nudgeSpot(overseer: Actor, target: Actor): Tile | undefined {
     const taken = this.occupied(overseer);
@@ -804,9 +1234,10 @@ export class MockDirector {
     );
     const working = this.actors.filter(
       (a) =>
-        a.crew.id !== OVERSEER_ID &&
-        // Lens stays at the QA Bay so deliverables do not pile up during a break.
-        a.crew.room !== REVIEWER_ROOM &&
+        a.crew.role !== "overseer" &&
+        // Reviewers stay at the QA Bay so deliverables do not pile up during a break.
+        a.crew.role !== "reviewer" &&
+        !a.controlled &&
         a.state.activity === "work" &&
         a.moveEnd <= this.t &&
         a.busyUntil > this.t &&
@@ -815,24 +1246,26 @@ export class MockDirector {
     const count = Math.min(working.length, this.rng.int(1, 2));
     for (let i = 0; i < count; i++) {
       const victim = working.splice(this.rng.int(0, working.length - 1), 1)[0];
-      if (victim) this.interrupt(victim, this.coffeeBreak(victim, provider, until));
+      if (victim) {
+        this.interrupt(
+          victim,
+          this.coffeeBreak(victim, `Waiting out a ${provider} rate limit`, until, true),
+        );
+      }
     }
   }
 
-  private coffeeBreak(actor: Actor, provider: string, until: number): Step[] {
+  private coffeeBreak(actor: Actor, status: string, until: number, chatty: boolean): Step[] {
     const machines = this.map.anchorsFor("coffee", "cafe");
     const seats = this.map.anchorsFor("rest", "cafe");
     return [
-      this.say(this.rng.pick(CREW_REPLIES.coffee)),
-      this.act({
-        activity: "coffee",
-        status: `Waiting out a ${provider} rate limit`,
-        carrying: null,
-      }),
+      ...(chatty ? [this.say(this.rng.pick(CREW_REPLIES.coffee))] : []),
+      this.act({ activity: "coffee", status, carrying: null }),
       this.call(() => {
         const machine = this.freeAnchor(actor, machines);
-        if (machine)
+        if (machine) {
           return [...this.goTo(actor, machine, { activity: "coffee" }), this.wait(2_200)];
+        }
         const spot = this.looseSpot(actor, "cafe");
         return spot ? this.goToTile(actor, spot) : undefined;
       }),
@@ -845,12 +1278,14 @@ export class MockDirector {
       }),
       this.call(() => {
         const steps: Step[] = [];
-        if (this.rng.chance(0.5)) steps.push(this.say(this.rng.pick(CREW_REPLIES.coffeeChat)));
+        if (chatty && this.rng.chance(0.5)) {
+          steps.push(this.say(this.rng.pick(CREW_REPLIES.coffeeChat)));
+        }
         steps.push(this.wait(Math.max(3_000, until - this.t + this.rng.range(500, 2_500))));
         return steps;
       }),
       this.act({ activity: "coffee", carrying: null }),
-      this.say(this.rng.pick(CREW_REPLIES.coffeeDone)),
+      ...(chatty ? [this.say(this.rng.pick(CREW_REPLIES.coffeeDone))] : []),
       this.wait(600),
     ];
   }

@@ -1,4 +1,4 @@
-import type { CrewMember, Doorway, StationMap } from "@orbital/shared";
+import type { Doorway, StationMap } from "@orbital/shared";
 import Phaser from "phaser";
 import { hexToInt } from "../art/color";
 import { SCREEN_SLOTS } from "../art/furniture";
@@ -8,11 +8,10 @@ import type { StationLink } from "../sim/link";
 import type { World } from "../sim/world";
 import type { CameraCommands, UiStore } from "../ui/store";
 import { AgentView, TILE } from "./AgentView";
-import { buildTextures, STAR_TEXTURES, STATION_TEXTURE } from "./textures";
+import { buildCrew, buildTextures, STAR_TEXTURES, STATION_TEXTURE } from "./textures";
 
 export interface SceneDeps {
   map: StationMap;
-  crew: readonly CrewMember[];
   world: World;
   link: StationLink;
   clock: SimClock;
@@ -78,6 +77,7 @@ export class StationScene extends Phaser.Scene implements CameraCommands {
   private keys: Record<string, Phaser.Input.Keyboard.Key> = {};
   private fpsTimer = 0;
   private wasPaused = false;
+  private initialApplied = false;
   private lastSpeed = 1;
 
   constructor(private readonly deps: SceneDeps) {
@@ -85,8 +85,8 @@ export class StationScene extends Phaser.Scene implements CameraCommands {
   }
 
   create(): void {
-    const { map, crew, world, ui } = this.deps;
-    buildTextures(this, map, crew);
+    const { map, ui } = this.deps;
+    buildTextures(this, map);
 
     this.starLayer = this.add.layer();
     this.worldLayer = this.add.layer();
@@ -110,17 +110,13 @@ export class StationScene extends Phaser.Scene implements CameraCommands {
     this.highlight = this.add.graphics().setDepth(5);
     this.worldLayer.add(this.highlight);
 
-    crew.forEach((c, i) => {
-      this.agents.set(c.id, new AgentView(this, c, i, this.worldLayer, this.overlayLayer));
-    });
-    // Agents that appear later (Stage 3 hires) get a view on first sight.
-    void world;
+    // Crew views are created as crew appear in the world (snapshot, hires).
+    this.syncViews();
 
     this.setupInput();
     this.scale.on(Phaser.Scale.Events.RESIZE, () => this.layout());
     this.layout();
     this.home();
-    this.applyInitialView();
     ui.camera = this;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       if (ui.camera === this) ui.camera = null;
@@ -291,6 +287,7 @@ export class StationScene extends Phaser.Scene implements CameraCommands {
       this.anims.globalTimeScale = clock.speed;
     }
 
+    this.syncViews();
     const state = ui.get();
     const selectedAgent = state.selection?.kind === "agent" ? state.selection.id : null;
     const readable = this.cssZoom >= LABEL_ZOOM;
@@ -527,10 +524,35 @@ export class StationScene extends Phaser.Scene implements CameraCommands {
     this.centerOn(x + w / 2, y + h / 2 + shift);
   }
 
+  /** Create views for crew who appeared, drop views for crew who are gone. */
+  private syncViews(): void {
+    const { world } = this.deps;
+    for (const [id] of world.agents) {
+      if (this.agents.has(id)) continue;
+      const c = world.crew.get(id);
+      if (!c) continue;
+      buildCrew(this, c);
+      this.agents.set(
+        id,
+        new AgentView(this, c, this.agents.size, this.worldLayer, this.overlayLayer),
+      );
+    }
+    for (const [id, view] of this.agents) {
+      if (!world.agents.has(id)) {
+        view.destroy();
+        this.agents.delete(id);
+      }
+    }
+    if (!this.initialApplied && world.crew.size > 0) {
+      this.initialApplied = true;
+      this.applyInitialView();
+    }
+  }
+
   private applyInitialView(): void {
-    const { initial, map, ui, crew } = this.deps;
+    const { initial, map, ui, world } = this.deps;
     if (!initial) return;
-    const isCrew = (id?: string) => !!id && crew.some((c) => c.id === id);
+    const isCrew = (id?: string) => !!id && world.crew.has(id);
     const isRoom = (id?: string) => !!id && map.rooms.some((r) => r.id === id);
     if (initial.focus === "station") this.fit();
     else if (isCrew(initial.focus)) this.focusAgent(initial.focus as string);
@@ -642,6 +664,16 @@ export class StationScene extends Phaser.Scene implements CameraCommands {
         this.setCssZoom(this.cssZoom * (dy < 0 ? 1.15 : 1 / 1.15), p.x, p.y);
       },
     );
+  }
+
+  roomAtClient(clientX: number, clientY: number): string | null {
+    const rect = this.game.canvas.getBoundingClientRect();
+    const dpr = this.deps.dpr();
+    const px = (clientX - rect.left) * dpr;
+    const py = (clientY - rect.top) * dpr;
+    const wx = this.cam.scrollX + px / this.cam.zoom;
+    const wy = this.cam.scrollY + py / this.cam.zoom;
+    return this.deps.map.roomAt(Math.floor(wx / TILE), Math.floor(wy / TILE))?.id ?? null;
   }
 
   private toWorld(p: Phaser.Input.Pointer): { x: number; y: number } {

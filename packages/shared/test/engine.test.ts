@@ -11,13 +11,13 @@ import {
   type Tile,
 } from "@orbital/shared";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIMING, MockDirector } from "../src/mock/director";
+import { DEFAULT_TIMING, StationSim } from "../src/sim";
 
 const map = getStationMap();
 const MINUTE = 60_000;
 
 function run(seed: number, minutes: number, stepMs = 250): StationEvent[] {
-  const d = new MockDirector(map, STARTING_CREW, { seed });
+  const d = new StationSim(map, STARTING_CREW, { seed });
   const events: StationEvent[] = [d.snapshot()];
   for (let t = stepMs; t <= minutes * MINUTE; t += stepMs) events.push(...d.advanceTo(t));
   return events;
@@ -26,7 +26,7 @@ function run(seed: number, minutes: number, stepMs = 250): StationEvent[] {
 const of = <T extends StationEvent["type"]>(events: StationEvent[], type: T) =>
   events.filter((e): e is StationEventOf<T> => e.type === type);
 
-describe("MockDirector", () => {
+describe("StationSim", () => {
   const events = run(7, 20);
 
   it("opens with a snapshot of all nine crew at their home workstations", () => {

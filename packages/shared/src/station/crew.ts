@@ -27,9 +27,26 @@ export const crewLookSchema = z.object({
 });
 export type CrewLook = z.infer<typeof crewLookSchema>;
 
+/**
+ * Behaviours the sim engine knows. A role template (config/roles/*.yaml) picks one of these; the
+ * agent runtime (Stage 4) replaces the mock behaviour with real work.
+ */
+export const CREW_ROLES = [
+  "overseer",
+  "researcher",
+  "operator",
+  "thumbnailer",
+  "forger",
+  "reviewer",
+  "bookkeeper",
+] as const;
+export const crewRoleSchema = z.enum(CREW_ROLES);
+export type CrewRole = z.infer<typeof crewRoleSchema>;
+
 export const crewMemberSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   name: z.string().min(1).max(8),
+  role: crewRoleSchema,
   title: z.string().min(1),
   /** Home room id from the station map. */
   room: z.string(),
@@ -49,6 +66,7 @@ export const STARTING_CREW: readonly CrewMember[] = z.array(crewMemberSchema).pa
   {
     id: "warden",
     name: "WARDEN",
+    role: "overseer",
     title: "Overseer",
     room: "bridge",
     job: "Sets daily objectives, assigns, reviews, nudges, escalates",
@@ -67,6 +85,7 @@ export const STARTING_CREW: readonly CrewMember[] = z.array(crewMemberSchema).pa
   {
     id: "scout",
     name: "Scout",
+    role: "researcher",
     title: "Researcher",
     room: "research",
     job: "Niches, keywords, seasonality, competition",
@@ -84,6 +103,7 @@ export const STARTING_CREW: readonly CrewMember[] = z.array(crewMemberSchema).pa
   {
     id: "wick",
     name: "Wick",
+    role: "operator",
     title: "Store operator",
     room: "factory-1",
     job: "Runs the candle store: designs and listings",
@@ -102,6 +122,7 @@ export const STARTING_CREW: readonly CrewMember[] = z.array(crewMemberSchema).pa
   {
     id: "gift",
     name: "Gift",
+    role: "operator",
     title: "Store operator",
     room: "factory-1",
     job: "Runs the personalized-gifts store: designs and listings",
@@ -120,6 +141,7 @@ export const STARTING_CREW: readonly CrewMember[] = z.array(crewMemberSchema).pa
   {
     id: "frame",
     name: "Frame",
+    role: "operator",
     title: "Store operator",
     room: "factory-1",
     job: "Runs the wall-art store: designs and listings",
@@ -138,6 +160,7 @@ export const STARTING_CREW: readonly CrewMember[] = z.array(crewMemberSchema).pa
   {
     id: "flash",
     name: "Flash",
+    role: "thumbnailer",
     title: "Thumbnail artist",
     room: "factory-2",
     job: "Thumbnail concepts and compositing",
@@ -156,6 +179,7 @@ export const STARTING_CREW: readonly CrewMember[] = z.array(crewMemberSchema).pa
   {
     id: "forge",
     name: "Forge",
+    role: "forger",
     title: "Asset smith",
     room: "factory-3",
     job: "Game-asset packs",
@@ -174,6 +198,7 @@ export const STARTING_CREW: readonly CrewMember[] = z.array(crewMemberSchema).pa
   {
     id: "lens",
     name: "Lens",
+    role: "reviewer",
     title: "QA inspector",
     room: "qa-bay",
     job: "Vision QA, IP screening, policy checks",
@@ -191,6 +216,7 @@ export const STARTING_CREW: readonly CrewMember[] = z.array(crewMemberSchema).pa
   {
     id: "ledger",
     name: "Ledger",
+    role: "bookkeeper",
     title: "Bookkeeper",
     room: "vault",
     job: "Revenue sync, fees, KPIs, reports",

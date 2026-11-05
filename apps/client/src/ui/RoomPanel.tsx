@@ -1,4 +1,4 @@
-import { STARTING_CREW, type Task } from "@orbital/shared";
+import type { Task } from "@orbital/shared";
 import { themeFor } from "../art/themes";
 import { StatusChip } from "./AgentInspector";
 import type { Ctx } from "./App";
@@ -15,11 +15,12 @@ export function RoomPanel({ ctx, id }: { ctx: Ctx; id: string }) {
   const accent = themeFor(room.theme).accent;
   const inRoom = (x: number, y: number) =>
     x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h;
-  const here = STARTING_CREW.filter((c) => {
+  const everyone = [...world.crew.values()];
+  const here = everyone.filter((c) => {
     const a = world.agents.get(c.id);
     return a && inRoom(a.state.tile.x, a.state.tile.y);
   });
-  const assigned = STARTING_CREW.filter((c) => c.room === id);
+  const assigned = everyone.filter((c) => c.room === id);
   const tasks = [...world.tasks.values()].filter((t) => t.room === id);
 
   return (
@@ -154,7 +155,7 @@ function RoomDetails({ ctx, id, tasks }: { ctx: Ctx; id: string; tasks: Task[] }
       );
     }
     case "cafe": {
-      const onBreak = STARTING_CREW.filter(
+      const onBreak = [...world.crew.values()].filter(
         (c) => world.agents.get(c.id)?.state.activity === "coffee",
       );
       const limited = [...world.providers.values()].filter((p) => p.state === "limited");
@@ -173,7 +174,9 @@ function RoomDetails({ ctx, id, tasks }: { ctx: Ctx; id: string; tasks: Task[] }
       );
     }
     case "bridge": {
-      const states = STARTING_CREW.map((c) => world.agents.get(c.id)?.state.activity ?? "idle");
+      const states = [...world.crew.values()].map(
+        (c) => world.agents.get(c.id)?.state.activity ?? "idle",
+      );
       return (
         <Section title="Crew">
           <div className="grid grid-cols-3 gap-1.5">

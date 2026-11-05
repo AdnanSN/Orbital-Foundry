@@ -22,6 +22,35 @@ const MIGRATIONS: string[] = [
      error TEXT
    );
    CREATE INDEX idx_llm_calls_provider_ts ON llm_calls (provider, ts);`,
+  // Stage 3: the station's world state. Times in these tables are sim milliseconds.
+  `CREATE TABLE agents (
+     id TEXT PRIMARY KEY,
+     data TEXT NOT NULL,
+     hired_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE TABLE tasks (
+     id TEXT PRIMARY KEY,
+     title TEXT NOT NULL,
+     room TEXT NOT NULL,
+     assignee TEXT NOT NULL,
+     status TEXT NOT NULL,
+     reworks INTEGER NOT NULL,
+     created_at REAL NOT NULL,
+     updated_at REAL NOT NULL
+   );
+   CREATE INDEX idx_tasks_status ON tasks (status);
+   CREATE TABLE events (
+     seq INTEGER PRIMARY KEY,
+     t REAL NOT NULL,
+     type TEXT NOT NULL,
+     data TEXT NOT NULL
+   );
+   CREATE TABLE kv (
+     key TEXT PRIMARY KEY,
+     value TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );`,
 ];
 
 export function openDb(file: string = DB_PATH): Database.Database {

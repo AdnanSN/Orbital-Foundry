@@ -5,10 +5,11 @@ import {
   pathDurationMs,
   STARTING_CREW,
   type StationEvent,
+  StationSim,
   type Tile,
 } from "@orbital/shared";
 import { describe, expect, it } from "vitest";
-import { MockDirector } from "../src/mock/director";
+
 import { World } from "../src/sim/world";
 
 const map = getStationMap();
@@ -31,9 +32,11 @@ const snapshot = (seq = 0): StationEvent => ({
   seq,
   t: 0,
   type: "snapshot",
+  crew: STARTING_CREW.filter((c) => c.id === "wick"),
   agents: [agent("wick", { x: 3, y: 17 })],
   tasks: [],
   providers: [{ provider: "nvidia", state: "ok", until: null, note: null }],
+  sim: { paused: false, speed: 1 },
 });
 
 describe("World", () => {
@@ -136,7 +139,7 @@ describe("World", () => {
 
   it("keeps every crew member on walkable ground through a mock run", () => {
     const w = new World(map);
-    const d = new MockDirector(map, STARTING_CREW, { seed: 3 });
+    const d = new StationSim(map, STARTING_CREW, { seed: 3 });
     w.apply(d.snapshot());
     for (let t = 100; t <= 5 * 60_000; t += 100) {
       for (const e of d.advanceTo(t)) w.apply(e);

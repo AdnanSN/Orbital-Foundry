@@ -172,6 +172,21 @@ export const LENS_LINES = {
   ],
 };
 
+/** Lines for a crew member: their own set for the starting crew, else their role's. */
+const ROLE_DEFAULT: Record<string, string> = {
+  researcher: "scout",
+  operator: "wick",
+  thumbnailer: "flash",
+  forger: "forge",
+  bookkeeper: "ledger",
+};
+
+export function linesFor(id: string, role: string): RoleLines {
+  return (ROLE_LINES[id] ??
+    ROLE_LINES[ROLE_DEFAULT[role] ?? "ledger"] ??
+    ROLE_LINES.ledger) as RoleLines;
+}
+
 export function fill(template: string, values: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, k: string) => values[k] ?? "");
 }

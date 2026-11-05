@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { crewMemberSchema } from "./crew";
 import { directionSchema, tileSchema } from "./geometry";
 
 /**
@@ -85,20 +86,45 @@ export const providerStateSchema = z.object({
 });
 export type ProviderState = z.infer<typeof providerStateSchema>;
 
+/** Whether the sim clock runs, and how fast (1 = real time). */
+export const simStatusSchema = z.object({
+  paused: z.boolean(),
+  speed: z.number().positive(),
+});
+export type SimStatus = z.infer<typeof simStatusSchema>;
+
 const base = { seq: z.number().int().nonnegative(), t: z.number() };
 
 export const snapshotEventSchema = z.object({
   ...base,
   type: z.literal("snapshot"),
+  /** Who is aboard: names, roles, rooms and looks. */
+  crew: z.array(crewMemberSchema),
   agents: z.array(agentStateSchema),
   tasks: z.array(taskSchema),
   providers: z.array(providerStateSchema),
+  sim: simStatusSchema,
 });
 
 export const agentSpawnedEventSchema = z.object({
   ...base,
   type: z.literal("agent.spawned"),
+  crew: crewMemberSchema,
   agent: agentStateSchema,
+});
+
+/** A crew member's definition changed, e.g. they were reassigned to another room. */
+export const crewUpdatedEventSchema = z.object({
+  ...base,
+  type: z.literal("crew.updated"),
+  crew: crewMemberSchema,
+});
+
+/** The sim clock was paused, resumed or sped up. */
+export const simStatusEventSchema = z.object({
+  ...base,
+  type: z.literal("sim.status"),
+  status: simStatusSchema,
 });
 
 /** The agent walks from `from` to `to`, starting at `t0`; clients path-find the route themselves. */
@@ -154,6 +180,8 @@ export const stationEventSchema = z.discriminatedUnion("type", [
   agentSayEventSchema,
   taskUpdatedEventSchema,
   providerStatusEventSchema,
+  crewUpdatedEventSchema,
+  simStatusEventSchema,
 ]);
 export type StationEvent = z.infer<typeof stationEventSchema>;
 export type StationEventType = StationEvent["type"];

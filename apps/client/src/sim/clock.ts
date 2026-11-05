@@ -35,6 +35,11 @@ export class SimClock {
     return step;
   }
 
+  /** Jump to a given time, e.g. to follow the server's clock. */
+  set(t: number): void {
+    this.t = t;
+  }
+
   /** Jump forward without frames, e.g. to warm up the mock station before the first render. */
   advance(simMs: number): void {
     if (simMs > 0) this.t += simMs;

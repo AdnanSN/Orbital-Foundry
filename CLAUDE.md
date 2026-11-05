@@ -10,7 +10,9 @@ An always-on pixel-art space station where AI agents run small online businesses
 |---|---|
 | `npm run check` | Biome lint, typecheck (all workspaces) and tests. Run it before finishing any stage. |
 | `npm test` | Unit tests (Vitest) in every workspace. They never call real APIs. |
-| `npm run client` | Starts the station client (Vite) at http://localhost:5173. Mock crew; no API calls. |
+| `npm run dev` | Starts the station server and the client together; open http://localhost:5173. |
+| `npm run server` | Starts the station server alone (Fastify, WebSocket, SQLite) on http://127.0.0.1:8787. It restarts on code changes; `npm start` runs it without watching. |
+| `npm run client` | Starts the client alone (Vite) at http://localhost:5173. Add `?mock=1` to run it without a server. |
 | `npm run client:build` | Production build of the client into `apps/client/dist/`. |
 | `npm run census` | Probes every candidate model (chat, JSON, tools, vision, embeddings) and writes `config/models.census.json`. Flags: `--provider nvidia`, `--tier vision`, `--ref nvidia:openai/gpt-oss-20b`, `--list-only`. |
 | `npm run smoke` | One real call per tier plus one image per endpoint, saved to `data/artifacts/smoke/`. Flags: `--lane live`, `--no-images`. |
@@ -25,17 +27,19 @@ An always-on pixel-art space station where AI agents run small online businesses
     (SQLite call log), `probes.ts`.
   - `src/images/`: lane-aware FLUX clients for NVIDIA genai and Cloudflare Workers AI.
   - `src/scripts/`: census, smoke, models.
-  - `src/station.ts` wires everything together.
+  - `src/station.ts` wires the model router together; `src/main.ts` boots the station server.
+  - `src/sim/`: `SimServer` (clock, persistence, broadcasts) and `SimStore` (SQLite).
+  - `src/http/app.ts`: REST routes and the `/ws` event stream.
 - `apps/client`: Vite + Phaser 4 + a React overlay (Tailwind).
   - `src/sim/`: the world model built from station events, the sim clock, and `StationLink`
     (the mock link now, a WebSocket link in Stage 3).
-  - `src/mock/`: the Stage 2 director that fakes the crew's events (pure TS, seeded).
   - `src/art/`: everything drawn in code: crew sprites, the pixel font, tiles, furniture, effects.
   - `src/game/`: the Phaser scene, agent views, textures. `src/ui/`: the React panels.
   - URL options: `?seed=`, `?speed=`, `?warp=`, `?focus=`, `?select=`, `?zoom=`, and
     `?view=sprites` for the sprite sheet.
 - `packages/shared`: zod schemas and types shared by the server and the client: model config
-  (`llm.ts`) and the station (`station/`: map JSON and loader, A* pathfinding, crew, events).
+  (`llm.ts`), the station (`station/`: map JSON and loader, A* pathfinding, crew, roles, events),
+  and the sim engine (`sim/`: `StationSim`, used by the server and by the client's mock mode).
 - `config/`: `providers.yaml`, `tiers.yaml`, and the generated `models.census.json`.
 - `data/`: SQLite database and artifacts (git-ignored).
 

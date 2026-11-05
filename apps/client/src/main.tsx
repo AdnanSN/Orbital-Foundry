@@ -1,10 +1,9 @@
-import { getStationMap, STARTING_CREW } from "@orbital/shared";
+import { getStationMap, STARTING_CREW, StationSim } from "@orbital/shared";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createGame } from "./game/createGame";
-import { MockDirector } from "./mock/director";
 import { SimClock } from "./sim/clock";
-import { MockLink } from "./sim/link";
+import { MockLink, SocketLink, type StationLink } from "./sim/link";
 import { World } from "./sim/world";
 import { App } from "./ui/App";
 import { SpriteSheet } from "./ui/SpriteSheet";
@@ -12,10 +11,11 @@ import { UiStore } from "./ui/store";
 import "./styles.css";
 
 /**
- * Stage 2 boot: a mock director stands in for the server and feeds station events into the
- * world model, which the Phaser scene and the React panels both read.
+ * Boot: the station server feeds station events over WebSocket into the world model, which the
+ * Phaser scene and the React panels both read. With ?mock=1 a local sim engine stands in for the
+ * server (no server needed).
  *
- * URL options: ?seed=N (mock run), ?speed=1|2|4, ?warp=SECONDS (start that far in),
+ * URL options: ?mock=1, ?seed=N and ?warp=SECONDS (mock runs), ?speed=1|2|4,
  * ?focus=ID and ?select=ID (a crew or room id), ?zoom=N, ?follow=1, ?view=sprites (sprite sheet).
  */
 const params = new URLSearchParams(window.location.search);
@@ -32,18 +32,26 @@ if (params.get("view") === "sprites") {
   );
 } else {
   const map = getStationMap();
+  const mock = params.get("mock") === "1";
   const seed = Number(params.get("seed") ?? Math.floor(Math.random() * 1_000_000));
   const clock = new SimClock(0);
-  const speed = Number(params.get("speed") ?? 1);
-  if ([1, 2, 4].includes(speed)) clock.setSpeed(speed);
   const world = new World(map);
-  const director = new MockDirector(map, STARTING_CREW, { seed, start: clock.now() });
-  const link = new MockLink(director, world);
-  link.start();
-  const warp = Number(params.get("warp") ?? 0);
-  if (warp > 0) {
-    clock.advance(warp * 1000);
-    link.update(clock.now());
+  let link: StationLink;
+  let sim: StationSim | null = null;
+  if (mock) {
+    sim = new StationSim(map, STARTING_CREW, { seed, start: clock.now() });
+    link = new MockLink(sim, world, clock);
+    link.start();
+    const speed = Number(params.get("speed") ?? 1);
+    if ([1, 2, 4].includes(speed)) void link.commands.setSim({ speed });
+    const warp = Number(params.get("warp") ?? 0);
+    if (warp > 0) {
+      clock.advance(warp * 1000);
+      link.update(clock.now());
+    }
+  } else {
+    link = new SocketLink(world, clock);
+    link.start();
   }
   const ui = new UiStore();
   const zoom = Number(params.get("zoom") ?? 0);
@@ -53,15 +61,20 @@ if (params.get("view") === "sprites") {
     ...(zoom > 0 ? { zoom } : {}),
     follow: params.get("follow") === "1",
   };
-  const game = createGame(gameRoot, { map, crew: STARTING_CREW, world, link, clock, ui, initial });
+  const game = createGame(gameRoot, { map, world, link, clock, ui, initial });
   createRoot(uiRoot).render(
     <StrictMode>
-      <App world={world} clock={clock} ui={ui} seed={seed} />
+      <App world={world} clock={clock} ui={ui} link={link} seed={mock ? seed : null} />
     </StrictMode>,
   );
   if (import.meta.env.DEV) {
-    // Handy for poking at the mock station from the browser console.
-    Object.assign(window, { orbital: { world, clock, director, ui, game } });
+    // Handy for poking at the station from the browser console.
+    Object.assign(window, { orbital: { world, clock, sim, link, ui, game } });
   }
-  if (import.meta.hot) import.meta.hot.dispose(() => game.destroy(true));
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      link.stop();
+      game.destroy(true);
+    });
+  }
 }

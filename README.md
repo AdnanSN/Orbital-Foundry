@@ -4,17 +4,19 @@ An always-on pixel-art space station where AI agents run small online businesses
 print-on-demand, a thumbnail studio and a game-asset forge. The agents answer to an Overseer, and
 you approve anything that leaves the station.
 
-**Status:** Stage 2 of 11 is built. The model router, rate limits and image clients are in place,
-and the station is on screen with a mock crew of nine. The agents get real brains in Stage 4. The
-full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
+**Status:** Stage 3 of 11 is built. The model router, rate limits and image clients are in place.
+The station runs on a server that saves it, with a mock crew you can hire into. The agents get
+real brains in Stage 4. The full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ![The station with its mock crew](docs/stage-2-station.png)
 
 ## Quick start
 
 1. Install Node 22 or newer, then run `npm install`.
-2. Run `npm run client` and open http://localhost:5173 to watch the station. It needs no keys:
-   a mock director drives the crew, and no models are called.
+2. Run `npm run dev` and open http://localhost:5173 to watch the station. It needs no keys: the
+   station server runs a mock crew until Stage 4 wires in the models.
+   - Click **Hire** to recruit crew. They arrive through the airlock.
+   - To run everything in the browser instead, use `npm run client` and open it with `?mock=1`.
    - Drag or use WASD to pan, scroll to zoom, and press F to fit the whole station.
    - Click a crew member for the inspector, or a room for its panel.
 3. For the model router, fill in `.env` (see `.env.example`).

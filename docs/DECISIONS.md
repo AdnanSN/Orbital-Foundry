@@ -251,3 +251,39 @@ accessory, a body pose, legs and a carried item. They are composed frame by fram
   typing, and carrying a crate, a datapad or a cup.
 - Eyes are a white glint over a dark pupil, so they read on every skin tone.
 - `?view=sprites` shows every frame enlarged, for checking the art.
+
+## D-019: The sim engine is shared, and the runtime drives it by command (2026-11-05)
+
+The Stage 2 mock director became `StationSim` in `packages/shared/src/sim`. The server runs it,
+and the client runs the same code offline (`?mock=1`).
+
+- Behaviour follows each crew member's `role` (overseer, researcher, operator, thumbnailer,
+  forger, reviewer or bookkeeper), so new hires behave like their role.
+- `save()` and `StationSim.restore()` round-trip everything except the plans in flight, which
+  hold closures. A restored station keeps every position, activity, task and timer, and each
+  crew member starts a fresh plan from where they stand.
+- `control(id)` and `command(id, ...)` let the Stage 4 runtime take a crew member off
+  autopilot. Commands cover: working at a station; delivering to the QA Bay, the Bridge or the
+  Owner's Desk; taking a café break; idling; and going to a room.
+- `upsertTask` and `setProviderStatus` publish the runtime's tasks and real provider status.
+- With `mockProviders: false`, the engine stops inventing rate limits and outages.
+
+## D-020: Station server persistence and protocol (2026-11-05)
+
+- **Storage:** SQLite migration 2 adds `agents` (the roster), `tasks`, `events` (the
+  append-only log) and `kv` (the engine save). Events and the save are written in one
+  transaction every 2 seconds, and straight after a hire or reassign. A restored engine never
+  reuses a logged sequence number.
+- **Clock:** sim time advances at real time × speed while the server runs. A stall of more than
+  a second (the laptop asleep) does not fast-forward the station.
+- **WebSocket `/ws`:** sends a snapshot on connect, then one JSON array of events per tick. A
+  client that reconnects simply gets a fresh snapshot.
+- **REST:** zod validates every request, and a bad one gets a 400 with a readable message.
+  - `POST /api/sim`: pause, or set the speed.
+  - `POST /api/agents`: hire.
+  - `PATCH /api/agents/:id`: reassign to another room.
+  - `GET /api/state`, `/api/health`, `/api/roles`.
+- **Binding:** the server listens on 127.0.0.1:8787. Remote access, with authentication, is a
+  Stage 11 decision.
+- **Role templates** (title, room, tiers, whether the role can be hired) live in
+  `packages/shared/src/station/roles.ts`. Stage 4 adds prompts and tools on the server side.

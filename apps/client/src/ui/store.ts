@@ -13,6 +13,10 @@ export interface UiState {
   /** Camera zoom in CSS pixels per station pixel. */
   zoom: number;
   hoverRoom: string | null;
+  /** A side panel that replaces the inspector: the Recruitment Bay. */
+  panel: "hire" | null;
+  /** A short message at the top of the screen. */
+  toast: { id: number; text: string } | null;
 }
 
 /** Camera controls the scene registers for the panels' buttons. */
@@ -21,6 +25,8 @@ export interface CameraCommands {
   fit(): void;
   /** The opening view, centred on the Command Bridge. */
   home(): void;
+  /** The room under a point on the page (CSS pixels), for drag and drop. */
+  roomAtClient(clientX: number, clientY: number): string | null;
   focusAgent(id: string): void;
   focusRoom(id: string): void;
 }
@@ -33,7 +39,10 @@ export class UiStore {
     fps: 0,
     zoom: 1,
     hoverRoom: null,
+    panel: null,
+    toast: null,
   };
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly listeners = new Set<() => void>();
   camera: CameraCommands | null = null;
 
@@ -47,6 +56,12 @@ export class UiStore {
     if (!changed) return;
     this.state = { ...this.state, ...patch };
     for (const l of this.listeners) l();
+  }
+
+  toast(text: string, ms = 4_000): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.set({ toast: { id: Date.now(), text } });
+    this.toastTimer = setTimeout(() => this.set({ toast: null }), ms);
   }
 
   subscribe = (listener: () => void): (() => void) => {

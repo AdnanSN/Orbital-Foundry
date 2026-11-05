@@ -1,68 +1,92 @@
-import { STARTING_CREW } from "@orbital/shared";
 import { useEffect, useState } from "react";
 import type { SimClock } from "../sim/clock";
+import type { LinkStatus, StationLink } from "../sim/link";
 import type { World } from "../sim/world";
 import { AgentInspector } from "./AgentInspector";
 import { ACTIVITY_COLOR, ACTIVITY_LABEL, stationTime } from "./format";
 import { Portrait } from "./Portrait";
+import { RecruitmentBay } from "./RecruitmentBay";
 import { RoomPanel } from "./RoomPanel";
+import { StationLog } from "./StationLog";
 import { type UiStore, useUi } from "./store";
 
 export interface Ctx {
   world: World;
   clock: SimClock;
   ui: UiStore;
+  link: StationLink;
   /** Sim time at the last refresh. */
   now: number;
 }
 
 /** Re-renders the panels a few times a second instead of on every station event. */
-function useTick(world: World, clock: SimClock, ms = 250): number {
+function useTick(clock: SimClock, ms = 250): number {
   const [now, setNow] = useState(clock.now());
   useEffect(() => {
     const id = window.setInterval(() => setNow(clock.now()), ms);
     return () => window.clearInterval(id);
   }, [clock, ms]);
-  void world;
   return now;
+}
+
+function useLinkStatus(link: StationLink): LinkStatus {
+  const [status, setStatus] = useState(link.status());
+  useEffect(() => {
+    // The link may have connected between the first render and this effect.
+    setStatus(link.status());
+    return link.onStatus(setStatus);
+  }, [link]);
+  return status;
 }
 
 export function App({
   world,
   clock,
   ui,
+  link,
   seed,
 }: {
   world: World;
   clock: SimClock;
   ui: UiStore;
-  seed: number;
+  link: StationLink;
+  seed: number | null;
 }) {
-  const now = useTick(world, clock);
+  const now = useTick(clock);
   const selection = useUi(ui, (s) => s.selection);
-  const ctx: Ctx = { world, clock, ui, now };
+  const panel = useUi(ui, (s) => s.panel);
+  const status = useLinkStatus(link);
+  const ctx: Ctx = { world, clock, ui, link, now };
   return (
     <div className="absolute inset-0 text-[12px] leading-snug">
-      <TopBar ctx={ctx} seed={seed} />
+      <TopBar ctx={ctx} seed={seed} status={status} />
       <Roster ctx={ctx} />
-      <Help />
-      {selection?.kind === "agent" && (
+      <StationLog ctx={ctx} />
+      {panel === "hire" && <RecruitmentBay ctx={ctx} />}
+      {panel !== "hire" && selection?.kind === "agent" && (
         <AgentInspector key={selection.id} ctx={ctx} id={selection.id} />
       )}
-      {selection?.kind === "room" && <RoomPanel key={selection.id} ctx={ctx} id={selection.id} />}
+      {panel !== "hire" && selection?.kind === "room" && (
+        <RoomPanel key={selection.id} ctx={ctx} id={selection.id} />
+      )}
+      {(status === "offline" || (status === "connecting" && world.crew.size === 0)) && (
+        <Offline status={status} />
+      )}
     </div>
   );
 }
 
-function Button({
+export function Button({
   onClick,
   active = false,
   title,
+  disabled = false,
   children,
 }: {
   onClick: () => void;
   active?: boolean;
   title: string;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -71,7 +95,8 @@ function Button({
       title={title}
       aria-label={title}
       onClick={onClick}
-      className={`min-w-7 h-7 px-2 rounded-md border text-[12px] cursor-pointer transition-colors ${
+      disabled={disabled}
+      className={`min-w-7 h-7 px-2 rounded-md border text-[12px] cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-default ${
         active
           ? "bg-cyan/20 border-cyan/60 text-cyan"
           : "border-white/10 text-ink hover:bg-white/10 hover:border-white/25"
@@ -82,21 +107,31 @@ function Button({
   );
 }
 
-function TopBar({ ctx, seed }: { ctx: Ctx; seed: number }) {
-  const { clock, ui, now } = ctx;
+const STATUS_BADGE: Record<LinkStatus, { label: string; color: string; title: string }> = {
+  online: { label: "LIVE", color: "#69e08a", title: "Connected to the station server" },
+  connecting: { label: "CONNECTING", color: "#ffd166", title: "Connecting to the station server" },
+  offline: {
+    label: "OFFLINE",
+    color: "#ff5f6d",
+    title: "The station server is not reachable; retrying",
+  },
+  mock: {
+    label: "MOCK",
+    color: "#ff9f43",
+    title: "Offline mode: a local sim runs the crew. No server, no models.",
+  },
+};
+
+function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: LinkStatus }) {
+  const { world, ui, link, now } = ctx;
   const zoom = useUi(ui, (s) => s.zoom);
   const fps = useUi(ui, (s) => s.fps);
   const showNames = useUi(ui, (s) => s.showNames);
-  const [, force] = useState(0);
-  const setSpeed = (s: number) => {
-    clock.setSpeed(s);
-    clock.resume();
-    force((n) => n + 1);
-  };
-  const togglePause = () => {
-    if (clock.paused) clock.resume();
-    else clock.pause();
-    force((n) => n + 1);
+  const panel = useUi(ui, (s) => s.panel);
+  const sim = world.sim;
+  const badge = STATUS_BADGE[status];
+  const run = (change: { paused?: boolean; speed?: number }) => {
+    link.commands.setSim(change).catch((err: unknown) => ui.toast(String(err)));
   };
   return (
     <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-3 pointer-events-none">
@@ -112,26 +147,39 @@ function TopBar({ ctx, seed }: { ctx: Ctx; seed: number }) {
           SANDBOX
         </span>
         <span
-          className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-widest border border-[#ff9f43]/40 text-[#ff9f43] bg-[#ff9f43]/10"
-          title={`Stage 2: a mock director drives the crew (seed ${seed}). No models are called.`}
+          className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-widest border"
+          style={{
+            color: badge.color,
+            borderColor: `${badge.color}66`,
+            background: `${badge.color}1a`,
+          }}
+          title={seed !== null ? `${badge.title} (seed ${seed})` : badge.title}
         >
-          MOCK CREW
+          {badge.label}
         </span>
       </div>
       <div className="panel rounded-xl px-2.5 py-2 flex items-center gap-1.5">
         <Button
-          title={clock.paused ? "Resume" : "Pause"}
-          onClick={togglePause}
-          active={clock.paused}
+          title="Recruitment Bay: hire crew"
+          onClick={() => ui.set({ panel: panel === "hire" ? null : "hire" })}
+          active={panel === "hire"}
         >
-          {clock.paused ? "▶" : "❚❚"}
+          Hire
+        </Button>
+        <span className="w-px h-5 bg-white/15 mx-1" />
+        <Button
+          title={sim.paused ? "Resume" : "Pause"}
+          onClick={() => run({ paused: !sim.paused })}
+          active={sim.paused}
+        >
+          {sim.paused ? "▶" : "❚❚"}
         </Button>
         {[1, 2, 4].map((s) => (
           <Button
             key={s}
             title={`Speed ${s}×`}
-            onClick={() => setSpeed(s)}
-            active={!clock.paused && clock.speed === s}
+            onClick={() => run({ paused: false, speed: s })}
+            active={!sim.paused && sim.speed === s}
           >
             {s}×
           </Button>
@@ -166,9 +214,10 @@ function TopBar({ ctx, seed }: { ctx: Ctx; seed: number }) {
 function Roster({ ctx }: { ctx: Ctx }) {
   const { world, ui } = ctx;
   const selection = useUi(ui, (s) => s.selection);
+  const crew = [...world.crew.values()];
   return (
-    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 panel rounded-xl px-2 py-1.5 flex gap-1">
-      {STARTING_CREW.map((c) => {
+    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 panel rounded-xl px-2 py-1.5 flex gap-1 max-w-[calc(100%-24px)] xl:max-w-[calc(100%-660px)] overflow-x-auto">
+      {crew.map((c) => {
         const a = world.agents.get(c.id);
         const activity = a?.state.activity ?? "idle";
         const selected = selection?.kind === "agent" && selection.id === c.id;
@@ -179,16 +228,16 @@ function Roster({ ctx }: { ctx: Ctx }) {
             type="button"
             title={`${c.name}, ${c.title}: ${label}${a?.state.status ? ` (${a.state.status})` : ""}`}
             onClick={() => {
-              ui.set({ selection: { kind: "agent", id: c.id } });
+              ui.set({ selection: { kind: "agent", id: c.id }, panel: null });
               ui.camera?.focusAgent(c.id);
             }}
-            className={`flex flex-col items-center w-[64px] rounded-lg pt-1 pb-1 cursor-pointer border transition-colors ${
+            className={`flex flex-col items-center w-[64px] shrink-0 rounded-lg pt-1 pb-1 cursor-pointer border transition-colors ${
               selected ? "border-gold/70 bg-gold/10" : "border-transparent hover:bg-white/10"
             }`}
           >
             <Portrait look={c.look} scale={2} />
             <span
-              className={`text-[11px] font-bold ${c.id === "warden" ? "text-gold" : "text-ink"}`}
+              className={`text-[11px] font-bold ${c.role === "overseer" ? "text-gold" : "text-ink"}`}
             >
               {c.name}
             </span>
@@ -209,11 +258,21 @@ function Roster({ ctx }: { ctx: Ctx }) {
   );
 }
 
-function Help() {
+function Offline({ status }: { status: LinkStatus }) {
   return (
-    <div className="absolute bottom-3 left-3 panel rounded-lg px-3 py-2 text-dim text-[11px] max-w-[220px] hidden xl:block">
-      <div className="text-ink font-bold mb-0.5">Controls</div>
-      Drag or WASD to pan · scroll to zoom · F to fit · click a crew member or a room · Esc to close
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div className="panel rounded-xl px-5 py-4 max-w-[420px] text-center">
+        <div className="text-[15px] font-bold mb-1" style={{ color: STATUS_BADGE[status].color }}>
+          {status === "offline" ? "Station server offline" : "Connecting to the station…"}
+        </div>
+        <p className="text-dim">
+          Start it with <code className="text-ink">npm run dev</code> (server and client) or{" "}
+          <code className="text-ink">npm run server</code>. The client reconnects on its own.
+        </p>
+        <a href="?mock=1" className="inline-block mt-3 text-cyan hover:underline">
+          Run offline with a local mock crew instead
+        </a>
+      </div>
     </div>
   );
 }

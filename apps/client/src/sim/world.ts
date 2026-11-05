@@ -1,9 +1,11 @@
 import {
   type AgentState,
+  type CrewMember,
   type Direction,
   findPath,
   type ProviderState,
   pathDurationMs,
+  type SimStatus,
   type StationEvent,
   type StationMap,
   samplePath,
@@ -14,7 +16,7 @@ import {
 /**
  * The client's model of the station, built only from station events. Rendering and the React
  * panels read from it; nothing writes to it except `apply`. That keeps the client a pure view of
- * whatever produces the events: the mock director now, the server from Stage 3.
+ * whatever produces the events: the station server, or the local sim in mock mode.
  */
 
 export interface AgentPose {
@@ -51,11 +53,26 @@ export interface AgentView {
 }
 
 const LOG_LIMIT = 14;
+const FEED_LIMIT = 80;
+
+/** One line of the station log (the event feed panel). */
+export interface FeedEntry {
+  id: number;
+  t: number;
+  text: string;
+  /** The crew member it is about, if any. */
+  who: string | null;
+  kind: "say" | "task" | "crew" | "provider" | "sim";
+}
 
 export class World {
   readonly agents = new Map<string, AgentView>();
   readonly tasks = new Map<string, Task>();
   readonly providers = new Map<string, ProviderState>();
+  /** Who is aboard, in roster order. */
+  readonly crew = new Map<string, CrewMember>();
+  readonly feed: FeedEntry[] = [];
+  sim: SimStatus = { paused: false, speed: 1 };
   /** Bumped on every applied event; React panels re-render when it changes. */
   version = 0;
   /** Sim time of the latest applied event. */
@@ -132,7 +149,10 @@ export class World {
     this.agents.clear();
     this.tasks.clear();
     this.providers.clear();
+    this.crew.clear();
     this.lastSeq = e.seq;
+    this.sim = { ...e.sim };
+    for (const c of e.crew) this.crew.set(c.id, structuredClone(c));
     for (const a of e.agents) this.addAgent(a, e.t);
     for (const t of e.tasks) this.tasks.set(t.id, { ...t });
     for (const p of e.providers) this.providers.set(p.provider, { ...p });
@@ -152,7 +172,27 @@ export class World {
   private applyIncremental(e: Exclude<StationEvent, { type: "snapshot" }>): void {
     switch (e.type) {
       case "agent.spawned":
+        this.crew.set(e.crew.id, structuredClone(e.crew));
         this.addAgent(e.agent, e.t);
+        this.feedLine(e.t, `${e.crew.name} joined the crew (${e.crew.title})`, e.crew.id, "crew");
+        return;
+      case "crew.updated": {
+        const before = this.crew.get(e.crew.id);
+        this.crew.set(e.crew.id, structuredClone(e.crew));
+        if (before && before.room !== e.crew.room) {
+          const room = this.map.room(e.crew.room).name;
+          this.feedLine(e.t, `${e.crew.name} moved to ${room}`, e.crew.id, "crew");
+        }
+        return;
+      }
+      case "sim.status":
+        this.sim = { ...e.status };
+        this.feedLine(
+          e.t,
+          e.status.paused ? "Station paused" : `Station running at ${e.status.speed}×`,
+          null,
+          "sim",
+        );
         return;
       case "agent.moved": {
         const v = this.agents.get(e.id);
@@ -190,22 +230,54 @@ export class World {
         v.bubble = { text: e.text, at: e.t, until: e.t + e.ttl };
         if (v.state.activity === "work" || v.state.activity === "review") v.stats.calls += 1;
         this.log(v, e.t, `“${e.text}”`);
+        this.feedLine(e.t, `${this.name(e.id)}: “${e.text}”`, e.id, "say");
         return;
       }
       case "task.updated": {
         const before = this.tasks.get(e.task.id);
         this.tasks.set(e.task.id, { ...e.task });
         const v = this.agents.get(e.task.assignee);
+        if (before?.status !== e.task.status) {
+          this.feedLine(
+            e.t,
+            `${e.task.id} ${STATUS_WORDS[e.task.status]}: ${e.task.title} (${this.name(e.task.assignee)})`,
+            e.task.assignee,
+            "task",
+          );
+        }
         if (!v || before?.status === e.task.status) return;
         if (e.task.status === "done") v.stats.tasksDone += 1;
         if (e.task.status === "rework") v.stats.reworks += 1;
         this.log(v, e.t, `${e.task.id} ${STATUS_WORDS[e.task.status]}`);
         return;
       }
-      case "provider.status":
+      case "provider.status": {
+        const before = this.providers.get(e.status.provider);
         this.providers.set(e.status.provider, { ...e.status });
+        if (before?.state !== e.status.state) {
+          const what =
+            e.status.state === "ok"
+              ? "is back"
+              : e.status.state === "limited"
+                ? "is rate-limited"
+                : "is down";
+          const note = e.status.note ? ` (${e.status.note})` : "";
+          this.feedLine(e.t, `${e.status.provider} ${what}${note}`, null, "provider");
+        }
         return;
+      }
     }
+  }
+
+  /** Display name for a crew id. */
+  name(id: string): string {
+    return this.crew.get(id)?.name ?? id;
+  }
+
+  private feedLine(t: number, text: string, who: string | null, kind: FeedEntry["kind"]): void {
+    this.logCount += 1;
+    this.feed.push({ id: this.logCount, t, text, who, kind });
+    if (this.feed.length > FEED_LIMIT) this.feed.splice(0, this.feed.length - FEED_LIMIT);
   }
 
   private log(v: AgentView, t: number, text: string): void {

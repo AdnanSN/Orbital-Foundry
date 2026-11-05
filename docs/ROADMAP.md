@@ -16,7 +16,7 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 0 | Prep: keys, folder, decisions | you, ~30 min | ✅ done (NVIDIA, Cloudflare and Groq keys set) |
 | 1 | Foundation & model router | 1 session | ✅ done, except NVIDIA image generation (down on NVIDIA's side) |
 | 2 | The station: visuals with a mock crew | 1 session | ✅ done (`npm run client`) |
-| 3 | Sim engine, persistence, realtime link | 1 session | ☐ |
+| 3 | Sim engine, persistence, realtime link | 1 session | ✅ done (`npm run dev`) |
 | 4 | Agent brains: runtime, Overseer, task board | 1–2 sessions | ☐ |
 | 5 | Creative toolchain (images, upscale, QA) | 1 session | ☐ |
 | 6 | Factory 1: Etsy POD studio (sandbox) | 1 session | ☐ |
@@ -463,20 +463,24 @@ screenshot is saved in `docs/`.
 
 **Goal:** the station becomes real state on the server and survives restarts.
 
-- [ ] A Fastify server with WebSocket, plus the SQLite schema and migrations from §8.
-- [ ] Server-owned world state (rooms, agents, activities, clock). Clients animate from
-      `agent.moved {from, to, t0}`.
-- [ ] A snapshot when a client connects, then incremental events, with auto-reconnect and resync.
-- [ ] REST commands: hire an agent, reassign a room, pause or resume.
-- [ ] **Recruitment Bay**, the reel's "place an agent" mechanic: pick a role template, name the agent,
+- [x] A Fastify server with WebSocket, plus the SQLite schema and migrations from §8 (`agents`,
+      `tasks`, `events` and `kv`; the other §8 tables arrive with the stages that use them).
+- [x] Server-owned world state (rooms, agents, activities, clock). Clients animate from
+      `agent.moved {from, to, t0}`. The sim engine moved to `packages/shared/src/sim` (D-019).
+- [x] A snapshot when a client connects, then incremental events, with auto-reconnect and resync.
+      Every reconnect gets a fresh snapshot (D-020).
+- [x] REST commands: hire an agent, reassign a room, pause or resume, and set the speed.
+- [x] **Recruitment Bay**, the reel's "place an agent" mechanic: pick a role template, name the agent,
       and drag it onto a room. It walks in through the airlock.
-- [ ] An event feed panel, and an inspector that shows live data.
+- [x] An event feed panel (the station log), and an inspector that shows live data and can move a
+      crew member to another room.
 
 **Done when:**
 
-- restarting the server resumes the exact station;
-- two browser tabs stay in sync;
-- hiring works end to end.
+- [x] restarting the server resumes the exact station. This is tested, and was checked by hand:
+      the crew, positions, tasks and clock all survive.
+- [x] two browser tabs stay in sync (tested with two WebSocket clients);
+- [x] hiring works end to end (tested over REST and WebSocket, and through the Recruitment Bay).
 
 ### Stage 4: Agent brains (1–2 sessions)
 
@@ -736,3 +740,13 @@ your phone.
     disk, and a hidden pane runs no frames.
   - **Next:** Stage 3 (sim engine, persistence, realtime link). The mock director can become the
     server's first sim engine, and the client swaps `MockLink` for a WebSocket link.
+- **2026-11-05:** Stage 3 built: the station runs on the server and survives restarts.
+  - The sim engine (`StationSim`, the former mock director) lives in
+    `packages/shared/src/sim`. It can save and restore, hire, reassign, and take commands from
+    Stage 4's agent runtime.
+  - `npm run dev` starts the station server (Fastify, WebSocket, SQLite) and the client.
+  - The client follows the server's clock and reconnects on its own. It still runs offline with
+    `?mock=1`.
+  - New in the client: the Recruitment Bay, the station log, and room reassignment in the
+    inspector.
+  - 123 tests (15 new). **Next:** Stage 4 (agent brains).
