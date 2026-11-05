@@ -1,0 +1,63 @@
+# Channel bible (ROADMAP §7.3): a DRAFT built on the suggested niche (§11, item 9), so the studio
+# can make test videos tonight. It stays a draft, and nothing is posted, until the owner picks a
+# niche at the Owner's Desk (the niche study). Edit freely; the studio reads it on each job.
+id: space-explainers
+status: draft
+name: Orbital Foundry Studio
+handle: "@orbitalfoundry"
+niche: Space and science explainers about the universe, missions and how we know what we know
+audience: Curious adults and older teens (16+) who enjoy big-picture science, space missions and
+  "how do we know?" stories, watching on phones and TVs.
+persona: A calm, curious narrator who explains one idea at a time, admits what is still unknown,
+  and never pretends to be a person. The narration is an AI voice, and every description says so.
+voice:
+  kokoro: am_michael
+  pronounce:
+    ESA: "E S A"
+    JWST: "J W S T"
+    km: kilometres
+style:
+  tone: Clear, warm and precise. Short sentences. Wonder from real numbers, not from hype.
+  rules:
+    - Every number and claim comes from the research brief, with its source.
+    - Explain one idea at a time, and say how we know it.
+    - Say plainly when something is unknown or debated.
+    - Open with the most surprising true fact, not with a greeting.
+    - No calls to like or subscribe; end on the idea itself.
+    - Never present the narrator as a human expert or a real person.
+  bannedPhrases:
+    - "scientists are baffled"
+    - "nobody can explain"
+    - "shocking"
+formats:
+  long: { minWords: 1100, maxWords: 1700 }
+  short: { minWords: 70, maxWords: 150 }
+cadence:
+  longPerWeek: 1
+  shortsPerDay: 1
+theme:
+  bg: "#070b1f"
+  bg2: "#1a2a6c"
+  ink: "#ffffff"
+  accent: "#ffd23f"
+  display: Montserrat
+  body: Inter
+music:
+  mood: space
+sources:
+  prefer: [nasa, pixabay, openverse]
+  wikipediaSeeds:
+    - Solar System
+    - Observable universe
+    - Exoplanet
+    - James Webb Space Telescope
+    - Black hole
+avoid:
+  - Health or medical claims
+  - Financial advice
+  - Elections, politics and breaking news
+  - Conspiracy theories, UFO claims and astrology
+  - Content made for children
+  - Clips from films, TV shows or other creators
+disclosure:
+  aiNarration: true

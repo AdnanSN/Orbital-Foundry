@@ -1271,3 +1271,13 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
     synthesized in code, or your own tracks; a credits file per video.
   - The demo's frames showed NASA b-roll opening on a slate with the NASA insignia, which led to
     skipping clip openings. 11 new tests.
+- **2026-11-06:** Stage 15 built, Stage 16 started (the usage limit cut the session short).
+  - Stage 15: the channel bible (`config/channels/space-explainers.yaml`, a draft until you pick a
+    niche), trend signals (Google Trends, Wikipedia page views, YouTube with a key), the Writers'
+    Room (niche study, ideas, research briefs from Wikipedia, short and long scripts with shot
+    lists, Lens's fact-check, banned phrases, sameness) and its routes under `/api/studio`.
+    Real run: the niche study is at the Owner's Desk; Scout proposed 4 ideas; scripts S-0001,
+    S-0002 (shorts) and S-0003 (long-form) were being written on the live models.
+  - Stage 16 (not wired in or tested yet): `editbay.ts` (script to video, shot fallbacks, the
+    waterfall into shorts, the package and Desk item), `screening.ts`, `thumbnail.ts`.
+  - **Next:** wire the Edit Bay into the server and the Desk player, test it, then Stage 17.

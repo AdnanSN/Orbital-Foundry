@@ -56,6 +56,27 @@ export class WebClient {
     return text.slice(0, this.config.maxBytes);
   }
 
+  /** The plain text of a Wikipedia article (the studio's research briefs), cut to `maxChars`. */
+  async article(
+    title: string,
+    maxChars = 8000,
+  ): Promise<{ title: string; url: string; text: string }> {
+    const t = encodeURIComponent(title);
+    const raw = await this.get(
+      `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exsectionformat=plain&redirects=1&format=json&titles=${t}`,
+    );
+    const data = JSON.parse(raw) as {
+      query?: { pages?: Record<string, { title?: string; extract?: string }> };
+    };
+    const page = Object.values(data.query?.pages ?? {})[0];
+    const name = page?.title ?? title;
+    return {
+      title: name,
+      url: `https://en.wikipedia.org/wiki/${encodeURIComponent(name.replaceAll(" ", "_"))}`,
+      text: (page?.extract ?? "").replace(/\n{2,}/g, "\n").slice(0, maxChars),
+    };
+  }
+
   /** Wikipedia search with a short summary of the top results. */
   async search(query: string, limit = 3): Promise<SearchHit[]> {
     if (!this.config.allow.includes("en.wikipedia.org")) return [];

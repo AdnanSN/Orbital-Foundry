@@ -17,6 +17,9 @@ import { PodPublisher } from "./printify/publisher";
 import { SimServer } from "./sim/simServer";
 import { SimStore } from "./sim/store";
 import { createStation } from "./station";
+import { loadMediaConfig, MediaHub, MediaUsage } from "./studio/media";
+import { SignalService } from "./studio/signals";
+import { WritersRoom } from "./studio/writers";
 import { ThumbnailStudio } from "./thumbs/studio";
 import { TikTokConnector } from "./uplink/tiktok";
 import { Economy } from "./vault/economy";
@@ -264,6 +267,29 @@ const tiktok = new TikTokConnector({
   killed: () => publisher.killed(),
   log: (m) => console.log(`[tiktok] ${m}`),
 });
+// Stage 15: the studio's Writers' Room (niche study, ideas, research, scripts at the Desk).
+const media = new MediaHub(loadMediaConfig(), new MediaUsage(station.db));
+const sayRole = (role: string, text: string) =>
+  sim.mutate((s) => {
+    const who = s.crew.find((c) => c.role === role);
+    if (who) s.sayNow(who.id, text);
+  });
+const writers = new WritersRoom({
+  router: station.router,
+  lane,
+  web: new WebClient(loadWebConfig()),
+  signals: new SignalService({
+    hub: media,
+    db: station.db,
+    log: (m) => console.log(`[signals] ${m}`),
+  }),
+  store: work,
+  db: station.db,
+  director,
+  dir: path.join(ARTIFACTS_DIR, "studio", "scripts"),
+  say: sayRole,
+  log: (m) => console.log(`[writers] ${m}`),
+});
 const opsTimer = setInterval(() => {
   void ops.tick().catch((err: unknown) => console.log(`[ops] backup failed: ${String(err)}`));
   void telegram?.morningSummary().catch(() => {});
@@ -276,6 +302,7 @@ const app = await buildApp(
     achievements,
     telegram: telegram !== null,
     tiktok,
+    faceless: { writers },
     kpis,
     economy,
     forge,

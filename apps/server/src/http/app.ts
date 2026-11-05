@@ -27,6 +27,7 @@ import type { KpiService } from "../vault/kpis";
 import { LEDGER_KINDS, type Ledger } from "../vault/ledger";
 import type { WorkDirector } from "../work/director";
 import type { WorkStore } from "../work/store";
+import { registerStudioRoutes, type StudioApi } from "./studio";
 import { registerUplinkRoutes, TIKTOK_CALLBACK_PATH } from "./uplink";
 
 const hireSchema = z.object({
@@ -91,6 +92,8 @@ export interface WorkApi {
   telegram?: boolean;
   /** The Uplink's TikTok connection (Stage 17, built early for TikTok's app review). */
   tiktok?: TikTokConnector;
+  /** The faceless studio (Stages 15 on). */
+  faceless?: StudioApi;
   /** Where deliverable ZIPs live (served by GET /api/artifacts/:id/zip). */
   artifactsDir?: string;
 }
@@ -414,6 +417,7 @@ export async function buildApp(
         : reply.code(409).send({ error: "No Overseer aboard" });
     });
     if (work.tiktok) registerUplinkRoutes(app, work.tiktok);
+    if (work.faceless) registerStudioRoutes(app, work.faceless);
   }
 
   app.get("/ws", { websocket: true }, (socket) => {

@@ -178,6 +178,39 @@ const MIGRATIONS: string[] = [
      body TEXT NOT NULL,
      fetched_at TEXT NOT NULL
    );`,
+  // Stage 15: the Writers' Room's idea backlog and scripts (JSON documents, a few indexed fields).
+  `CREATE TABLE ideas (
+     id TEXT PRIMARY KEY,
+     channel TEXT NOT NULL,
+     title TEXT NOT NULL,
+     score REAL NOT NULL DEFAULT 0,
+     status TEXT NOT NULL,
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL
+   );
+   CREATE INDEX idx_ideas_channel ON ideas (channel, status, score);
+   CREATE TABLE scripts (
+     id TEXT PRIMARY KEY,
+     channel TEXT NOT NULL,
+     format TEXT NOT NULL,
+     status TEXT NOT NULL,
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX idx_scripts_channel ON scripts (channel, status, created_at);`,
+  // Stage 16: the Edit Bay's videos (one row per cut, long-form and its shorts).
+  `CREATE TABLE videos (
+     id TEXT PRIMARY KEY,
+     script_id TEXT NOT NULL,
+     channel TEXT NOT NULL,
+     format TEXT NOT NULL,
+     status TEXT NOT NULL,
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX idx_videos_channel ON videos (channel, status, created_at);`,
 ];
 
 export function openDb(file: string = DB_PATH): Database.Database {
