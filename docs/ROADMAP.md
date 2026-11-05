@@ -911,6 +911,12 @@ your phone.
 - **2026-11-05:** Production. `ORBITAL_MODE=production` (D-046): every model call runs in the live
   lane, the crew invent no tasks, and simulated sales are off. Groq's production models joined the
   live lane after a terms check, and Cloudflare's terms were re-checked before the first sale
-  (D-045). Stages 2 to 11 merged into `main` and pushed to GitHub.
+  (D-045). Stages 2 to 11 merged into `main` and pushed to GitHub. The station runs under the
+  supervisor (`npm run station`).
+  - **First production run:** WARDEN got three real projects (an Etsy holiday plan, the Fiverr
+    thumbnail gig, three itch.io icon packs). Live traffic showed Groq's 8K tokens-a-minute cap
+    and its strict tool-schema check; both are fixed (D-048). Meta's multimodal Llama models left
+    the live lane because their licences exclude the EU (D-047). Cloudflare's free image allocation
+    was already spent today (36 images), so the Etsy autopilot waits for the 00:00 UTC reset.
   - **Still needs you:** a Printify token and shop id (with Etsy connected in Printify) to publish,
     a Telegram bot for phone approvals, and butler plus an itch.io page for the Forge's packs.
