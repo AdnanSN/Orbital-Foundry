@@ -9,6 +9,7 @@ const STATUS_LABEL: Record<TikTokUploadInfo["status"], string> = {
   uploading: "Uploading…",
   processing: "TikTok is processing…",
   in_inbox: "In your TikTok inbox",
+  unconfirmed: "Check TikTok",
   failed: "Failed",
 };
 

@@ -114,7 +114,7 @@ export interface TikTokUploadInfo {
   id: string;
   file: string;
   bytes: number;
-  status: "uploading" | "processing" | "in_inbox" | "failed";
+  status: "uploading" | "processing" | "in_inbox" | "unconfirmed" | "failed";
   detail?: string;
   createdAt: string;
   updatedAt: string;

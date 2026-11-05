@@ -34,7 +34,7 @@ interface StoredTokens {
   scopes: string[];
 }
 
-export type TikTokUploadStatus = "uploading" | "processing" | "in_inbox" | "failed";
+export type TikTokUploadStatus = "uploading" | "processing" | "in_inbox" | "unconfirmed" | "failed";
 
 export interface TikTokUpload {
   id: string;
@@ -149,10 +149,19 @@ export class TikTokConnector {
     this.tokenFile = path.join(opts.secretsDir, "tiktok.json");
     this.uploadsFile = path.join(opts.dir, "tiktok-uploads.json");
     this.uploads = this.readJson<TikTokUpload[]>(this.uploadsFile) ?? [];
-    // An upload cut off by a restart can't be resumed: say so instead of showing it as running.
+    // A restart cuts off a file transfer (it can't be resumed), but TikTok's processing carries
+    // on without us, so those uploads go back to waiting for TikTok's answer.
     for (const u of this.uploads) {
-      if (u.status === "uploading")
+      if (u.status === "uploading") {
         this.mark(u, "failed", "The station restarted during the upload.");
+      } else if (u.status === "processing" && u.publishId) {
+        const publishId = u.publishId;
+        void this.poll(u, publishId).catch((err: unknown) => {
+          this.mark(u, "failed", err instanceof Error ? err.message : String(err));
+        });
+      } else if (u.status === "processing") {
+        this.mark(u, "failed", "The station restarted before TikTok answered.");
+      }
     }
   }
 
@@ -313,9 +322,14 @@ export class TikTokConnector {
       }
     }
     this.mark(record, "processing", "TikTok is processing the video.");
+    await this.poll(record, init.publish_id);
+  }
+
+  /** Waits for TikTok to put the draft in the inbox (or say why it can't). */
+  private async poll(record: TikTokUpload, publishId: string): Promise<void> {
     for (let i = 0; i < 120; i++) {
       const s = (await this.api("POST", "/v2/post/publish/status/fetch/", {
-        publish_id: init.publish_id,
+        publish_id: publishId,
       })) as { status?: string; fail_reason?: string };
       if (s.status === "SEND_TO_USER_INBOX" || s.status === "PUBLISH_COMPLETE") {
         this.mark(record, "in_inbox", "In your TikTok inbox: open TikTok to review and post it.");
@@ -331,10 +345,11 @@ export class TikTokConnector {
       }
       await this.sleep(5_000);
     }
+    // Not a failure: TikTok has the file but hasn't confirmed the draft yet.
     this.mark(
       record,
-      "failed",
-      "TikTok is still processing after 10 minutes; check your TikTok inbox.",
+      "unconfirmed",
+      "TikTok hadn't confirmed after 10 minutes; check your TikTok inbox.",
     );
   }
 

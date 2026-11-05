@@ -321,3 +321,30 @@ describe("Uplink routes", () => {
     await tiktok.settled(upload.json().id);
   });
 });
+
+describe("TikTokConnector after a restart", () => {
+  it("keeps waiting for TikTok's answer on uploads it already sent", async () => {
+    const first = connector();
+    await connect(first.tiktok);
+    const record = await first.tiktok.upload("first.mp4", mp4(1024));
+    await first.tiktok.settled(record.id);
+    // Pretend the station stopped while TikTok was still processing.
+    const file = path.join(first.dir, "uplink", "tiktok-uploads.json");
+    const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+    saved[0].status = "processing";
+    fs.writeFileSync(file, JSON.stringify(saved));
+    const fake = fakeTikTok(["SEND_TO_USER_INBOX"]);
+    const again = new TikTokConnector({
+      clientKey: "ck",
+      clientSecret: "cs",
+      redirectUri: REDIRECT,
+      stationPort: 8787,
+      dir: path.join(first.dir, "uplink"),
+      secretsDir: path.join(first.dir, "secrets"),
+      fetchImpl: fake.fetchImpl,
+      sleep: async () => {},
+    });
+    expect((await again.settled(record.id))?.status).toBe("in_inbox");
+    expect(fake.calls.some((c) => c.url.endsWith("/status/fetch/"))).toBe(true);
+  });
+});
