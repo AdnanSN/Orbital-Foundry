@@ -30,7 +30,7 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 11 | Always-on ops & polish | 1 session | 🟡 built; the 72-hour run and a phone approval need you |
 | 12 | Studio prep: accounts and keys | you, ~1–2 hours | 🟡 TikTok in review, ElevenLabs and Pixabay set; YouTube and Instagram wait |
 | 13 | Studio core: media router, voice-over, captions, render | 1 session | ✅ done (`npm run studio -- smoke`) |
-| 14 | Visual sources: stock library, camera moves, music | 1 session | ⬜ |
+| 14 | Visual sources: stock library, camera moves, music | 1 session | ✅ done (`npm run studio -- sources`); depth parallax and ACE-Step later |
 | 15 | Writers' Room: channel bible, ideas, research, scripts | 1 session | ⬜ |
 | 16 | Edit Bay: script to finished video, screening, preview approval | 1–2 sessions | ⬜ |
 | 17 | Uplink: posting to YouTube, TikTok and Instagram | 1 session | ⬜ |
@@ -789,20 +789,28 @@ are timed per sentence, so whisper.cpp wasn't needed. Parking: the Etsy autopilo
 
 **Goal:** every shot in a shot list can be filled for free, with a fallback.
 
-- [ ] A clip library (SQLite plus `data/library/`): source, licence, credit, tags, length, resolution
+- [x] A clip library (SQLite plus `data/library/`): source, licence, credit, tags, length, resolution
       and reuse count. Reuse comes first, and a size cap cleans up the least recently used clips.
-- [ ] Stock: Pixabay (a 24-hour cache, downloads, its request limits), NASA's Image and Video Library,
+- [x] Stock: Pixabay (a 24-hour cache, downloads, its request limits), NASA's Image and Video Library,
       Wikimedia Commons and Openverse with licence filters and credits, and Pexels if a key exists.
-- [ ] AI stills from the image service at 16:9 and 9:16 (Cloudflare's FLUX is square, so they are
+- [x] AI stills from the image service at 16:9 and 9:16 (Cloudflare's FLUX is square, so they are
       cropped or extended), sharing the daily image budget with the Thumbnail Studio.
-- [ ] Camera moves on stills: Depth Anything V2 Small (Apache-2.0, ONNX on the CPU) makes a depth map,
+- [~] Camera moves on stills: Depth Anything V2 Small (Apache-2.0, ONNX on the CPU) makes a depth map,
       and a parallax shader in HyperFrames turns it into push-in, dolly, orbit and crane moves.
-- [ ] Music and sound: a library you can fill from YouTube's Audio Library, beds made locally with
+- [~] Music and sound: a library you can fill from YouTube's Audio Library, beds made locally with
       ACE-Step 1.5 (MIT, under 4 GB of VRAM), Freesound CC0 effects, ducking under the voice, and
       loudness to each platform's target.
-- [ ] A credits file for each video that lists every asset with its licence.
+- [x] A credits file for each video that lists every asset with its licence.
 
 **Done when:** a 60-second short that uses every kind of source renders, with a correct credits file.
+
+**Built (2026-11-06, D-056):** `library.ts`, `stock.ts`, `stills.ts`, `sound.ts` and
+`npm run studio -- sources`. The demo (`data/artifacts/studio/sources/`, 45 s, rendered in 96 s)
+used a NASA image, Pixabay footage, an Openverse CC BY photo, NASA launch footage, an animated stat,
+a code-drawn still, a synthesized music bed and effects, with `credits.txt`. Its AI still fell back
+to the starfield because Cloudflare's free image allocation was spent for the day. Not built yet:
+the depth-map parallax (stills use seven Ken Burns moves) and ACE-Step music (a multi-GB download
+that needs your OK); the music library takes your own tracks with a licence sidecar.
 
 ### Stage 15: Writers' Room (1 session)
 
@@ -1254,3 +1262,12 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
     Chrome, Kokoro's model (about 90 MB, in data/models), GSAP (vendored).
   - The first smoke short exposed captions whose highlighted word swallowed the spaces around it;
     words now carry their own margins. 15 new tests (252 in all).
+- **2026-11-06:** Stage 14 built: visual sources (D-056).
+  - The clip library (`assets` table and `data/library/`), with licence and credit per file, reuse
+    first and a least-recently-used size cap.
+  - Stock: Pixabay (key, 24-hour cache), NASA's Image and Video Library (third-party items skipped,
+    press slates skipped), Openverse (CC0, public domain and CC BY only).
+  - AI stills through the station's image service with the IP blocklist; music beds and effects
+    synthesized in code, or your own tracks; a credits file per video.
+  - The demo's frames showed NASA b-roll opening on a slate with the NASA insignia, which led to
+    skipping clip openings. 11 new tests.

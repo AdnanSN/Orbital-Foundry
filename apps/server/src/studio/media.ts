@@ -21,6 +21,7 @@ export const MEDIA_KINDS = [
   "music",
   "sfx",
   "render",
+  "signals",
 ] as const;
 export type MediaKind = (typeof MEDIA_KINDS)[number];
 export type MediaLane = "sandbox" | "live";

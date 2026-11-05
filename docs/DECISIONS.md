@@ -853,3 +853,24 @@ laptop.
 - **Loudness.** Every final file is brought to -14 LUFS integrated, -1.5 dB true peak.
 - **Parking.** The Etsy autopilot starts only with `ORBITAL_AUTOPILOT=1`. The open shop objective
   and the old Desk items are the owner's decisions, so they stay as they are.
+
+## D-056: Visual sources and the sound kit (2026-11-06)
+
+- **Library first.** Every downloaded or generated file is an `assets` row with its source,
+  licence and credit. Shots reuse library assets (no repeats within a video) before anything new is
+  fetched; a size cap deletes the least recently used downloads, never your own files.
+- **Stock order:** Pixabay, then NASA's Image and Video Library, then Openverse (images only); a
+  channel can put a source first (the space draft prefers NASA). Searches are cached for 24 hours in
+  `media_cache` (Pixabay's terms), without the API key, and downloads stop at 250 MB.
+- **NASA:** items whose description shows third-party rights (©, Getty, Reuters, "courtesy of") are
+  skipped; credits name the creator ("NASA/JPL-Caltech") and say NASA doesn't endorse the video.
+  Clips start past their opening (30% or at least 6 s) because NASA b-roll often opens on a press
+  slate with the insignia.
+- **Openverse:** only CC0, the Public Domain Mark and CC BY. CC BY-SA is left out: a zoom or crop in a
+  video may count as an adaptation, which share-alike would then govern.
+- **Sound:** your tracks in `data/library/music` with a JSON sidecar that names their licence come
+  first; otherwise the station synthesizes ambient beds (four moods) and four effects in code, which
+  carry no third-party rights and can't draw Content ID claims. ACE-Step waits for your OK (a
+  multi-GB model and Python stack on a disk with 59 GB free).
+- **AI stills** use the station's image service in the video's lane, after the IP blocklist; FLUX's
+  square output is cropped by the renderer.
