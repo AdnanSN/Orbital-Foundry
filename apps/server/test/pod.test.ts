@@ -235,7 +235,11 @@ function fixtures(over: { ipRisk?: string; qaScores?: number[] } = {}): Fixture[
   ];
 }
 
-function setup(fx: Fixture[] = fixtures(), now = new Date(2026, 10, 5, 10, 0)) {
+function setup(
+  fx: Fixture[] = fixtures(),
+  now = new Date(2026, 10, 5, 10, 0),
+  extra: { imagesReadyAt?: () => number } = {},
+) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "orbital-pod-"));
   const db = openDb(path.join(dir, "station.db"));
   cleanups.push(() => {
@@ -335,6 +339,7 @@ function setup(fx: Fixture[] = fixtures(), now = new Date(2026, 10, 5, 10, 0)) {
     lane: "sandbox",
     autopilot: true,
     clock: () => now,
+    ...extra,
   });
   const events: string[] = [];
   world.subscribe((batch) => {
@@ -483,6 +488,16 @@ describe("PodFactory", () => {
     expect(night.factory.isRunning("store-a")).toBe(false);
     night.factory.updateSettings("store-a", { paused: true });
     expect(night.factory.settings("store-a")).toEqual({ listingsPerDay: 1, paused: true });
+  });
+
+  it("waits for the image budget instead of failing listings while it is spent", () => {
+    let readyAt = Date.now() + 3_600_000;
+    const s = setup(fixtures(), new Date(2026, 10, 5, 10, 0), { imagesReadyAt: () => readyAt });
+    s.factory.tick();
+    expect(s.factory.isRunning("store-a")).toBe(false);
+    readyAt = 0;
+    s.factory.tick();
+    expect(s.factory.isRunning("store-a")).toBe(true);
   });
 
   it("marks listings interrupted by a restart as failed", () => {

@@ -76,6 +76,18 @@ export class ImageService {
     return { ids, skipped };
   }
 
+  /** Keep an endpoint out until `until` (ms): a daily allocation already spent before a restart. */
+  bench(id: string, until: number): void {
+    if (until > Date.now()) this.breaker.trip(id, until - Date.now());
+  }
+
+  /** When image generation in `lane` can next work (ms): 0 for now, Infinity with no endpoint. */
+  readyAt(lane: Lane): number {
+    const { ids } = this.plan(lane);
+    if (ids.length === 0) return Number.POSITIVE_INFINITY;
+    return Math.min(...ids.map((id) => this.breaker.openUntil(id)));
+  }
+
   /** Generate with the first endpoint that works in this lane, skipping ones that keep failing. */
   async generate(lane: Lane, req: ImageRequest): Promise<ImageResult> {
     const { ids, skipped } = this.plan(lane);

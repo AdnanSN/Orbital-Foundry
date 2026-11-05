@@ -15,6 +15,12 @@ export class CircuitBreaker {
     return entry !== undefined && entry.openUntil > Date.now();
   }
 
+  /** When an open circuit closes again (ms), or 0 while it is closed. */
+  openUntil(key: string): number {
+    const until = this.state.get(key)?.openUntil ?? 0;
+    return until > Date.now() ? until : 0;
+  }
+
   recordSuccess(key: string): void {
     this.state.delete(key);
   }

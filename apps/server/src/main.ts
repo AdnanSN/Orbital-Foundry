@@ -60,6 +60,20 @@ const sim = new SimServer({
   ambientWork: !production,
 });
 const work = new WorkStore(station.db);
+// A daily image allocation spent earlier today stays spent across restarts (until 00:00 UTC).
+{
+  const since = new Date();
+  since.setUTCHours(0, 0, 0, 0);
+  const spent = station.db
+    .prepare(
+      "SELECT DISTINCT model FROM llm_calls WHERE kind = 'image' AND ts >= ? AND error LIKE '%daily free allocation%'",
+    )
+    .all(since.toISOString()) as { model: string }[];
+  for (const { model } of spent) station.images.bench(model, since.getTime() + 86_400_000);
+  if (spent.length > 0) {
+    console.log(`[images] daily allocation spent today: ${spent.map((s) => s.model).join(", ")}`);
+  }
+}
 const styles = loadStyles();
 const blocklist = loadBlocklist();
 const studio = new CreativeStudio({
@@ -115,6 +129,7 @@ const pod = new PodFactory({
   lane,
   // Each store's daily listings start on their own in working hours; ORBITAL_AUTOPILOT=0 stops it.
   autopilot: process.env.ORBITAL_AUTOPILOT !== "0",
+  imagesReadyAt: () => station.images.readyAt(lane),
   log: (m) => console.log(`[pod] ${m}`),
 });
 const interrupted = pod.recover();

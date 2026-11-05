@@ -54,6 +54,11 @@ export interface PodDeps {
   autopilot?: boolean;
   /** Local hours [start, end) when the autopilot may start work. */
   workingHours?: [number, number];
+  /**
+   * When images can next be made in this lane (ms; 0 for now). Every listing needs images, so the
+   * autopilot waits while the lane's daily image budget is spent instead of failing listings.
+   */
+  imagesReadyAt?: () => number;
   /** Real time (daily counts, working hours). */
   clock?: () => Date;
   log?: (message: string) => void;
@@ -204,6 +209,7 @@ export class PodFactory {
     const now = this.clock();
     const [start, end] = this.deps.workingHours ?? [9, 21];
     if (now.getHours() < start || now.getHours() >= end) return;
+    if ((this.deps.imagesReadyAt?.() ?? 0) > Date.now()) return;
     for (const b of this.deps.businesses) {
       const s = this.settings(b.id);
       if (s.paused || this.countToday(b.id) >= s.listingsPerDay) continue;

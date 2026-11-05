@@ -62,11 +62,11 @@ tiers:
       - nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b
       - freellm:auto # routes to a vision model when an image is attached (D-044)
       - cloudflare:@cf/mistralai/mistral-small-3.1-24b-instruct
+    # Meta's licences for its multimodal Llama models (3.2 Vision, Llama 4) grant no rights to
+    # people or companies based in the EU, and this station runs in Western Europe, so they stay out
+    # of the live lane (D-047). Gemma 3 would be the next choice, but this account gets 403 for it.
     live:
       - cloudflare:@cf/mistralai/mistral-small-3.1-24b-instruct # Apache-2.0
-      - cloudflare:@cf/meta/llama-4-scout-17b-16e-instruct
-      # Needs a one-time "agree" to Meta's Llama 3.2 license on Cloudflare (owner's decision).
-      - cloudflare:@cf/meta/llama-3.2-11b-vision-instruct
 
   embed:
     description: Embeddings for memory search

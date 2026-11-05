@@ -115,6 +115,29 @@ describe("ImageService lanes", () => {
     expect(nvidiaCalls).toBe(1);
   });
 
+  it("says when a lane can next make images, and benches a spent endpoint", () => {
+    const service = new ImageService({
+      providers,
+      endpoints,
+      gates: createGates(providers),
+      env: { CF_ACCOUNT: "acc" },
+    });
+    expect(service.readyAt("sandbox")).toBe(0);
+    const until = Date.now() + 3_600_000;
+    service.bench("cf-flux", until);
+    expect(service.readyAt("sandbox")).toBe(0); // NVIDIA can still draw
+    service.bench("nvidia-flux", until + 1_000);
+    expect(service.readyAt("sandbox")).toBeGreaterThanOrEqual(until - 50);
+    expect(service.readyAt("sandbox")).toBeLessThanOrEqual(until + 50);
+    const none = new ImageService({
+      providers,
+      endpoints: {},
+      gates: createGates(providers),
+      env: {},
+    });
+    expect(none.readyAt("live")).toBe(Number.POSITIVE_INFINITY);
+  });
+
   it("refuses the live lane when only sandbox endpoints exist", async () => {
     const service = new ImageService({
       providers,

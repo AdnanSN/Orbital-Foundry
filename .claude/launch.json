@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "start"],
       "port": 8787
+    },
+    {
+      "name": "station",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "station"],
+      "port": 8787
     }
   ]
 }

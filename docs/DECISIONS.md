@@ -687,4 +687,19 @@ so the terms of the providers we already use were checked again.
 - **Capacity.** Images are the bottleneck: Cloudflare's 10,000 neurons a day (about 170 images) are
   shared by the three factories. Text has Groq's per-model daily budgets with Cloudflare behind
   them. Development keeps the large free sandbox (the pool, NVIDIA), and its output never mixes
-  with production's.
+  with production's. On 2026-11-05 the allocation ran out after 36 images, well short of the
+  estimate, so expect a few listings a day rather than dozens.
+- **A spent image budget waits.** While the lane's image endpoints are benched for the day, the
+  Etsy autopilot doesn't start listings (each needs images) instead of failing one every 30
+  minutes. A restart reads the usage log, so an allocation already spent today stays benched until
+  00:00 UTC.
+
+## D-047: No multimodal Llama models in the live lane (2026-11-05)
+
+Meta's licences for its multimodal models (Llama 3.2 Vision, the Llama 4 family) grant no rights
+to individuals or companies based in the European Union. The station's machine runs on Western
+European time, so the owner may well be in the EU: `llama-4-scout` and `llama-3.2-11b-vision` leave
+the live vision list (this also settles D-012 for the live lane). Live vision runs on Mistral Small
+3.1 (Apache-2.0) alone. Gemma 3 (commercial use allowed) would be the backup, but this Cloudflare
+account gets 403 for it. The text-only Llama 3.x models carry no such restriction and stay. If the
+owner is not in the EU, the two models can come back after a note here.
