@@ -61,6 +61,24 @@ export interface StationCommands {
   gigKit(): Promise<ArtifactMeta>;
   /** Download URL for a deliverable's ZIP (packages, thumbnails, asset packs). */
   zipUrl(id: string): string;
+  /** Factory 3, the Asset Forge (Stage 9). */
+  packs(): Promise<PackInfo[]>;
+  forgePack(req: { theme: string; size: number; count: number }): Promise<void>;
+}
+
+export interface PackInfo {
+  id: string;
+  request: { theme: string; size: number; count: number };
+  plan: { title: string } | null;
+  icons: { id: string; name: string }[];
+  preview: string | null;
+  score: number | null;
+  outliers: number[];
+  deliveryId: string | null;
+  status: "working" | "delivered" | "failed";
+  running: boolean;
+  error: string | null;
+  uploaded: { mode: string; command: string } | null;
 }
 
 export interface ThumbJobInfo {
@@ -186,6 +204,8 @@ export class MockLink implements StationLink {
       reviseThumbs: SERVER_ONLY,
       gigKit: SERVER_ONLY,
       zipUrl: () => "",
+      packs: async () => [],
+      forgePack: SERVER_ONLY,
     };
   }
 
@@ -305,6 +325,8 @@ export class SocketLink implements StationLink {
       reviseThumbs: (id, note) => post(`/thumbs/${encodeURIComponent(id)}/revise`, { note }),
       gigKit: async () => (await json("/thumbs/gig-kit", {})) as ArtifactMeta,
       zipUrl: (id) => `${this.base}/api/artifacts/${encodeURIComponent(id)}/zip`,
+      packs: async () => (await json("/forge")) as PackInfo[],
+      forgePack: (req) => post("/forge", req),
     };
   }
 

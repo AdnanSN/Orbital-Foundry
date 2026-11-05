@@ -12,6 +12,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 import { CUTOUTS } from "../creative/config";
 import type { CreativeStudio } from "../creative/studio";
+import { type AssetForge, packRequestSchema } from "../forge/forge";
 import type { PodFactory } from "../pod/factory";
 import type { PodPublisher } from "../printify/publisher";
 import type { SimServer } from "../sim/simServer";
@@ -69,6 +70,8 @@ export interface WorkApi {
   ledger?: Ledger;
   /** Factory 2, the Thumbnail Studio (Stage 8). */
   thumbs?: ThumbnailStudio;
+  /** Factory 3, the Asset Forge (Stage 9). */
+  forge?: AssetForge;
   /** Where deliverable ZIPs live (served by GET /api/artifacts/:id/zip). */
   artifactsDir?: string;
 }
@@ -268,6 +271,13 @@ export async function buildApp(sim: SimServer, work?: WorkApi): Promise<FastifyI
       });
       app.post("/api/thumbs/gig-kit", async (_req, reply) =>
         reply.code(201).send(await thumbs.gigKit()),
+      );
+    }
+    const forge = work.forge;
+    if (forge) {
+      app.get("/api/forge", async () => forge.list());
+      app.post("/api/forge", async (req, reply) =>
+        reply.code(202).send(forge.start(packRequestSchema.parse(req.body ?? {}))),
       );
     }
     const zipRoot = work.artifactsDir ? path.resolve(work.artifactsDir) : null;

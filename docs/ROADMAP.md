@@ -22,7 +22,7 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 6 | Factory 1: Etsy POD studio (sandbox) | 1 session | ✅ done (Stores panel; sandbox packages) |
 | 7 | Go live: Printify → Etsy | 1 session | 🟡 built, dry run; live needs your Printify token and Etsy shop |
 | 8 | Factory 2: Thumbnail studio | 1 session | ✅ done (Thumbs panel; Fiverr stays manual) |
-| 9 | Factory 3: Asset forge | 1 session | ☐ |
+| 9 | Factory 3: Asset forge | 1 session | 🟡 built and tested; first real pack after the image budget resets |
 | 10 | Economy, KPIs, learning loop | 1 session | ☐ |
 | 11 | Always-on ops & polish | 1 session | ☐ |
 
@@ -585,10 +585,11 @@ corrected version.
 
 **Goal:** themed, consistent, sellable 2D asset packs.
 
-- [ ] The §7.3 pipeline:
+- [x] The §7.3 pipeline:
   - style lock and consistency QA;
   - a ZIP with license, README and previews.
-- [ ] itch.io page copy with the AI disclosure, and a `butler` upload behind approval.
+- [x] itch.io page copy with the AI disclosure, and a `butler` upload behind approval (dry run
+      until you OK installing butler).
 
 **Done when:** one 32-icon pack (PNGs, sprite sheet, previews and license) is ready. Optionally, it's
 pushed to itch.io.
@@ -846,3 +847,20 @@ your phone.
   - Real run: "I Built a Tiny Cabin in 30 Days With No Experience" became three thumbnails in 63 seconds (QA 9, 8 and 9; contrast 4.2 to 5.5:1); the note "make the hook on #2 shorter, in white" produced version 2 in 28 seconds, reusing the backgrounds. Cloudflare's free daily image allocation was used up by then, so the scenes were drawn in code (the new fallback); real scenes come back at 00:00 UTC.
   - Stages 6 to 8 together: 188 tests (37 new).
   - **Next:** Stage 9 (Asset forge).
+- **2026-11-05:** Stage 9 built: Factory 3 makes consistent pixel-art icon packs.
+  - `apps/server/src/forge/forge.ts`: a pack plan (title, items, palette, outline, light, a locked
+    style prompt, itch.io tags); a few multi-item sprite sheets on flat magenta instead of one image
+    per icon (same style, a fraction of the image budget); chroma key and connected components to
+    cut out each item wherever the model drew it; one shared pack palette and a uniform outline;
+    Lens rates a numbered contact sheet for consistency, names every icon and flags outliers, which
+    are swapped for spares.
+  - The package: icons named by Lens, an 8-column sprite sheet with a JSON atlas, a preview,
+    LICENSE.txt (use in games; no reselling the assets or training AI on them) and a README; the
+    delivery carries itch.io page copy with the AI-generation disclosure. Accepting files an upload
+    item: `butler push` as a dry run until butler is installed and configured.
+  - Forge panel: theme, size (16/32/64) and icon count; packs with previews and ZIPs.
+  - 194 tests (6 new).
+  - **Not done yet:** the first real 32-icon pack. Cloudflare's free daily image allocation was
+    used up by the Stage 6 and 8 runs (NVIDIA's image endpoint is down), so it waits for the
+    00:00 UTC reset: open Forge and press "Forge a pack".
+  - **Next:** Stage 10 (economy, KPIs, learning loop).

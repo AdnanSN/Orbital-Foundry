@@ -4,7 +4,7 @@ An always-on pixel-art space station where AI agents run small online businesses
 print-on-demand, a thumbnail studio and a game-asset forge. The agents answer to an Overseer, and
 you approve anything that leaves the station.
 
-**Status:** Stages 1 to 8 are built. The crew make images (generate, cut out, upscale, compose,
+**Status:** Stages 1 to 9 are built. The crew make images (generate, cut out, upscale, compose,
 pixelate, QA) and complete Etsy listing packages for your review. Publishing through Printify
 runs as a dry run until you add a Printify token and shop (see `.env.example`). The station runs on a server that saves it, and the crew do
 real work through free models: give WARDEN an objective and watch it get planned, worked,
@@ -21,6 +21,8 @@ reviewed and delivered to your Owner's Desk. The full plan is in [docs/ROADMAP.m
    - Click **Desk** for the Owner's Desk: results to accept, actions to approve, crew who are stuck.
    - Click **Thumbs** for Factory 2: a video title becomes three YouTube thumbnails; add a note
      to revise them.
+   - Click **Forge** for Factory 3: a theme becomes a pixel-art icon pack with a licence and
+     itch.io copy.
    - Click **Gallery** for the studio's images: run the one-click image pipeline, compare, approve.
    - Click **Stores** for Factory 1's three Etsy stores: start a listing, set listings per day,
      pause a store, and open its listing packages (print file, mockups, copy, compliance, ZIP).

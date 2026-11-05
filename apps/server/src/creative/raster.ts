@@ -389,6 +389,145 @@ export function quantize(p: Pixels, colors: number): { pixels: Pixels; palette: 
   return { pixels: { width: p.width, height: p.height, data: out }, palette };
 }
 
+/** One palette for many images (a pack): median cut over the opaque pixels of all of them. */
+export function buildPalette(images: Pixels[], colors: number): Rgb[] {
+  const all: Rgb[] = [];
+  for (const p of images) {
+    for (let i = 0; i < p.data.length; i += 4) {
+      if ((p.data[i + 3] ?? 0) >= 128)
+        all.push([p.data[i] ?? 0, p.data[i + 1] ?? 0, p.data[i + 2] ?? 0]);
+    }
+  }
+  return medianCut(all, Math.max(1, Math.min(256, colors)));
+}
+
+/** Snap opaque pixels to the nearest palette colour (fully opaque); the rest become transparent. */
+export function applyPalette(p: Pixels, palette: Rgb[]): Pixels {
+  const out = new Uint8ClampedArray(p.data.length);
+  for (let i = 0; i < p.data.length; i += 4) {
+    if ((p.data[i + 3] ?? 0) < 128 || palette.length === 0) continue;
+    let best = 0;
+    let bestD = Number.POSITIVE_INFINITY;
+    for (const [k, c] of palette.entries()) {
+      const d = dist(p.data, i, c);
+      if (d < bestD) {
+        bestD = d;
+        best = k;
+      }
+    }
+    const c = palette[best] ?? [0, 0, 0];
+    out[i] = c[0];
+    out[i + 1] = c[1];
+    out[i + 2] = c[2];
+    out[i + 3] = 255;
+  }
+  return { width: p.width, height: p.height, data: out };
+}
+
+/** A one-pixel outline around the opaque shape (transparent pixels that touch it). */
+export function addOutline(p: Pixels, color: Rgb): Pixels {
+  const { width: w, height: h } = p;
+  const out = new Uint8ClampedArray(p.data);
+  const opaque = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < w && y < h && (p.data[(y * w + x) * 4 + 3] ?? 0) >= 128;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (opaque(x, y)) continue;
+      if (opaque(x - 1, y) || opaque(x + 1, y) || opaque(x, y - 1) || opaque(x, y + 1)) {
+        const i = (y * w + x) * 4;
+        out[i] = color[0];
+        out[i + 1] = color[1];
+        out[i + 2] = color[2];
+        out[i + 3] = 255;
+      }
+    }
+  }
+  return { width: w, height: h, data: out };
+}
+
+export interface Blob {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  area: number;
+}
+
+/**
+ * Separate items on a keyed sheet: connected groups of opaque pixels (8-connected), with boxes
+ * closer than `gap` pixels merged (a sparkle next to a potion belongs to it). Small specks are
+ * dropped. Boxes come back in reading order (rows, then left to right).
+ */
+export function findBlobs(p: Pixels, opts: { minArea: number; gap: number }): Blob[] {
+  const { width: w, height: h, data } = p;
+  const seen = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let blobs: Blob[] = [];
+  for (let start = 0; start < w * h; start++) {
+    if (seen[start] || (data[start * 4 + 3] ?? 0) < 128) continue;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = start;
+    seen[start] = 1;
+    const b: Blob = { x0: w, y0: h, x1: -1, y1: -1, area: 0 };
+    while (head < tail) {
+      const i = queue[head++] ?? 0;
+      const x = i % w;
+      const y = (i - x) / w;
+      b.area += 1;
+      if (x < b.x0) b.x0 = x;
+      if (x > b.x1) b.x1 = x;
+      if (y < b.y0) b.y0 = y;
+      if (y > b.y1) b.y1 = y;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const j = ny * w + nx;
+          if (seen[j] || (data[j * 4 + 3] ?? 0) < 128) continue;
+          seen[j] = 1;
+          queue[tail++] = j;
+        }
+      }
+    }
+    blobs.push(b);
+  }
+  // Merge boxes that touch or nearly touch.
+  let merged = true;
+  while (merged) {
+    merged = false;
+    const next: Blob[] = [];
+    for (const b of blobs) {
+      const hit = next.find(
+        (o) =>
+          b.x0 <= o.x1 + opts.gap &&
+          o.x0 <= b.x1 + opts.gap &&
+          b.y0 <= o.y1 + opts.gap &&
+          o.y0 <= b.y1 + opts.gap,
+      );
+      if (hit) {
+        hit.x0 = Math.min(hit.x0, b.x0);
+        hit.y0 = Math.min(hit.y0, b.y0);
+        hit.x1 = Math.max(hit.x1, b.x1);
+        hit.y1 = Math.max(hit.y1, b.y1);
+        hit.area += b.area;
+        merged = true;
+      } else {
+        next.push({ ...b });
+      }
+    }
+    blobs = next;
+  }
+  const big = blobs.filter((b) => b.area >= opts.minArea);
+  const rowH = Math.max(1, ...big.map((b) => b.y1 - b.y0)) * 0.5;
+  return big.sort((a, b) => {
+    const ra = Math.round((a.y0 + a.y1) / 2 / rowH);
+    const rb = Math.round((b.y0 + b.y1) / 2 / rowH);
+    return ra - rb || a.x0 - b.x0;
+  });
+}
+
 function medianCut(colors: Rgb[], target: number): Rgb[] {
   if (colors.length === 0) return [];
   let boxes: Rgb[][] = [colors];

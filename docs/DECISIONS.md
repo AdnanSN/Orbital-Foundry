@@ -531,3 +531,26 @@ Real listing runs showed where the free tiers hurt, and each fix is data or a sm
 - **Jobs** are saved in the store and survive restarts; an interrupted job is marked failed.
 - **Gig kit:** honest copy (AI-assisted, designer-finished, no promised views or click-through)
   and up to six portfolio thumbnails chosen by QA.
+
+## D-038: The Asset Forge makes packs from sprite sheets (2026-11-05)
+
+- **Sheets, not single icons.** One image call asks for about 12 items on a flat magenta
+  background with the pack's locked style prompt and a fixed seed per sheet. Items from the same
+  sheet share a style, and a 32-icon pack costs about 3 or 4 images instead of 32 or more (the
+  free Cloudflare allocation is about 170 images a day).
+- **Cutting items out:** chroma key on magenta, then 8-connected components; boxes closer than
+  about 1% of the sheet are merged (sparkles stay with their item); specks, slivers and anything
+  spanning most of the sheet are dropped. Items come back in reading order.
+- **Consistency by construction:** each item is area-averaged down to the pack size (minus the
+  outline), snapped to one palette built by median cut over every item, centred, and given a
+  1-pixel outline (dark, or the palette's darkest colour).
+- **Review:** the vision model sees a numbered contact sheet, scores consistency, lists outliers
+  (style breaks, fragments, duplicates) and names every icon; outliers are replaced from the spares
+  (each pack makes about 12% extra). Without the review model the pack still ships, with score 0.
+- **Licence** (a default for the owner to adjust): use in commercial and non-commercial projects,
+  modify, no attribution needed; no reselling or redistributing the assets themselves, no AI
+  training; AI generation disclosed.
+- **itch.io:** the page copy marks AI-generated graphics (itch.io asks asset pages to disclose it).
+  Uploading is `butler push <zip> <user>/<game>:<channel>` behind its own approval; without
+  `BUTLER_PATH` and `ITCH_TARGET` it is a dry run that records the command. The kill switch
+  blocks uploads too.

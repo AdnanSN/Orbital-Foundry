@@ -5,6 +5,7 @@ import type { World } from "../sim/world";
 import { AgentInspector } from "./AgentInspector";
 import { ArtifactViewer } from "./ArtifactViewer";
 import { DeskPanel } from "./DeskPanel";
+import { ForgePanel } from "./ForgePanel";
 import { ACTIVITY_COLOR, ACTIVITY_LABEL, stationTime } from "./format";
 import { GalleryPanel } from "./GalleryPanel";
 import { Portrait } from "./Portrait";
@@ -74,6 +75,7 @@ export function App({
       {panel === "desk" && <DeskPanel ctx={ctx} />}
       {panel === "stores" && <StoresPanel ctx={ctx} />}
       {panel === "thumbs" && <ThumbsPanel ctx={ctx} />}
+      {panel === "forge" && <ForgePanel ctx={ctx} />}
       {panel === null && selection?.kind === "agent" && (
         <AgentInspector key={selection.id} ctx={ctx} id={selection.id} />
       )}
@@ -204,6 +206,13 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
           active={panel === "thumbs"}
         >
           Thumbs
+        </Button>
+        <Button
+          title="Forge: Factory 3 makes consistent pixel-art icon packs"
+          onClick={() => ui.set({ panel: panel === "forge" ? null : "forge" })}
+          active={panel === "forge"}
+        >
+          Forge
         </Button>
         <Button
           title="Gallery: the studio's images, the one-click pipeline, approve or reject"

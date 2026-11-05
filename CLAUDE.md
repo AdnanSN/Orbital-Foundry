@@ -41,7 +41,8 @@ An always-on pixel-art space station where AI agents run small online businesses
   - `src/printify/`: the Printify client (dry run or live) and the publisher (guards, outbox, order
     sync). `src/vault/ledger.ts`: the ledger and the outbox for idempotent external writes.
   - `src/thumbs/studio.ts`: Factory 2, the Thumbnail Studio (concepts, layout, readability, ZIP
-    delivery, revisions, gig kit).
+    delivery, revisions, gig kit). `src/forge/forge.ts`: Factory 3, the Asset Forge (sheets, cutting
+    out items, pack palette, review, package, butler dry run).
 - `apps/client`: Vite + Phaser 4 + a React overlay (Tailwind).
   - `src/sim/`: the world model built from station events, the sim clock, and `StationLink`
     (the mock link now, a WebSocket link in Stage 3).

@@ -4,6 +4,7 @@ import { loadBlocklist, loadCreativeConfig, loadStyles } from "./creative/config
 import { CreativeStudio } from "./creative/studio";
 import { creativeTools } from "./creative/tools";
 import { loadEnv } from "./env";
+import { AssetForge } from "./forge/forge";
 import { buildApp } from "./http/app";
 import { ARTIFACTS_DIR } from "./paths";
 import { checkCatalog, loadBusinesses, loadEtsyRules, loadProducts } from "./pod/config";
@@ -144,7 +145,23 @@ const thumbs = new ThumbnailStudio({
   dir: path.join(ARTIFACTS_DIR, "thumbs"),
   log: (m) => console.log(`[thumbs] ${m}`),
 });
+// Stage 9: Factory 3, the Asset Forge. butler uploads only when installed and configured.
+const forge = new AssetForge({
+  router: station.router,
+  studio,
+  store: work,
+  world: sim,
+  director,
+  lane: "sandbox",
+  dir: path.join(ARTIFACTS_DIR, "forge"),
+  butler:
+    process.env.BUTLER_PATH && process.env.ITCH_TARGET
+      ? { path: process.env.BUTLER_PATH, target: process.env.ITCH_TARGET }
+      : null,
+  log: (m) => console.log(`[forge] ${m}`),
+});
 const app = await buildApp(sim, {
+  forge,
   director,
   store: work,
   studio,
