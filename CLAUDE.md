@@ -17,6 +17,7 @@ An always-on pixel-art space station where AI agents run small online businesses
 | `npm run census` | Probes every candidate model (chat, JSON, tools, vision, embeddings) and writes `config/models.census.json`. Flags: `--provider nvidia`, `--tier vision`, `--ref nvidia:openai/gpt-oss-20b`, `--list-only`. |
 | `npm run smoke` | One real call per tier plus one image per endpoint, saved to `data/artifacts/smoke/`. Flags: `--lane live`, `--no-images`. |
 | `npm run models -- nvidia [filter]` | Lists a provider's model IDs. |
+| `npm run printify -- shops` | Browses Printify with your token (shops, blueprints, providers, variants). Read-only. |
 | `npm run format` | Biome auto-fix and formatting. |
 
 ## Layout
@@ -35,6 +36,12 @@ An always-on pixel-art space station where AI agents run small online businesses
   - `src/llm/fixtures.ts`: the fixture transport for deterministic end-to-end tests.
   - `src/creative/`: the image toolchain (`raster.ts` pixel ops, `compose.ts`, `qa.ts` vision QA
     and IP screen, `external.ts` Real-ESRGAN and rembg runners, `studio.ts`, agent `tools.ts`).
+  - `src/pod/`: Factory 1, the Etsy POD pipeline (`factory.ts`), listing rules and pricing
+    (`listing.ts`), code-drawn mockups (`mockups.ts`) and its config loader.
+  - `src/printify/`: the Printify client (dry run or live) and the publisher (guards, outbox, order
+    sync). `src/vault/ledger.ts`: the ledger and the outbox for idempotent external writes.
+  - `src/thumbs/studio.ts`: Factory 2, the Thumbnail Studio (concepts, layout, readability, ZIP
+    delivery, revisions, gig kit).
 - `apps/client`: Vite + Phaser 4 + a React overlay (Tailwind).
   - `src/sim/`: the world model built from station events, the sim clock, and `StationLink`
     (the mock link now, a WebSocket link in Stage 3).
@@ -47,7 +54,8 @@ An always-on pixel-art space station where AI agents run small online businesses
   and the sim engine (`sim/`: `StationSim`, used by the server and by the client's mock mode).
 - `config/`: `providers.yaml`, `tiers.yaml`, the generated `models.census.json`, role templates
   (`roles/*.yaml`), the web allowlist (`web.yaml`), the creative settings (`creative.yaml`), the
-  prompt library (`prompts.yaml`) and the IP blocklist (`ip-blocklist.yaml`).
+  prompt library (`prompts.yaml`), the IP blocklist (`ip-blocklist.yaml`), the stores
+  (`businesses/*.yaml`), products (`products.yaml`) and marketplace rules (`marketplaces.yaml`).
 - `data/`: SQLite database and artifacts (git-ignored).
 
 ## Rules that matter
@@ -60,7 +68,8 @@ An always-on pixel-art space station where AI agents run small online businesses
 2. **Models are data.** Never hardcode model IDs in code. Add them to `config/tiers.yaml` and
    re-run the census.
 3. **External side effects need the owner's approval** (from Stage 4 on): publishing, messaging
-   customers, spending money.
+   customers, spending money. Publishing is a dry run unless `PRINTIFY_MODE=live`, and the kill
+   switch (`POST /api/kill`) stops it all.
 4. **Secrets** live only in `.env`, which is git-ignored. Never print, log or commit keys.
 5. **Free tiers are scarce.** Every model call goes through a `ProviderGate` and is logged to
    `llm_calls`. Tests use fakes (`apps/server/test/helpers.ts`).

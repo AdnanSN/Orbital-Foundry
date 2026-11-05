@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import websocket from "@fastify/websocket";
 import {
   ARTIFACT_REVIEWS,
@@ -11,7 +12,11 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 import { CUTOUTS } from "../creative/config";
 import type { CreativeStudio } from "../creative/studio";
+import type { PodFactory } from "../pod/factory";
+import type { PodPublisher } from "../printify/publisher";
 import type { SimServer } from "../sim/simServer";
+import { type ThumbnailStudio, thumbBriefSchema } from "../thumbs/studio";
+import type { Ledger } from "../vault/ledger";
 import type { WorkDirector } from "../work/director";
 import type { WorkStore } from "../work/store";
 
@@ -56,7 +61,35 @@ export interface WorkApi {
   store: WorkStore;
   /** The creative toolchain (Stage 5). */
   studio?: CreativeStudio;
+  /** Factory 1, the Etsy POD studio (Stage 6). */
+  pod?: PodFactory;
+  /** Publishing through Printify (Stage 7). */
+  publisher?: PodPublisher;
+  /** The Vault's ledger (Stage 7 records, Stage 10 reports). */
+  ledger?: Ledger;
+  /** Factory 2, the Thumbnail Studio (Stage 8). */
+  thumbs?: ThumbnailStudio;
+  /** Where deliverable ZIPs live (served by GET /api/artifacts/:id/zip). */
+  artifactsDir?: string;
 }
+
+const reviseSchema = z.object({ note: z.string().trim().min(3).max(1_000) });
+
+const killSchema = z.object({ on: z.boolean() });
+const ledgerQuerySchema = z.object({
+  business: z.string().max(40).optional(),
+  simulated: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(2_000).default(200),
+});
+
+const storeSettingsSchema = z.object({
+  listingsPerDay: z.coerce.number().int().min(0).max(20).optional(),
+  paused: z.boolean().optional(),
+});
+const listingRequestSchema = z.object({ note: z.string().trim().max(1_000).optional() });
 
 /**
  * The station's HTTP and WebSocket API (ROADMAP §8). Clients get a snapshot on connect and then
@@ -160,6 +193,99 @@ export async function buildApp(sim: SimServer, work?: WorkApi): Promise<FastifyI
       const artifact = work.store.artifact(req.params.id);
       if (!artifact) return reply.code(404).send({ error: "No such deliverable" });
       return { ...artifact.meta, content: artifact.content };
+    });
+    const pod = work.pod;
+    if (pod) {
+      app.get("/api/pod/stores", async () =>
+        pod.businesses.map((b) => ({
+          ...b,
+          settings: pod.settings(b.id),
+          today: pod.countToday(b.id),
+          running: pod.isRunning(b.id),
+          packages: pod.packages(b.id, 8),
+        })),
+      );
+      app.post<{ Params: { id: string } }>("/api/pod/stores/:id/listings", async (req, reply) => {
+        const body = listingRequestSchema.parse(req.body ?? {});
+        return reply.code(202).send(pod.start(req.params.id, body.note ? { note: body.note } : {}));
+      });
+      app.patch<{ Params: { id: string } }>("/api/pod/stores/:id", async (req) => {
+        const body = storeSettingsSchema.parse(req.body ?? {});
+        return pod.updateSettings(req.params.id, {
+          ...(body.listingsPerDay !== undefined ? { listingsPerDay: body.listingsPerDay } : {}),
+          ...(body.paused !== undefined ? { paused: body.paused } : {}),
+        });
+      });
+      app.get<{ Params: { id: string } }>("/api/pod/packages/:id/zip", async (req, reply) => {
+        const file = pod.zipPath(req.params.id);
+        if (!file) return reply.code(404).send({ error: "No such package" });
+        reply.header("content-type", "application/zip");
+        reply.header("content-disposition", `attachment; filename="${req.params.id}.zip"`);
+        return reply.send(fs.createReadStream(file));
+      });
+    }
+    const publisher = work.publisher;
+    if (publisher) {
+      app.get("/api/pod/publishing", async () => ({
+        mode: publisher.mode,
+        dailyCap: publisher.dailyCap,
+        killed: publisher.killed(),
+      }));
+      app.post("/api/kill", async (req) => {
+        const body = killSchema.parse(req.body ?? {});
+        publisher.setKill(body.on);
+        return { killed: publisher.killed() };
+      });
+      app.post("/api/pod/sync", async () => publisher.syncOrders());
+    }
+    const ledger = work.ledger;
+    if (ledger) {
+      app.get("/api/vault/ledger", async (req) => {
+        const q = ledgerQuerySchema.parse(req.query ?? {});
+        const filter = {
+          ...(q.business ? { business: q.business } : {}),
+          ...(q.simulated !== undefined ? { simulated: q.simulated } : {}),
+        };
+        return {
+          entries: ledger.entries({ ...filter, limit: q.limit }),
+          totals: ledger.totals(filter),
+        };
+      });
+    }
+    const thumbs = work.thumbs;
+    if (thumbs) {
+      app.get("/api/thumbs", async () =>
+        thumbs.list().map((j) => ({ ...j, running: thumbs.isRunning(j.id) })),
+      );
+      // A client photo can be several megabytes of base64.
+      app.post("/api/thumbs", { bodyLimit: 16 * 1024 * 1024 }, async (req, reply) => {
+        return reply.code(202).send(thumbs.start(thumbBriefSchema.parse(req.body ?? {})));
+      });
+      app.post<{ Params: { id: string } }>("/api/thumbs/:id/revise", async (req, reply) => {
+        const body = reviseSchema.parse(req.body ?? {});
+        void thumbs.revise(req.params.id, body.note).catch(() => {});
+        return reply.code(202).send({ ok: true });
+      });
+      app.post("/api/thumbs/gig-kit", async (_req, reply) =>
+        reply.code(201).send(await thumbs.gigKit()),
+      );
+    }
+    const zipRoot = work.artifactsDir ? path.resolve(work.artifactsDir) : null;
+    app.get<{ Params: { id: string } }>("/api/artifacts/:id/zip", async (req, reply) => {
+      const a = work.store.artifact(req.params.id);
+      const file = a?.path ? path.resolve(a.path) : null;
+      if (
+        !file ||
+        !zipRoot ||
+        !file.endsWith(".zip") ||
+        !file.startsWith(zipRoot + path.sep) ||
+        !fs.existsSync(file)
+      ) {
+        return reply.code(404).send({ error: "No ZIP for this deliverable" });
+      }
+      reply.header("content-type", "application/zip");
+      reply.header("content-disposition", `attachment; filename="${path.basename(file)}"`);
+      return reply.send(fs.createReadStream(file));
     });
     app.post("/api/overseer/standup", async (_req, reply) => {
       const meta = await work.director.standup();

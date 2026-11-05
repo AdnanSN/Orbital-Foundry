@@ -108,6 +108,39 @@ export function resampleUp(src: Canvas, factor: number): Canvas {
   return current;
 }
 
+/**
+ * Crop away fully transparent margins, keeping `pad` (a share of the subject's longest side) of
+ * empty space around it. Returns the source when nothing is transparent at the edges.
+ */
+export function trimTransparent(src: Canvas, pad = 0.04, alphaMin = 12): Canvas {
+  const p = pixels(src);
+  let x0 = p.width;
+  let y0 = p.height;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < p.height; y++) {
+    for (let x = 0; x < p.width; x++) {
+      if ((p.data[(y * p.width + x) * 4 + 3] ?? 0) <= alphaMin) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) return src;
+  const margin = Math.round(Math.max(x1 - x0 + 1, y1 - y0 + 1) * pad);
+  const left = Math.max(0, x0 - margin);
+  const top = Math.max(0, y0 - margin);
+  const right = Math.min(p.width, x1 + 1 + margin);
+  const bottom = Math.min(p.height, y1 + 1 + margin);
+  if (left === 0 && top === 0 && right === p.width && bottom === p.height) return src;
+  const out = createCanvas(right - left, bottom - top);
+  out
+    .getContext("2d")
+    .drawImage(src, left, top, right - left, bottom - top, 0, 0, right - left, bottom - top);
+  return out;
+}
+
 /** Nearest-neighbour scaling by an integer factor (pixel art previews). */
 export function scaleNearest(src: Canvas, factor: number): Canvas {
   const out = createCanvas(src.width * factor, src.height * factor);

@@ -94,6 +94,27 @@ describe("ImageService lanes", () => {
     expect(String(fetchImpl.mock.calls[0]?.[0])).toBe("https://cf.test/run/acc/flux");
   });
 
+  it("benches an endpoint whose function errored on NVIDIA's side for an hour", async () => {
+    let nvidiaCalls = 0;
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      if (String(url).includes("nvidia")) {
+        nvidiaCalls += 1;
+        return new Response("{}", { status: 504, headers: { "nvcf-status": "errored" } });
+      }
+      return jsonResponse({ success: true, result: { image: base64 } });
+    });
+    const service = new ImageService({
+      providers,
+      endpoints,
+      gates: createGates(providers),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      env: { CF_ACCOUNT: "acc" },
+    });
+    expect((await service.generate("sandbox", { prompt: "a" })).endpoint).toBe("cf-flux");
+    expect((await service.generate("sandbox", { prompt: "b" })).endpoint).toBe("cf-flux");
+    expect(nvidiaCalls).toBe(1);
+  });
+
   it("refuses the live lane when only sandbox endpoints exist", async () => {
     const service = new ImageService({
       providers,
@@ -230,7 +251,7 @@ describe("ImageService requests", () => {
   it("stops trying an endpoint that keeps failing and uses the next one", async () => {
     const fetchImpl = vi.fn(async (...args: FetchArgs) =>
       String(args[0]).includes("nvidia")
-        ? new Response("", { status: 504, headers: { "nvcf-status": "errored" } })
+        ? new Response("", { status: 503 })
         : new Response(JSON.stringify({ success: true, result: { image: base64 } })),
     );
     const service = new ImageService({

@@ -1,0 +1,22 @@
+# Marketplace rules the listing pipeline enforces.
+#
+# Etsy fees are the published US rates as of 2025 (listing fee, transaction fee on item price
+# plus shipping, payment processing). Re-check them in Stage 7 before any real listing, and
+# record the check in docs/DECISIONS.md.
+
+etsy:
+  title:
+    maxChars: 140
+  tags:
+    count: 13
+    maxChars: 20
+  fees:
+    listing: 0.2
+    transactionPct: 6.5
+    processingPct: 3.0
+    processingFixed: 0.25
+  disclosures:
+    # Etsy asks sellers to disclose AI help and production partners; both go in the description,
+    # and Stage 7 also sets the listing's production-partner field.
+    ai: "Designed by our studio with the help of AI image tools, and reviewed by a person before listing."
+    productionPartner: "Printed and shipped on demand by our production partner (Printify)."

@@ -87,6 +87,8 @@ export const taskSchema = z.object({
   artifactId: z.string().nullable().optional(),
   /** The reviewer's feedback on the last review. */
   feedback: z.string().nullable().optional(),
+  /** Set when a factory pipeline (not the agent runtime) runs the task, e.g. "pod". */
+  pipeline: z.string().optional(),
 });
 export type Task = z.infer<typeof taskSchema>;
 

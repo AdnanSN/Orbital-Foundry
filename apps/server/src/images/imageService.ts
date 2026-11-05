@@ -172,9 +172,18 @@ export class ImageService {
   }
 
   private penalize(id: string, info: FailureInfo, gate: ProviderGate | undefined): void {
-    if (info.kind === "rate-limited") {
+    if (/daily free allocation|used up your daily/i.test(info.message)) {
+      // A spent daily allocation (Cloudflare: 10,000 neurons) comes back at 00:00 UTC. It arrives
+      // as a 429, so it is checked before ordinary rate limits.
+      const now = new Date();
+      const reset = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+      this.breaker.trip(id, Math.max(60_000, reset - now.getTime()));
+    } else if (info.kind === "rate-limited") {
       gate?.cooldown(info.retryAfterMs ?? DEFAULT_COOLDOWN_MS);
     } else if (info.kind === "not-found" || info.kind === "forbidden" || info.kind === "auth") {
+      this.breaker.trip(id, UNAVAILABLE_TRIP_MS);
+    } else if (/nvcf-status: errored/i.test(info.message)) {
+      // The NVCF function itself failed (not a busy queue): it stays down for a while.
       this.breaker.trip(id, UNAVAILABLE_TRIP_MS);
     } else if (info.kind !== "quota") {
       this.breaker.recordFailure(id);

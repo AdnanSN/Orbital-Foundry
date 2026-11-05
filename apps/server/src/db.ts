@@ -109,6 +109,29 @@ const MIGRATIONS: string[] = [
    ALTER TABLE artifacts ADD COLUMN parent_id TEXT;
    ALTER TABLE artifacts ADD COLUMN info TEXT;
    CREATE INDEX idx_artifacts_kind ON artifacts (kind, created_at);`,
+  // Stage 7: idempotent external writes, and the Vault ledger (money in and out per business).
+  `CREATE TABLE outbox (
+     key TEXT PRIMARY KEY,
+     status TEXT NOT NULL,
+     result TEXT,
+     error TEXT,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE TABLE ledger (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     at TEXT NOT NULL,
+     business TEXT NOT NULL,
+     source TEXT NOT NULL,
+     kind TEXT NOT NULL,
+     amount REAL NOT NULL,
+     currency TEXT NOT NULL DEFAULT 'USD',
+     ref TEXT NOT NULL,
+     note TEXT,
+     simulated INTEGER NOT NULL DEFAULT 0,
+     UNIQUE (source, ref, kind)
+   );
+   CREATE INDEX idx_ledger_business ON ledger (business, at);`,
 ];
 
 export function openDb(file: string = DB_PATH): Database.Database {

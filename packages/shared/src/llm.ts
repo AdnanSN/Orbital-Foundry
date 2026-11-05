@@ -38,6 +38,11 @@ export const providerLimitsSchema = z.object({
   rpd: z.number().int().positive().optional(),
   /** Maximum requests in flight at once. */
   concurrency: z.number().int().positive().default(4),
+  /**
+   * Cap on the output tokens a request asks for. Providers that count `max_tokens` against a
+   * tokens-per-minute limit (Groq's free tier) reject large requests early otherwise.
+   */
+  maxTokens: z.number().int().positive().optional(),
 });
 export type ProviderLimits = z.infer<typeof providerLimitsSchema>;
 
@@ -48,6 +53,10 @@ export const providerSchema = z.object({
   apiKeyEnv: z.string().min(1),
   /** Lanes this provider may serve. Only include "live" if its terms allow production use. */
   lanes: z.array(laneSchema).min(1),
+  /** What the provider's terms say about production use and selling outputs. */
+  production: z.enum(["allowed", "forbidden", "unverified"]).default("unverified"),
+  /** When the terms were last checked (YYYY-MM-DD), and where (recorded in DECISIONS.md). */
+  termsChecked: z.string().optional(),
   limits: providerLimitsSchema,
   /** Whether GET {baseURL}/models works without an API key. */
   publicModelList: z.boolean().default(false),

@@ -1,0 +1,17 @@
+# Factory 1, Store B. Placeholder name: the owner names the real shop in Stage 7.
+id: store-b
+name: "Store B: gifts"
+crew: gift
+niche: Gifts for family milestones, new pets and best friends
+# Personalization (names printed per order) waits for per-order print files in Stage 7.
+audience: Gift buyers shopping for birthdays, holidays, new pets and new homes
+voice: Friendly and heartfelt, plain words, a light touch of humour
+products: [mug-11oz, tote-bag, tshirt-unisex]
+seedTags: [gift for her, gift for mom, pet lover gift, best friend gift, new home gift, cute mug]
+avoidThemes: [celebrity names, sports teams, real brands]
+listingsPerDay: 1
+price:
+  targetMargin: 0.4
+  minPrice: 16.95
+  ending: 0.99
+personalization: false

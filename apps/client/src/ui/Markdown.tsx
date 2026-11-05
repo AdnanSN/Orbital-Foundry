@@ -5,7 +5,20 @@ import type { ReactNode } from "react";
  * and inline code. Everything is rendered as React text (no raw HTML), so agent output cannot
  * inject markup.
  */
-export function Markdown({ text }: { text: string }) {
+const IMAGE_ROW = /^\s*(!\[[^\]]*\]\([^)\s]+\)\s*)+$/;
+const IMAGE = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
+
+/**
+ * `resolveImage` turns an image reference (an artifact id such as "I-0024") into a URL; images
+ * it does not resolve are shown as their alt text, so a deliverable can never load outside URLs.
+ */
+export function Markdown({
+  text,
+  resolveImage,
+}: {
+  text: string;
+  resolveImage?: (ref: string) => string | null;
+}) {
   const blocks: ReactNode[] = [];
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   let i = 0;
@@ -23,6 +36,33 @@ export function Markdown({ text }: { text: string }) {
           {body.join("\n")}
         </pre>,
       );
+      continue;
+    }
+    if (IMAGE_ROW.test(line)) {
+      const images = [...line.matchAll(IMAGE)].map((m) => ({
+        key: next(),
+        alt: m[1] ?? "",
+        url: resolveImage?.(m[2] ?? "") ?? null,
+      }));
+      blocks.push(
+        <div key={next()} className="flex gap-2 flex-wrap">
+          {images.map((img) =>
+            img.url ? (
+              <img
+                key={img.key}
+                src={img.url}
+                alt={img.alt}
+                className="max-h-[240px] max-w-[48%] rounded border border-white/10 bg-white/5"
+              />
+            ) : (
+              <span key={img.key} className="text-dim">
+                [{img.alt}]
+              </span>
+            ),
+          )}
+        </div>,
+      );
+      i += 1;
       continue;
     }
     const heading = /^(#{1,4})\s+(.*)$/.exec(line);

@@ -40,6 +40,57 @@ export interface StationCommands {
   qaArtifact(id: string): Promise<void>;
   /** The URL of an image artifact's file ("" without a server). */
   fileUrl(id: string): string;
+  /** Factory 1, the Etsy POD studio (Stage 6, station server only). */
+  stores(): Promise<StoreInfo[]>;
+  startListing(id: string, note?: string): Promise<void>;
+  updateStore(id: string, patch: { listingsPerDay?: number; paused?: boolean }): Promise<void>;
+  packageZipUrl(id: string): string;
+  /** Publishing (Stage 7): dry run or live, the daily cap, and the station kill switch. */
+  publishing(): Promise<{ mode: string; dailyCap: number; killed: boolean } | null>;
+  setKill(on: boolean): Promise<void>;
+  /** Factory 2, the Thumbnail Studio (Stage 8). */
+  thumbJobs(): Promise<ThumbJobInfo[]>;
+  startThumbs(brief: {
+    title: string;
+    topic?: string;
+    channelStyle?: string;
+    brandColors?: string[];
+    facePhoto?: string;
+  }): Promise<void>;
+  reviseThumbs(id: string, note: string): Promise<void>;
+  gigKit(): Promise<ArtifactMeta>;
+  /** Download URL for a deliverable's ZIP (packages, thumbnails, asset packs). */
+  zipUrl(id: string): string;
+}
+
+export interface ThumbJobInfo {
+  id: string;
+  taskId: string;
+  brief: { title: string; hasPhoto: boolean };
+  status: "working" | "delivered" | "failed";
+  running: boolean;
+  error: string | null;
+  seconds: number | null;
+  versions: {
+    version: number;
+    concepts: { angle: string; hook: string }[];
+    images: string[];
+    mobile: string[];
+    qa: { score: number | null; pass: boolean }[];
+    deliveryId: string;
+  }[];
+}
+
+export interface StoreInfo {
+  id: string;
+  name: string;
+  crew: string;
+  niche: string;
+  products: string[];
+  settings: { listingsPerDay: number; paused: boolean };
+  today: number;
+  running: boolean;
+  packages: ArtifactMeta[];
 }
 
 export interface PipelineRequest {
@@ -124,6 +175,17 @@ export class MockLink implements StationLink {
       creativeStyles: async () => ({ styles: [], aspects: [] }),
       qaArtifact: SERVER_ONLY,
       fileUrl: () => "",
+      stores: async () => [],
+      startListing: SERVER_ONLY,
+      updateStore: SERVER_ONLY,
+      packageZipUrl: () => "",
+      publishing: async () => null,
+      setKill: SERVER_ONLY,
+      thumbJobs: async () => [],
+      startThumbs: SERVER_ONLY,
+      reviseThumbs: SERVER_ONLY,
+      gigKit: SERVER_ONLY,
+      zipUrl: () => "",
     };
   }
 
@@ -230,6 +292,19 @@ export class SocketLink implements StationLink {
         (await json("/creative/styles")) as { styles: StyleInfo[]; aspects: string[] },
       qaArtifact: (id) => post(`/creative/qa/${encodeURIComponent(id)}`, {}),
       fileUrl: (id) => `${this.base}/api/artifacts/${encodeURIComponent(id)}/file`,
+      stores: async () => (await json("/pod/stores")) as StoreInfo[],
+      startListing: (id, note) =>
+        post(`/pod/stores/${encodeURIComponent(id)}/listings`, note ? { note } : {}),
+      updateStore: (id, patch) => post(`/pod/stores/${encodeURIComponent(id)}`, patch, "PATCH"),
+      packageZipUrl: (id) => `${this.base}/api/pod/packages/${encodeURIComponent(id)}/zip`,
+      publishing: async () =>
+        (await json("/pod/publishing")) as { mode: string; dailyCap: number; killed: boolean },
+      setKill: (on) => post("/kill", { on }),
+      thumbJobs: async () => (await json("/thumbs")) as ThumbJobInfo[],
+      startThumbs: (brief) => post("/thumbs", brief),
+      reviseThumbs: (id, note) => post(`/thumbs/${encodeURIComponent(id)}/revise`, { note }),
+      gigKit: async () => (await json("/thumbs/gig-kit", {})) as ArtifactMeta,
+      zipUrl: (id) => `${this.base}/api/artifacts/${encodeURIComponent(id)}/zip`,
     };
   }
 

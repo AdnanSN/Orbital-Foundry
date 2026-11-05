@@ -1,0 +1,16 @@
+# Factory 1, Store C. Placeholder name: the owner names the real shop in Stage 7.
+id: store-c
+name: "Store C: wall art"
+crew: frame
+niche: Minimal, calming wall art (botanicals, celestial scenes, soft landscapes) for small spaces
+audience: Renters and first-home owners decorating bedrooms, studies and nurseries
+voice: Minimal and serene. Precise words about colour and mood.
+products: [poster-18x24, poster-12x16]
+seedTags:
+  [wall art print, minimalist poster, botanical print, celestial art, nursery decor, bedroom decor]
+avoidThemes: [famous paintings, artist names, photography of real places with landmarks]
+listingsPerDay: 1
+price:
+  targetMargin: 0.45
+  minPrice: 18.95
+  ending: 0.99

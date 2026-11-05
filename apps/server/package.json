@@ -9,6 +9,7 @@
     "census": "tsx src/scripts/census.ts",
     "smoke": "tsx src/scripts/smoke.ts",
     "models": "tsx src/scripts/models.ts",
+    "printify": "tsx src/scripts/printify.ts",
     "test": "vitest run"
   },
   "dependencies": {

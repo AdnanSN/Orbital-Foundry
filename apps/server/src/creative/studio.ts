@@ -34,6 +34,7 @@ import {
   resampleUp,
   scaleNearest,
   toHex,
+  trimTransparent,
 } from "./raster";
 
 /**
@@ -444,6 +445,62 @@ export class CreativeStudio {
       steps[steps.length - 1] = current;
     }
     return { steps, final: current, qa };
+  }
+
+  /** Crop transparent margins so the subject fills the print area (after a cutout). */
+  async trim(id: string, origin: Origin, pad = 0.04): Promise<ArtifactMeta> {
+    const { canvas, meta } = await this.load(id);
+    const out = trimTransparent(canvas, pad);
+    if (out === canvas) return meta;
+    return this.save(out, {
+      title: `${meta.title} (trimmed)`,
+      origin: this.inherit(origin, meta),
+      parentId: id,
+      info: { op: "trim", pad },
+    });
+  }
+
+  /** Fit an image to an exact size, such as a product's print area. */
+  async fit(
+    id: string,
+    opts: {
+      width: number;
+      height: number;
+      fit: "contain" | "cover";
+      title?: string;
+      info?: Record<string, unknown>;
+    },
+    origin: Origin,
+  ): Promise<ArtifactMeta> {
+    const { canvas, meta } = await this.load(id);
+    const out = fitTo(canvas, opts.width, opts.height, opts.fit);
+    return this.save(out, {
+      title: opts.title ?? `${meta.title} (${opts.width}×${opts.height})`,
+      origin: this.inherit(origin, meta),
+      parentId: id,
+      info: { op: "fit", fit: opts.fit, ...(opts.info ?? {}) },
+    });
+  }
+
+  /** Save a canvas drawn elsewhere (mockups, previews) as an image artifact. */
+  saveCanvas(
+    canvas: Canvas,
+    f: { title: string; parentId: string | null; info: Record<string, unknown> },
+    origin: Origin,
+  ): Promise<ArtifactMeta> {
+    return this.save(canvas, { ...f, origin });
+  }
+
+  /** An image artifact as a canvas. */
+  async canvas(id: string): Promise<Canvas> {
+    return (await this.load(id)).canvas;
+  }
+
+  /** The image file's bytes (PNG). */
+  bytes(id: string): Buffer {
+    const file = this.file(id);
+    if (!file) throw new Error(`${id} has no image file.`);
+    return fs.readFileSync(file.path);
   }
 
   review(id: string, decision: ArtifactReview, note?: string): ArtifactMeta {

@@ -1,0 +1,15 @@
+# Factory 1, Store A. Placeholder name: the owner names the real shop in Stage 7.
+id: store-a
+name: "Store A: candles and mugs"
+crew: wick
+niche: Cozy seasonal candles and kitchen gifts for people who love slow, warm evenings at home
+audience: Women 25 to 55 who buy candles and mugs as small gifts and for their own home
+voice: Warm, calm and a little poetic. Short sentences. No hype, no exclamation marks.
+products: [candle-9oz, mug-11oz]
+seedTags: [cozy candle, candle gift, hygge decor, soy candle, mug gift, cozy home]
+avoidThemes: [religious claims, health claims, aromatherapy cures]
+listingsPerDay: 1
+price:
+  targetMargin: 0.35
+  minPrice: 14.95
+  ending: 0.95

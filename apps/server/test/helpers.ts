@@ -27,6 +27,7 @@ export function provider(
     lanes,
     limits: { rpm: 1000, concurrency: 8 },
     publicModelList: false,
+    production: "unverified",
     ...overrides,
   };
 }

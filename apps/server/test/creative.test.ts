@@ -17,11 +17,13 @@ import {
   basicChecks,
   chromaKey,
   downscale,
+  fromPixels,
   packSheet,
   pixels,
   quantize,
   removeBackgroundEdges,
   resampleUp,
+  trimTransparent,
 } from "../src/creative/raster";
 import { CreativeStudio, type StudioDeps } from "../src/creative/studio";
 import { creativeTools } from "../src/creative/tools";
@@ -83,6 +85,15 @@ describe("pixel operations", () => {
     const checks = basicChecks(out);
     expect(checks.edgeOpaque).toBe(0);
     expect(checks.blank).toBe(false);
+  });
+
+  it("trims transparent margins around a cut-out subject", () => {
+    const { pixels: cut } = removeBackgroundEdges(pixels(subject(100, "#ffffff")));
+    const trimmed = trimTransparent(fromPixels(cut), 0.05);
+    // The disc is 60 px across; 5% padding adds 3 px on each side.
+    expect(trimmed.width).toBeGreaterThanOrEqual(60);
+    expect(trimmed.width).toBeLessThanOrEqual(68);
+    expect(trimmed.height).toBe(trimmed.width);
   });
 
   it("resamples up in 2× steps", () => {

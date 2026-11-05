@@ -23,10 +23,12 @@ tiers:
   creative:
     description: Listing copy, design concepts, image prompts
     requires: [chat, json]
+    # Groq first (2026-11-05): structured factory calls took 0.8-1 s there against 60-120 s on
+    # Mistral Large, which thinks before answering (D-036). Mistral stays as the fallback.
     sandbox:
+      - groq:qwen/qwen3.8-27b
       - nvidia:mistralai/mistral-large-4-1t-a52b
       - nvidia:meta/muse-glimmer-30b
-      - groq:qwen/qwen3.8-27b
       - nvidia:nvidia/nemotron-3.5-lightning-30b-a3b
     live:
       - cloudflare:@cf/meta/llama-3.3-70b-instruct-fp8-fast

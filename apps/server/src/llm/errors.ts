@@ -54,6 +54,7 @@ export function redact(text: string): string {
     .replace(/(accounts\/)[0-9a-f]{32}/gi, "$1[redacted]")
     .replace(/nvapi-[\w-]+/g, "nvapi-[redacted]")
     .replace(/\bgsk_[\w-]+/g, "gsk_[redacted]")
+    .replace(/\borg_[0-9a-z]{8,}/gi, "org_[redacted]")
     .replace(/(Bearer\s+)[\w.~+/=-]+/gi, "$1[redacted]");
 }
 

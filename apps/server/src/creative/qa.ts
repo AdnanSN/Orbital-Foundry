@@ -76,7 +76,8 @@ export async function visionQa(
     tier: "vision",
     lane,
     messages,
-    maxTokens: 900,
+    // Vision models may think before answering; leave room so one call is enough.
+    maxTokens: 2_000,
     purpose: "vision_qa",
   });
   const parsed = parseStructured(res.text, qaVerdictSchema);
@@ -169,7 +170,7 @@ export async function ipScreen(
         tier: jpeg ? "vision" : "fast",
         lane,
         messages,
-        maxTokens: 600,
+        maxTokens: 1_500,
         purpose: "ip_screen",
       });
       const parsed = parseStructured(res.text, ipVerdictSchema);

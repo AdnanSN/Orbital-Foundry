@@ -189,3 +189,17 @@ describe("StationSim control and commands", () => {
     expect(invented).toEqual([]);
   });
 });
+
+describe("finished task history", () => {
+  it("keeps real finished tasks while ambient work churns past the ambient cap", () => {
+    const sim = new StationSim(map, STARTING_CREW, { seed: 4, mockProviders: false });
+    const base = { room: "factory-1", assignee: "wick", reworks: 0, createdAt: 0, updatedAt: 0 };
+    sim.upsertTask({ ...base, id: "P-0001", title: "A listing", status: "done", pipeline: "pod" });
+    for (let i = 0; i < 400; i++) {
+      sim.upsertTask({ ...base, id: `T-${i}`, title: "Ambient", status: "done", mock: true });
+    }
+    expect(sim.task("P-0001")?.status).toBe("done");
+    expect(sim.task("T-0")).toBeUndefined();
+    expect(sim.task("T-399")?.status).toBe("done");
+  });
+});

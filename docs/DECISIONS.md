@@ -395,3 +395,139 @@ need a download, so they are a follow-up for the owner.
 - **ip_screen**: a blocklist hit (whole words, case-insensitive) blocks; then the fast tier (or
   the vision tier with an image) rates the risk. High blocks, medium goes to review, and without a
   model the verdict is at best "review". generate_image refuses prompts that hit the blocklist.
+
+## D-029: Factory pipelines are code, not agent loops (2026-11-05)
+
+Factory 1's listing pipeline (`apps/server/src/pod/factory.ts`) is a fixed sequence of steps with
+one structured model call per creative step (concept, prompts, copy, with a repair round for
+copy that breaks Etsy's rules) and the Stage 5 tools for the rest.
+
+- **Why:** a listing then costs a predictable number of free-tier calls (about 15 chat calls and
+  4 to 6 images), it cannot loop, and every step can be tested with fixtures. The agent runtime
+  (D-021) stays for open-ended objectives.
+- **On screen:** the crew still do the work visibly: Scout at the research desk, the store's
+  operator in Factory 1, Lens at the QA Bay. The factory never takes over a crew member the agent
+  runtime is using.
+- **Tasks** carry `pipeline: "pod"` (ids `P-…`). The runtime ignores them; the factory owns them.
+  After a restart, interrupted listings are marked failed (a new one can be started).
+- **Failures** go to the Owner's Desk once per store per day; Retry starts a fresh listing.
+- **Real finished tasks** keep their own history in the engine (1,000) separate from ambient
+  tasks (300), and owner decisions find their store from the package or the requester, so neither
+  depends on a task still being in memory.
+
+## D-030: Listing rules, pricing and honest packages (2026-11-05)
+
+- **Copy:** titles in Title Case, at most 140 characters (the prompt asks for a readable name of
+  50 to 110); exactly 13 tags of at most 20 characters, normalized and deduplicated. A tag that
+  is too long loses words from the front ("minimal winter wall art" → "winter wall art"), and
+  missing tags come from the store's seed tags. No brand, character or celebrity names.
+- **Description:** the copy, the product facts, then the disclosures from `marketplaces.yaml`: AI
+  assistance ("reviewed by a person before listing", which the Owner's Desk makes true), the
+  production partner, and a note that mockups show the actual design.
+- **Price:** the lowest price ending in the store's cents (.95 or .99) that leaves the target
+  margin after product cost, shipping (listings ship free) and Etsy's fees (listing $0.20, 6.5%
+  transaction, 3% + $0.25 processing; re-check in Stage 7), and is at least the store's minimum.
+- **Print files:** cutout, trim to the subject, upscale only as far as needed, then fit the print
+  area exactly ("contain" on transparent for mugs, totes, shirts and labels; "cover" for posters).
+- **Mockups** are drawn in code (frame, mug, candle, tote, t-shirt) with the real print file where
+  it prints, plus a detail view with the print area. No photo templates, so nothing implies a
+  product or setting we don't sell.
+- **Defaults:** print areas and costs in `products.yaml` are starting values, flagged as a warning
+  in every compliance report until Printify's catalog replaces them (Stage 7).
+- **Personalization** (names printed per order) waits for per-order print files in Stage 7, so no
+  store offers it yet.
+- **Sandbox:** packages are for review. Accepting one never publishes it; images made in the
+  sandbox lane are re-made with production-licensed providers before anything is sold (D-001).
+
+## D-031: The daily autopilot (2026-11-05)
+
+Each store makes `listingsPerDay` listings a day (default 1), started by the factory in working
+hours (9:00 to 21:00 local), one listing at a time across all stores, with a 30-minute back-off
+after a failure. Settings (per-day count, pause) are saved per store and changed in the Stores
+panel. `ORBITAL_AUTOPILOT=0` turns the autopilot off.
+
+## D-032: Providers record their terms; the live lane needs "allowed" (2026-11-05)
+
+`providers.yaml` gives each provider `production: allowed | forbidden | unverified` and the date its
+terms were checked. Config validation refuses a provider in the live lane unless it is "allowed".
+
+- NVIDIA: forbidden (trial terms: no production use, outputs may not be sold), checked 2026-11-04.
+- Cloudflare Workers AI: allowed, checked 2026-11-04 (the free allocation is not a trial; model
+  licences apply, FLUX.1-schnell is Apache-2.0). A re-check on 2026-11-05 did not find the Workers
+  AI section quickly, so the earlier check stands: **re-verify before the first real sale**.
+- Groq, OpenRouter, Gemini, Cerebras: unverified, sandbox only.
+
+## D-033: Publishing through Printify: dry run first, two approvals, once only (2026-11-05)
+
+- **Two approvals.** Accepting a package says the listing is good. A second Owner's Desk item,
+  "Publish", says it may leave the station. The publish item states the mode, the price and the
+  store's count against its daily cap.
+- **Dry run by default.** `PRINTIFY_MODE=live` is needed to send writes; without a token every
+  write (upload, create product, publish) is recorded and answered with a stable fake id, and the
+  Etsy listing fee goes into the ledger as a simulated entry.
+- **Once only.** Each external step is keyed by the approval id in an `outbox` table and returns
+  the stored result when repeated. A package is marked published and cannot be published again.
+- **Guards** (checked before every publish): kill switch off; store not paused; under the daily
+  cap (`ORBITAL_PUBLISH_CAP`, default 3); package accepted; in live mode, a token, a shop id, the
+  live lane, the product mapped to a blueprint, provider and variants, and a design generated in
+  the live lane (sandbox images are never sold, D-001).
+- **The API shapes** follow Printify's public docs (v1: `/shops.json`, `/catalog/...`,
+  `/uploads/images.json`, `/shops/{id}/products.json`, `.../publish.json`, `/shops/{id}/orders.json`,
+  Bearer token and a User-Agent). They are tested against a fake server only; check them with the
+  real token (`npm run printify -- shops`) before the first live product.
+- **Prices** go to Printify in cents, from the package's price.
+
+## D-034: Etsy fields for AI-assisted print-on-demand (2026-11-05)
+
+Etsy's Creativity Standards (https://www.etsy.com/legal/creativity/) put seller-prompted AI designs
+printed by a partner in **"Designed by a seller"**; Printify's help centre says to choose that
+option and set **Printify as the production partner** (otherwise the listing defaults to "Made by
+seller"). The package's `listing.json` carries `creativity: designed_by_seller`, `whoMade: i_did`,
+`whenMade: made_to_order` and the production partner, and the description keeps the AI and
+production-partner disclosures (D-030).
+
+## D-035: The Vault ledger (2026-11-05)
+
+A `ledger` table holds signed amounts per business: sales positive; costs, fees and refunds
+negative. `(source, ref, kind)` is unique, so syncing an order twice records it once. Entries from
+dry runs and simulations are flagged `simulated` and never mixed into real totals. Printify order
+lines become a sale (our listing price × quantity), a cost (Printify production and shipping) and
+an estimated Etsy fee. Stage 10 builds the Vault's reports on it.
+
+## D-036: Tuning from the real runs: models that think, rate limits, dead endpoints (2026-11-05)
+
+Real listing runs showed where the free tiers hurt, and each fix is data or a small rule:
+
+- **Reasoning models** (Mistral Large 4 and the Nemotron VL model on NVIDIA) write a long hidden
+  `<think>` block before answering. A tight `maxTokens` cut them off mid-thought and forced a
+  retry with a bigger budget. Structured factory calls now ask for up to 4,000 tokens (vision QA
+  2,000, the IP screen 1,500); models that don't think stop early anyway.
+- **A truncated reply that already holds valid JSON is accepted** instead of being retried.
+- **The creative tier** puts Groq's qwen3.8-27b first in the sandbox: structured calls took 0.4 to
+  1 s there against 60 to 150 s on Mistral Large, with good copy. Mistral stays as the fallback.
+- **Provider output caps** (`limits.maxTokens`, Groq 1,500): Groq's free tier counts the
+  requested `max_tokens` against its tokens-per-minute limit and answered a burst with 429s.
+- **The server's request timeout** is 3 minutes for background work (was 2).
+- **A dead image endpoint** (NVIDIA's FLUX function failing with "nvcf-status: errored") is benched
+  for an hour after one failure, instead of costing 32 seconds on every image.
+- **Redaction** now also hides `org_…` organization ids (Groq puts them in 429 messages), D-008.
+
+## D-037: The Thumbnail Studio (2026-11-05)
+
+- **Pipeline as code** (like D-029): one structured model call for three concepts, then image
+  tools. Each concept has an angle (curiosity, emotion, contrast), a hook of at most five words, a
+  scene (background only, no text or people), a subject, the text side and two colours.
+- **Layout:** the scene fills 1280×720; a translucent band sits behind the hook on its side; the
+  subject (the client's cut-out photo, or one generated subject shared by all three) fills the
+  other side; the hook is upper-case display type, auto-fitted to three lines, with a black stroke
+  and drop shadow, plus an accent bar.
+- **Readability** is measured, not guessed: the WCAG contrast ratio between the hook colour and the
+  average of the scene behind it (at least 3:1), the hook's height at phone size (at least 6 px at
+  168×94), five words at most, and vision QA reading the hook. Failing checks are reported per
+  thumbnail; they do not block the delivery (the owner decides).
+- **Revisions** reuse each background unless the note mentions the scene or background, so a text
+  or colour fix costs one model call and no image calls.
+- **Client photos** are cut out once and reused; the brief keeps only a flag that a photo exists.
+- **Jobs** are saved in the store and survive restarts; an interrupted job is marked failed.
+- **Gig kit:** honest copy (AI-assisted, designer-finished, no promised views or click-through)
+  and up to six portfolio thumbnails chosen by QA.

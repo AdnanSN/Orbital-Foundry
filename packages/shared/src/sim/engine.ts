@@ -182,6 +182,8 @@ const BUBBLE_MS = 3_200;
 const MAX_REWORKS = 2;
 /** Finished tasks kept in memory; the server keeps the full history. */
 const FINISHED_KEPT = 300;
+/** Real work (objectives' tasks, factory listings) stays in memory much longer than ambient work. */
+const REAL_FINISHED_KEPT = 1_000;
 
 export class StationSim {
   private readonly rng: Rng;
@@ -191,6 +193,7 @@ export class StationSim {
   private readonly byId = new Map<string, Actor>();
   private readonly tasks = new Map<string, Task>();
   private readonly finished: string[] = [];
+  private readonly finishedReal: string[] = [];
   private readonly providers = new Map<string, ProviderState>();
   private readonly reserved = new Map<string, string>();
   /** Task ids waiting on the QA intake table, oldest first. */
@@ -253,7 +256,7 @@ export class StationSim {
       // Saves from before real work existed held only ambient tasks.
       const legacy = task.mock === undefined && task.objectiveId === undefined;
       sim.tasks.set(task.id, legacy ? { ...task, mock: true } : { ...task });
-      if (task.status === "done" || task.status === "failed") sim.finished.push(task.id);
+      if (task.status === "done" || task.status === "failed") sim.markFinished(task.id);
     }
     sim.intake.push(...save.intake.filter((id) => sim.tasks.has(id)));
     const states = new Map(save.agents.map((a) => [a.id, a]));
@@ -670,10 +673,18 @@ export class StationSim {
     this.emit({ type: "task.updated", t: this.t, task: { ...task } });
   }
 
+  /**
+   * Finished tasks stay in memory for a while, then rotate out. Ambient tasks rotate quickly; real
+   * ones (mock is false or absent) have their own, much larger history, so the constant ambient
+   * churn never pushes out a deliverable the runtime or a factory still refers to.
+   */
   private markFinished(id: string): void {
-    if (!this.finished.includes(id)) this.finished.push(id);
-    while (this.finished.length > FINISHED_KEPT) {
-      const old = this.finished.shift();
+    const real = this.tasks.get(id)?.mock !== true;
+    const list = real ? this.finishedReal : this.finished;
+    const cap = real ? REAL_FINISHED_KEPT : FINISHED_KEPT;
+    if (!list.includes(id)) list.push(id);
+    while (list.length > cap) {
+      const old = list.shift();
       if (old) this.tasks.delete(old);
     }
   }

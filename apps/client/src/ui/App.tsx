@@ -11,7 +11,9 @@ import { Portrait } from "./Portrait";
 import { RecruitmentBay } from "./RecruitmentBay";
 import { RoomPanel } from "./RoomPanel";
 import { StationLog } from "./StationLog";
+import { StoresPanel } from "./StoresPanel";
 import { type UiStore, useUi } from "./store";
+import { ThumbsPanel } from "./ThumbsPanel";
 import { WorkPanel } from "./WorkPanel";
 
 export interface Ctx {
@@ -70,6 +72,8 @@ export function App({
       {panel === "hire" && <RecruitmentBay ctx={ctx} />}
       {panel === "work" && <WorkPanel ctx={ctx} />}
       {panel === "desk" && <DeskPanel ctx={ctx} />}
+      {panel === "stores" && <StoresPanel ctx={ctx} />}
+      {panel === "thumbs" && <ThumbsPanel ctx={ctx} />}
       {panel === null && selection?.kind === "agent" && (
         <AgentInspector key={selection.id} ctx={ctx} id={selection.id} />
       )}
@@ -186,6 +190,20 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
               {world.pendingApprovals().length}
             </span>
           )}
+        </Button>
+        <Button
+          title="Stores: Factory 1's Etsy print-on-demand stores and their listing packages"
+          onClick={() => ui.set({ panel: panel === "stores" ? null : "stores" })}
+          active={panel === "stores"}
+        >
+          Stores
+        </Button>
+        <Button
+          title="Thumbnails: Factory 2 turns a brief into three YouTube thumbnails"
+          onClick={() => ui.set({ panel: panel === "thumbs" ? null : "thumbs" })}
+          active={panel === "thumbs"}
+        >
+          Thumbs
         </Button>
         <Button
           title="Gallery: the studio's images, the one-click pipeline, approve or reject"

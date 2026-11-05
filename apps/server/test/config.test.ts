@@ -1,5 +1,24 @@
-import { describe, expect, it } from "vitest";
+import {
+  describe,
+  describe as describeLive,
+  expect,
+  expect as expectLive,
+  it,
+  it as itLive,
+} from "vitest";
 import { loadProvidersFile, loadTiersFile, resolveProviders, validateConfig } from "../src/config";
+
+describeLive("live lane terms", () => {
+  itLive("refuses the live lane for a provider whose terms are not recorded as allowing it", () => {
+    const providers = loadProvidersFile();
+    const groq = providers.providers.groq;
+    if (!groq) throw new Error("groq missing");
+    providers.providers.groq = { ...groq, lanes: ["sandbox", "live"], production: "unverified" };
+    expectLive(validateConfig(providers, loadTiersFile()).join("\n")).toContain(
+      "providers.groq: the live lane needs production: allowed",
+    );
+  });
+});
 
 describe("config files", () => {
   it("parse and pass validation", () => {

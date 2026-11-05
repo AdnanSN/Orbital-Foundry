@@ -1,0 +1,78 @@
+# Factory 1 products: print areas, costs and how each design is made.
+#
+# DEFAULTS, NOT PRINTIFY'S NUMBERS. Print areas and costs here are reasonable starting values for
+# the sandbox. Stage 7 replaces them with Printify's catalog (blueprint, print provider, variant
+# print areas and prices) once the owner adds an API token. Costs are in USD.
+#
+# printArea: the print file's size in pixels at `dpi`.
+# fit: "contain" keeps the whole design inside the area on a transparent background;
+#      "cover" fills the area edge to edge (full-bleed art).
+# style: the prompt-library style (config/prompts.yaml); cutout comes from the style.
+# mockup: which code-drawn mockup shows the design (honest: it is the real design).
+
+products:
+  candle-9oz:
+    title: Scented soy candle, 9 oz (label print)
+    printArea: [1500, 1050]
+    dpi: 300
+    fit: contain
+    style: sticker
+    mockup: candle
+    baseCost: 11.5
+    shipping: 5.5
+    attributes: { material: "Soy wax in a glass jar", size: 9 oz }
+
+  mug-11oz:
+    title: Ceramic mug, 11 oz
+    printArea: [2475, 1155]
+    dpi: 300
+    fit: contain
+    style: pod-design
+    mockup: mug
+    baseCost: 6.2
+    shipping: 5.0
+    attributes: { material: Ceramic, size: 11 oz, care: Dishwasher and microwave safe }
+
+  tote-bag:
+    title: Cotton tote bag
+    printArea: [3000, 3000]
+    dpi: 300
+    fit: contain
+    style: pod-design
+    mockup: tote
+    baseCost: 9.8
+    shipping: 4.5
+    attributes: { material: 100% cotton canvas, size: 15 x 16 in }
+
+  tshirt-unisex:
+    title: Unisex cotton t-shirt
+    printArea: [3600, 4200]
+    dpi: 300
+    fit: contain
+    style: pod-design
+    mockup: tshirt
+    baseCost: 9.4
+    shipping: 4.75
+    attributes: { material: 100% cotton, fit: Unisex classic }
+
+  poster-12x16:
+    title: Matte poster, 12 x 16 in
+    printArea: [2400, 3200]
+    dpi: 200
+    fit: cover
+    style: wall-art
+    mockup: frame
+    baseCost: 8.9
+    shipping: 4.5
+    attributes: { material: Matte paper 175 gsm, size: 12 x 16 in, frame: Not included }
+
+  poster-18x24:
+    title: Matte poster, 18 x 24 in
+    printArea: [3600, 4800]
+    dpi: 200
+    fit: cover
+    style: wall-art
+    mockup: frame
+    baseCost: 12.4
+    shipping: 5.5
+    attributes: { material: Matte paper 175 gsm, size: 18 x 24 in, frame: Not included }

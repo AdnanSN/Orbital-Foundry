@@ -21,6 +21,7 @@
     "census": "npm run census --workspace @orbital/server --",
     "smoke": "npm run smoke --workspace @orbital/server --",
     "models": "npm run models --workspace @orbital/server --",
+    "printify": "npm run printify --workspace @orbital/server --",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "tsc -p packages/shared && tsc -p apps/server && tsc -p apps/client && tsc -p apps/client/tsconfig.node.json",
     "lint": "biome check .",

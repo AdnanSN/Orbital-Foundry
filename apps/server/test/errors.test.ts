@@ -11,6 +11,12 @@ describe("redact", () => {
     );
   });
 
+  it("hides organization ids in rate-limit messages", () => {
+    expect(
+      redact("Rate limit reached for model `m` in organization `org_01abcdef9xyz` on tokens"),
+    ).toBe("Rate limit reached for model `m` in organization `org_[redacted]` on tokens");
+  });
+
   it("hides Cloudflare account ids in URLs", () => {
     expect(redact("POST /client/v4/accounts/0123456789abcdef0123456789abcdef/ai/run failed")).toBe(
       "POST /client/v4/accounts/[redacted]/ai/run failed",

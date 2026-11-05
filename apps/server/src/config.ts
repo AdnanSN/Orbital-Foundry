@@ -96,6 +96,13 @@ export function validateConfig(providers: ProvidersFile, tiers: TiersFile): stri
       }
     }
   }
+  for (const [id, p] of Object.entries(providers.providers)) {
+    if (p.lanes.includes("live") && p.production !== "allowed") {
+      problems.push(
+        `providers.${id}: the live lane needs production: allowed (terms checked and recorded); it is "${p.production}"`,
+      );
+    }
+  }
   for (const [id, endpoint] of Object.entries(providers.images)) {
     const p = providers.providers[endpoint.provider];
     if (!p) {

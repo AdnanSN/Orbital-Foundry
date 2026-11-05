@@ -160,7 +160,10 @@ export class ModelRouter {
         continue;
       }
       let messages = buildMessages(opts);
-      let maxTokens = opts.maxTokens;
+      // A provider may cap the output tokens a request asks for (config: limits.maxTokens).
+      const cap = this.deps.providers[provider]?.limits.maxTokens;
+      let maxTokens =
+        cap && opts.maxTokens ? Math.min(opts.maxTokens, cap) : (opts.maxTokens ?? cap);
       let boosted = false;
       let repairs = 0;
       // At most: the first call, one retry with a bigger token budget, and the JSON repair rounds.
@@ -175,10 +178,17 @@ export class ModelRouter {
         );
         if (!call) break;
         const { result } = call;
-        if (result.finishReason === "length" && !boosted) {
+        if (result.finishReason === "length" && !boosted && !(cap && (maxTokens ?? 0) >= cap)) {
+          // Some models finish the JSON and then keep writing until the limit: if what arrived
+          // already matches the schema, use it instead of paying for a longer call.
+          if (opts.schema) {
+            const early = parseStructured(result.content, opts.schema);
+            if (early.ok)
+              return this.finish(ref, provider, model, call, early.data, attempts, opts);
+          }
           // Reasoning models can spend the whole budget thinking. Retry once with more room.
           boosted = true;
-          maxTokens = boostTokens(maxTokens);
+          maxTokens = cap ? Math.min(boostTokens(maxTokens), cap) : boostTokens(maxTokens);
           attempts.push({
             ref,
             outcome: "truncated",

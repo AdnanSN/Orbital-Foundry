@@ -94,6 +94,7 @@ export class WorkDirector {
   /** When each agent run started (real ms), for stuck detection. */
   private readonly started = new Map<string, number>();
   private readonly nudged = new Set<string>();
+  private readonly decisionHooks: ((approval: Approval) => void | Promise<void>)[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
   private inFlight = 0;
   private readonly log: (m: string) => void;
@@ -234,6 +235,13 @@ export class WorkDirector {
     if (approval.kind === "action" && decision === "approve" && approval.action) {
       await this.runApprovedAction(decided);
     }
+    for (const hook of this.decisionHooks) {
+      try {
+        await hook(decided);
+      } catch (err) {
+        this.log(`decision hook for ${decided.id} failed: ${String(err)}`);
+      }
+    }
     return decided;
   }
 
@@ -342,8 +350,9 @@ export class WorkDirector {
       .join("\n\n");
   }
 
+  /** Tasks the agent runtime works: real (not ambient) and not run by a factory pipeline. */
   private realTasks(): Task[] {
-    return this.deps.world.sim.taskList.filter((t) => !t.mock);
+    return this.deps.world.sim.taskList.filter((t) => !t.mock && !t.pipeline);
   }
 
   // -- Planning ---------------------------------------------------------------------------------
@@ -893,6 +902,18 @@ Markdown. Do not invent facts that are not in the crew's work.`,
     this.deps.world.mutate((s) =>
       s.publish({ type: "objective.updated", t: s.now, objective: updated }),
     );
+  }
+
+  /** File an item at the Owner's Desk for another part of the station (factories). */
+  fileDeskItem(
+    fields: Omit<Approval, "id" | "status" | "createdAt" | "decidedAt" | "note">,
+  ): Approval {
+    return this.newApproval(fields);
+  }
+
+  /** Run `hook` after every owner decision (factories react to their own Desk items). */
+  onDecision(hook: (approval: Approval) => void | Promise<void>): void {
+    this.decisionHooks.push(hook);
   }
 
   private newApproval(

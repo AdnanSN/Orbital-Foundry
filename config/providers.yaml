@@ -14,6 +14,8 @@ providers:
     baseURL: https://integrate.api.nvidia.com/v1
     apiKeyEnv: NVIDIA_API_KEY
     lanes: [sandbox]
+    production: forbidden # trial terms: no production use, outputs may not be sold
+    termsChecked: 2026-11-04
     limits: { rpm: 35, concurrency: 4 }
     publicModelList: true
     quirks: { embedInputType: true }
@@ -26,6 +28,8 @@ providers:
     baseURL: https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1
     apiKeyEnv: CLOUDFLARE_API_TOKEN
     lanes: [sandbox, live]
+    production: allowed # re-verify before the first live sale (owner to-do, D-032)
+    termsChecked: 2026-11-04
     # The real free budget is 10,000 neurons/day (≈170 FLUX.1-schnell images); these just cap bursts.
     limits: { rpm: 120, rpd: 2000, concurrency: 4 }
     terms: >-
@@ -36,14 +40,16 @@ providers:
     name: Groq
     baseURL: https://api.groq.com/openai/v1
     apiKeyEnv: GROQ_API_KEY
-    lanes: [sandbox] # candidate for live: verify its terms in Stage 7 first
-    limits: { rpm: 25, rpd: 900, concurrency: 2 }
+    lanes: [sandbox] # candidate for live once its terms are checked and recorded
+    production: unverified
+    limits: { rpm: 25, rpd: 900, concurrency: 2, maxTokens: 1500 }
 
   openrouter:
     name: OpenRouter (":free" models)
     baseURL: https://openrouter.ai/api/v1
     apiKeyEnv: OPENROUTER_API_KEY
     lanes: [sandbox] # upstream terms vary per model, and some free endpoints log prompts
+    production: unverified
     limits: { rpm: 15, rpd: 45, concurrency: 2 }
     publicModelList: true
 
@@ -52,6 +58,7 @@ providers:
     baseURL: https://generativelanguage.googleapis.com/v1beta/openai
     apiKeyEnv: GEMINI_API_KEY
     lanes: [sandbox] # free-tier prompts and outputs are used to improve Google products
+    production: unverified
     limits: { rpm: 8, rpd: 200, concurrency: 2 }
 
   cerebras:

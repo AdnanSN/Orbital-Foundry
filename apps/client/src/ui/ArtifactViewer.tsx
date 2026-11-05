@@ -33,6 +33,17 @@ export function ArtifactViewer({ ctx, id }: { ctx: Ctx; id: string }) {
                 {meta.objectiveId ? ` · ${meta.objectiveId}` : ""} · sandbox: not published
               </div>
             )}
+            {(meta?.kind === "listing-package" ||
+              meta?.kind === "thumbnail-delivery" ||
+              meta?.kind === "asset-pack") && (
+              <a
+                href={link.commands.zipUrl(id)}
+                className="text-cyan hover:underline text-[11px]"
+                download
+              >
+                Download the ZIP
+              </a>
+            )}
           </div>
           <button
             type="button"
@@ -49,7 +60,10 @@ export function ArtifactViewer({ ctx, id }: { ctx: Ctx; id: string }) {
           ) : state.content === null ? (
             <div className="text-dim">Loading…</div>
           ) : (
-            <Markdown text={state.content} />
+            <Markdown
+              text={state.content}
+              resolveImage={(ref) => (/^I-\d+$/.test(ref) ? link.commands.fileUrl(ref) : null)}
+            />
           )}
         </div>
       </div>

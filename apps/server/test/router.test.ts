@@ -250,6 +250,20 @@ describe("ModelRouter census and quirks", () => {
 });
 
 describe("ModelRouter token budget and empty replies", () => {
+  it("caps the output tokens a request asks a provider for (limits.maxTokens)", async () => {
+    const capped = provider("alpha", ["sandbox"], {
+      limits: { rpm: 1000, concurrency: 8, maxTokens: 1500 },
+    });
+    const transport = new FakeTransport({ "alpha:a1": () => reply("short answer") });
+    const { router } = makeRouter({
+      providers: { alpha: capped },
+      transport,
+      tiers: tiersWith({ fast: { sandbox: ["alpha:a1"] } }),
+    });
+    await router.generate({ tier: "fast", lane: "sandbox", prompt: "hi", maxTokens: 4000 });
+    expect(transport.calls.map((c) => c.req.maxTokens)).toEqual([1500]);
+  });
+
   it("retries with a bigger token budget when a model runs out mid-thought", async () => {
     const transport = new FakeTransport({
       "alpha:a1": (req) =>
@@ -271,6 +285,29 @@ describe("ModelRouter token budget and empty replies", () => {
     expect(res.text).toBe("Welcome aboard!");
     expect(transport.calls.map((c) => c.req.maxTokens)).toEqual([400, 2048]);
     expect(res.attempts.map((a) => a.outcome)).toEqual(["truncated", "ok"]);
+  });
+
+  it("keeps a reply that hit the token limit when its JSON is already complete", async () => {
+    const transport = new FakeTransport({
+      "alpha:a1": () =>
+        reply(`{"name":"Nova","age":3}${"\n".repeat(50)}And some rambling that got cut off`, {
+          finishReason: "length",
+        }),
+    });
+    const { router } = makeRouter({
+      providers,
+      transport,
+      tiers: tiersWith({ fast: { sandbox: ["alpha:a1"] } }),
+    });
+    const res = await router.generate({
+      tier: "fast",
+      lane: "sandbox",
+      prompt: "hi",
+      schema: z.object({ name: z.string(), age: z.number() }),
+      maxTokens: 400,
+    });
+    expect(res.data).toEqual({ name: "Nova", age: 3 });
+    expect(transport.calls).toHaveLength(1);
   });
 
   it("falls back when a model returns an empty reply", async () => {

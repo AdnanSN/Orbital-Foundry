@@ -19,9 +19,9 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 3 | Sim engine, persistence, realtime link | 1 session | ✅ done (`npm run dev`) |
 | 4 | Agent brains: runtime, Overseer, task board | 1–2 sessions | ✅ done (Work and Desk panels) |
 | 5 | Creative toolchain (images, upscale, QA) | 1 session | ✅ done; Real-ESRGAN and rembg wait for your OK |
-| 6 | Factory 1: Etsy POD studio (sandbox) | 1 session | ☐ |
-| 7 | Go live: Printify → Etsy | 1 session | ☐ |
-| 8 | Factory 2: Thumbnail studio | 1 session | ☐ |
+| 6 | Factory 1: Etsy POD studio (sandbox) | 1 session | ✅ done (Stores panel; sandbox packages) |
+| 7 | Go live: Printify → Etsy | 1 session | 🟡 built, dry run; live needs your Printify token and Etsy shop |
+| 8 | Factory 2: Thumbnail studio | 1 session | ✅ done (Thumbs panel; Fiverr stays manual) |
 | 9 | Factory 3: Asset forge | 1 session | ☐ |
 | 10 | Economy, KPIs, learning loop | 1 session | ☐ |
 | 11 | Always-on ops & polish | 1 session | ☐ |
@@ -533,12 +533,12 @@ gallery, and every tool has unit tests.
 
 **Goal:** complete, publish-ready listing packages, without touching Etsy yet.
 
-- [ ] Three store "brands" in `config/businesses/` (for example candles, personalized gifts and wall
+- [x] Three store "brands" in `config/businesses/` (for example candles, personalized gifts and wall
       art). Each has a niche, voice, product list and price rules.
-- [ ] The full §7.1 pipeline as an Overseer objective template: "N new listings per store per day".
-- [ ] Product print-area specs: defaults to start with, replaced by Printify's catalog once you have a
+- [x] The full §7.1 pipeline as an Overseer objective template: "N new listings per store per day".
+- [x] Product print-area specs: defaults to start with, replaced by Printify's catalog once you have a
       token.
-- [ ] Store dashboards in Factory 1.
+- [x] Store dashboards in Factory 1.
 
 **Done when:** there are 5 listing packages you'd genuinely publish (print file, mockups, copy and a
 compliance report), and every step can be traced in the event log.
@@ -547,16 +547,18 @@ compliance report), and every step can be traced in the event log.
 
 **Goal:** the first real product reaches your Etsy shop, through your approval click.
 
-- [ ] Live-lane enforcement: tasks marked live can only use providers tagged `production: allowed`.
-      Re-verify each provider's terms and record them in `providers.yaml`.
-- [ ] Printify client:
+- [x] Live-lane enforcement: tasks marked live can only use providers tagged `production: allowed`.
+      Re-verify each provider's terms and record them in `providers.yaml`. (Recorded per provider;
+      Cloudflare's 2026-11-04 check stands, re-verify before the first sale.)
+- [x] Printify client (dry run tested; live calls need your token):
   - shops, blueprints, print providers and variants;
   - image upload, product creation and publish;
   - a dry-run mode and idempotency keys.
-- [ ] The approval → publish flow, with a daily listing cap per shop and a kill switch per business.
-- [ ] Order and revenue sync into the Vault ledger: Printify orders, plus Etsy receipts if your Etsy app
-      is approved.
-- [ ] Re-check Etsy's current AI and POD policy, and map its required fields (AI disclosure, production
+- [x] The approval → publish flow, with a daily listing cap per shop and a kill switch per business.
+- [~] Order and revenue sync into the Vault ledger: Printify orders, plus Etsy receipts if your Etsy app
+      is approved. (Printify orders: built and tested against a fake API. Etsy receipts: not built,
+      they need an approved Etsy app.)
+- [x] Re-check Etsy's current AI and POD policy, and map its required fields (AI disclosure, production
       partner).
 
 **Done when:**
@@ -571,8 +573,8 @@ compliance report), and every step can be traced in the event log.
 
 **Goal:** a brief turns into three polished thumbnails in minutes.
 
-- [ ] The §7.2 pipeline: intake form, 3 variants, revision loop and ZIP delivery.
-- [ ] The gig kit: title, description, FAQ, pricing tiers and a portfolio set.
+- [x] The §7.2 pipeline: intake form, 3 variants, revision loop and ZIP delivery.
+- [x] The gig kit: title, description, FAQ, pricing tiers and a portfolio set.
 
 **Done when:** a brief becomes 3 thumbnails in about 3 minutes or less, and a revision note produces a
 corrected version.
@@ -787,3 +789,60 @@ your phone.
   - Waiting for your OK: downloading Real-ESRGAN-ncnn-vulkan and rembg's model. Until then the
     built-in resampler and cutouts are used.
   - **Next:** Stage 6 (Etsy POD studio in the sandbox).
+- **2026-11-05:** Stage 6 built: Factory 1 makes complete listing packages in the sandbox.
+  - Three stores in `config/businesses/` (candles and mugs, gifts, wall art; placeholder names),
+    six products with default print areas and costs in `config/products.yaml`, and Etsy's rules
+    and fees in `config/marketplaces.yaml`.
+  - `apps/server/src/pod/`: the §7.1 pipeline as code. Scout picks a concept; the store's
+    operator writes prompts and generates four candidates; Lens picks the best by vision QA (one
+    more round if none pass); production cuts out, trims, upscales and fits the print area; the
+    operator writes the copy (fixed to Etsy's limits) and prices it from cost, Etsy fees and the
+    store's margin; Lens runs compliance (IP screen, disclosures, QA, print file); the package
+    (print file, two honest code-drawn mockups, listing.json, compliance.md, ZIP) goes to the
+    Owner's Desk. Every step is a speech bubble, a task update or an artifact, and the package
+    carries a trace.
+  - Owner decisions: Accept marks a package ready for Stage 7; Send back starts a new listing
+    with your note. A daily autopilot makes each store's listings in working hours (9:00 to
+    21:00), one at a time; the Stores panel sets the number per day and has a pause switch.
+  - Fixed on the way: the engine used to drop real finished tasks once 300 ambient tasks had
+    finished after them; real work now has its own, larger history.
+  - Real runs on the sandbox models: the first three packages (F-0007 to F-0009) showed tiny designs on wide print areas, lowercase keyword titles and clumsy tags, which led to the trim step, Title Case and front-trimmed tags. Five packages from the fixed pipeline (F-0010 to F-0014: a fireplace candle, a puppy-ornament mug made from the owner's revision note, two posters and a hot-chocolate mug), QA 9 to 10, IP clear. Three are ready as they are; F-0011's title ends in a model-written ellipsis (now stripped automatically) and F-0014 kept a white block from its cutout, which led to the new print-file QA in compliance. The publish dry run on F-0011 recorded its three Printify calls and a simulated listing fee.
+  - **Next:** Stage 7 (Printify and Etsy, dry-run until you add a token and a shop).
+- **2026-11-05:** Stage 7 built as far as it can go without your accounts: everything runs as a
+  dry run.
+  - `apps/server/src/printify/`: a Printify API client (shops, catalog, image upload, product
+    creation, publishing, orders) whose writes are recorded instead of sent in dry-run mode, and
+    the publisher.
+  - Accepting a listing package at the Owner's Desk now files a second item, "Publish": nothing
+    leaves the station until you approve that too. Each step runs once per approval (an outbox),
+    so a retry never creates a second product.
+  - Guards: the station kill switch (Stores panel; it also stops new listings), a paused store, a
+    daily publish cap per store, and in live mode a token, a shop id, the live lane, a product
+    mapped to a Printify blueprint, and a design made by a production-licensed (live-lane)
+    provider. Sandbox images are never sold.
+  - The Vault ledger (SQLite): sales, costs and fees per business, deduplicated; Printify order
+    sync every 30 minutes in live mode. Dry-run entries are flagged as simulated.
+  - Providers record what their terms say (`production: allowed | forbidden | unverified`) and
+    config validation refuses the live lane without "allowed".
+  - Etsy's Creativity Standards checked (2026-11-05): AI-assisted POD designs are "Designed by a
+    seller" with Printify as the production partner; listing.json carries that mapping.
+  - `npm run printify -- shops | blueprints | providers | variants` maps products to the catalog.
+  - **Not done (needs you):** a Printify account linked to your Etsy shop, a token and shop id
+    in `.env`, product mappings, the live lane (live-lane images), and one real listing through
+    an approval click. Etsy receipt sync needs an approved Etsy app.
+  - **Next:** Stage 8 (Thumbnail studio).
+- **2026-11-05:** Stage 8 built: Factory 2 turns a brief into three thumbnails.
+  - `apps/server/src/thumbs/studio.ts`: the brief (title, topic, channel style, brand colours,
+    optional client photo, references) becomes three concepts (curiosity, emotion, contrast) with
+    hooks of five words or fewer; each gets a generated 16:9 scene, the client's photo cut out (or
+    one generated subject), and the hook composed with stroke and shadow at 1280×720.
+  - Readability at phone size (168×94): WCAG contrast behind the hook and its height on a phone,
+    plus vision QA with the hook as the expected text. A 2× phone preview is saved for each.
+  - Delivery: a ZIP with the three PNGs, phone previews and layered sources (background, cut-out
+    subject, layout JSON), and an Owner's Desk item. Sending it back with a note makes version 2:
+    new hooks, colours or layout, keeping the backgrounds unless the note asks for a new scene.
+  - The gig kit: Fiverr gig copy (title, description, FAQ, three pricing tiers) and a portfolio of
+    the best thumbnails. Fiverr stays manual: no seller API, and bots break its terms.
+  - Real run: "I Built a Tiny Cabin in 30 Days With No Experience" became three thumbnails in 63 seconds (QA 9, 8 and 9; contrast 4.2 to 5.5:1); the note "make the hook on #2 shorter, in white" produced version 2 in 28 seconds, reusing the backgrounds. Cloudflare's free daily image allocation was used up by then, so the scenes were drawn in code (the new fallback); real scenes come back at 00:00 UTC.
+  - Stages 6 to 8 together: 188 tests (37 new).
+  - **Next:** Stage 9 (Asset forge).
