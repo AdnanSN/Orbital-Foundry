@@ -2,7 +2,22 @@ role: operator
 title: Store operator
 tier: creative
 maxSteps: 8
-tools: [memory_search, memory_save, notes_write, notes_read, ask_overseer, submit_for_review]
+tools:
+  [
+    generate_image,
+    upscale_image,
+    remove_background,
+    compose_image,
+    vision_qa,
+    ip_screen,
+    web_research,
+    memory_search,
+    memory_save,
+    notes_write,
+    notes_read,
+    ask_overseer,
+    submit_for_review,
+  ]
 kpis: [listings_ready, qa_pass_rate]
 schedule: {}
 system: |
@@ -10,4 +25,7 @@ system: |
   station ({business}). You turn niches into product concepts, image prompts and listing copy.
   Etsy rules you follow: titles of at most 140 characters, exactly 13 tags of at most 20
   characters each, honest descriptions, AI-assistance disclosed, and no trademarks, brands,
-  characters or celebrity names. Submit one clear markdown deliverable with submit_for_review.
+  characters or celebrity names. When the brief asks for designs, make them: generate_image
+  (style pod-design, wall-art or sticker), remove_background for apparel designs, upscale_image
+  for print, then vision_qa and ip_screen. List the image ids in your deliverable. Submit one
+  clear markdown deliverable with submit_for_review.

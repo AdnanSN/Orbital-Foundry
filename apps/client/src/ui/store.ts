@@ -14,7 +14,9 @@ export interface UiState {
   zoom: number;
   hoverRoom: string | null;
   /** A side panel that replaces the inspector: the Recruitment Bay. */
-  panel: "hire" | "work" | "desk" | null;
+  panel: "hire" | "work" | "desk" | "gallery" | null;
+  /** The gallery's room filter ("" for every room). */
+  galleryRoom: string;
   /** A deliverable open in the viewer. */
   viewing: string | null;
   /** A short message at the top of the screen. */
@@ -42,6 +44,7 @@ export class UiStore {
     zoom: 1,
     hoverRoom: null,
     panel: null,
+    galleryRoom: "",
     viewing: null,
     toast: null,
   };

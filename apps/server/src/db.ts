@@ -103,6 +103,12 @@ const MIGRATIONS: string[] = [
      created_at TEXT NOT NULL
    );
    CREATE INDEX idx_notes_task ON notes (task_id);`,
+  // Stage 5: images in the artifact store, with a gallery per room.
+  `ALTER TABLE artifacts ADD COLUMN room TEXT;
+   ALTER TABLE artifacts ADD COLUMN review TEXT;
+   ALTER TABLE artifacts ADD COLUMN parent_id TEXT;
+   ALTER TABLE artifacts ADD COLUMN info TEXT;
+   CREATE INDEX idx_artifacts_kind ON artifacts (kind, created_at);`,
 ];
 
 export function openDb(file: string = DB_PATH): Database.Database {

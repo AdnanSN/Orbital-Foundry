@@ -345,3 +345,53 @@ fixtures matched on the system prompt, the user text, the latest tool result, or
 offer. A fixture can be used once. `RecordingTransport` wraps a real transport to capture new
 fixtures. The work tests run the whole loop (plan, work, review, rework, synthesis, Desk,
 escalation, café back-off, restart recovery) without a network.
+
+## D-025: The creative toolchain runs in-process on @napi-rs/canvas (2026-11-05)
+
+Every image operation (decode, resample, keying, cutouts, quantization, sprite sheets, text
+layout, PNG and JPEG encoding) runs on `@napi-rs/canvas` (Skia, prebuilt for Windows). It needs no
+Python, no GPU and no system libraries, so the station works the same on the laptop and on a small
+VM (Stage 11).
+
+- **Images are artifacts** with an `I-` id, a PNG under `data/artifacts/images`, a `parentId` (the
+  image it was made from), a `room` (its gallery), a `review` (pending, approved, rejected) and
+  `info` (prompt, style, seed, endpoint, size, method, QA score, IP verdict). Every edit makes a new
+  artifact, so the files never change and can be cached forever.
+- **Styles are data** (`config/prompts.yaml`): prefix, suffix, words to avoid, the default aspect
+  and the cutout method. FLUX schnell has no negative prompt, so "avoid" is folded into the text.
+- **Aspect ratios:** Cloudflare's FLUX endpoint only makes 1024×1024 and takes no seed, so the
+  result is centre-cropped and resampled to the aspect's size; the seed is recorded when the
+  endpoint accepts one.
+- **Pipeline order:** cut out at the generated size, then upscale with the alpha channel. The key
+  is cleaner at the original size and the flood fill touches 16× fewer pixels.
+- **Agent tools:** generate_image, upscale_image, remove_background, chroma_key, compose_image,
+  pixelate_image, make_spritesheet, vision_qa, ip_screen. All internal; nothing leaves the station.
+
+## D-026: Real-ESRGAN and rembg are optional and off until the owner OKs the downloads (2026-11-05)
+
+Both need downloads (the Real-ESRGAN release binary and models, and rembg's U2-Net model through
+uv), which the plan reserves for the owner. The runners are built (`creative/external.ts`) and
+switched on by setting `upscale.realesrgan` or `background.rembg` in `config/creative.yaml`.
+
+- Until then, upscales use a high-quality 2×-step resampler (good for flat vector art, softer than
+  Real-ESRGAN on photos), and cutouts use the edge flood fill (plain backgrounds; keeps enclosed
+  areas of the same colour) or the chroma key (flat key colours such as magenta and green).
+- If a configured runner fails, the studio falls back to the built-in method and records why.
+
+## D-027: Fonts are system fonts for now (2026-11-05)
+
+`compose` picks the first installed family from lists in `config/creative.yaml` (display: Impact,
+Arial Black; body: Segoe UI, Arial). Bundled open-license fonts (for example from Google Fonts,
+OFL) would make output identical on any machine and remove licence doubt for sold products; they
+need a download, so they are a follow-up for the owner.
+
+## D-028: QA and the IP screen are conservative (2026-11-05)
+
+- **vision_qa** sends a downscaled JPEG (transparent areas flattened to grey) to the vision tier with
+  a rubric: defects, garbled text, AI artifacts, legibility, fit for purpose. A score of 7 or more
+  with no garbled text passes. The reply is parsed with zod (no router `schema`, so vision models
+  without a JSON census pass still work). Deterministic checks always run: blank images, coverage,
+  and opaque border pixels on cutouts. Without a vision model nothing passes.
+- **ip_screen**: a blocklist hit (whole words, case-insensitive) blocks; then the fast tier (or
+  the vision tier with an image) rates the risk. High blocks, medium goes to review, and without a
+  model the verdict is at best "review". generate_image refuses prompts that hit the blocklist.

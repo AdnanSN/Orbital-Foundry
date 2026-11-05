@@ -6,6 +6,7 @@ import { AgentInspector } from "./AgentInspector";
 import { ArtifactViewer } from "./ArtifactViewer";
 import { DeskPanel } from "./DeskPanel";
 import { ACTIVITY_COLOR, ACTIVITY_LABEL, stationTime } from "./format";
+import { GalleryPanel } from "./GalleryPanel";
 import { Portrait } from "./Portrait";
 import { RecruitmentBay } from "./RecruitmentBay";
 import { RoomPanel } from "./RoomPanel";
@@ -75,6 +76,7 @@ export function App({
       {panel === null && selection?.kind === "room" && (
         <RoomPanel key={selection.id} ctx={ctx} id={selection.id} />
       )}
+      {panel === "gallery" && <GalleryPanel ctx={ctx} />}
       {viewing && <ArtifactViewer key={viewing} ctx={ctx} id={viewing} />}
       {(status === "offline" || (status === "connecting" && world.crew.size === 0)) && (
         <Offline status={status} />
@@ -184,6 +186,13 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
               {world.pendingApprovals().length}
             </span>
           )}
+        </Button>
+        <Button
+          title="Gallery: the studio's images, the one-click pipeline, approve or reject"
+          onClick={() => ui.set({ panel: panel === "gallery" ? null : "gallery" })}
+          active={panel === "gallery"}
+        >
+          Gallery
         </Button>
         <Button
           title="Recruitment Bay: hire crew"

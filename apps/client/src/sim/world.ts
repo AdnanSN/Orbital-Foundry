@@ -219,6 +219,7 @@ export class World {
         return;
       }
       case "artifact.created":
+      case "artifact.updated":
         this.artifacts.set(e.artifact.id, e.artifact);
         return;
       case "sim.status":

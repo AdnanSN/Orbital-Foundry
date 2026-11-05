@@ -1,5 +1,6 @@
 import type { CrewMember, CrewRole, Lane, Objective, Task } from "@orbital/shared";
 import { parseModelRef } from "@orbital/shared";
+import type { CreativeStudio } from "../creative/studio";
 import { NoCandidateError, RouterError } from "../llm/errors";
 import type { ProviderGate } from "../llm/rateLimiter";
 import type { ModelRouter } from "../llm/router";
@@ -29,6 +30,7 @@ export interface RuntimeDeps {
   /** Waits longer than this send the avatar to the café first. */
   cafeAfterMs?: number;
   sleep?: (ms: number) => Promise<void>;
+  studio?: CreativeStudio;
 }
 
 export interface RuntimeHooks {
@@ -118,6 +120,7 @@ export class AgentRuntime {
       escalate: (reason) => {
         escalated = reason;
       },
+      ...(this.deps.studio ? { studio: this.deps.studio } : {}),
     };
 
     const messages: ChatMessage[] = [

@@ -1,0 +1,110 @@
+# Words and names that must not appear in a design, its prompt or its listing copy.
+# ip_screen blocks a match outright; the model screen catches what a list cannot.
+# Matching ignores case and needs whole words ("marvel" does not match "marvellous").
+#
+# Only list terms that are (almost) never generic. Everyday words that are also trademarks
+# (apple, frozen, friends, peanuts, amazon, supreme) would block honest designs like an "apple
+# cinnamon candle"; the model screen judges those in context instead.
+# This list is a starting point, not legal advice. Add to it whenever a review finds a miss.
+
+brands:
+  - Nike
+  - Adidas
+  - Just Do It
+  - Coca-Cola
+  - Pepsi
+  - Starbucks
+  - McDonald's
+  - iPhone
+  - Google
+  - Microsoft
+  - Gucci
+  - Louis Vuitton
+  - Chanel
+  - Harley-Davidson
+  - Lego
+  - Barbie
+  - Hello Kitty
+  - Sanrio
+  - Bath & Body Works
+  - Yankee Candle
+  - Polaroid
+  - Crocs
+
+characters_and_franchises:
+  - Disney
+  - Pixar
+  - Marvel
+  - Star Wars
+  - Harry Potter
+  - Hogwarts
+  - Pokemon
+  - Pokémon
+  - Pikachu
+  - Nintendo
+  - Super Mario
+  - Zelda
+  - Snoopy
+  - Winnie the Pooh
+  - Grinch
+  - Dr. Seuss
+  - Batman
+  - Superman
+  - Spider-Man
+  - Spiderman
+  - Avengers
+  - Game of Thrones
+  - Lord of the Rings
+  - Minecraft
+  - Fortnite
+  - Roblox
+  - Swiftie
+  - Eras Tour
+  - Bluey
+  - Paw Patrol
+  - Sesame Street
+  - Mickey Mouse
+  - Toy Story
+  - Shrek
+  - Garfield
+  - SpongeBob
+  - Simpsons
+  - Rick and Morty
+  - Ghibli
+  - Totoro
+  - Naruto
+  - Dragon Ball
+  - Stranger Things
+
+sports_and_leagues:
+  - NFL
+  - NBA
+  - MLB
+  - NHL
+  - FIFA
+  - World Cup
+  - Olympics
+  - Olympic
+  - Super Bowl
+  - March Madness
+  - Lakers
+  - Yankees
+  - Real Madrid
+  - Manchester United
+
+people:
+  - Taylor Swift
+  - Elvis
+  - Marilyn Monroe
+  - Beyoncé
+  - Beyonce
+  - Bad Bunny
+  - Kanye
+  - Elon Musk
+  - Trump
+  - Biden
+  - Michael Jordan
+  - LeBron
+  - Bob Ross
+  - Frida Kahlo
+  - Einstein

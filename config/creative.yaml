@@ -1,0 +1,40 @@
+# Orbital Foundry creative toolchain (Stage 5). See docs/DECISIONS.md D-025 to D-028.
+
+# Output sizes per aspect ratio. Endpoints that only make squares (Cloudflare FLUX) are
+# centre-cropped and resampled to these sizes.
+aspects:
+  "1:1": [1024, 1024]
+  "4:5": [1024, 1280]
+  "3:4": [960, 1280]
+  "2:3": [1024, 1536]
+  "16:9": [1280, 720]
+  "9:16": [720, 1280]
+
+upscale:
+  # Path to realesrgan-ncnn-vulkan(.exe). Empty until the owner OKs downloading the official
+  # release; until then the built-in high-quality resampler is used.
+  realesrgan: ""
+  model: realesrgan-x4plus
+  # The largest side an upscale may produce (print files stay under this).
+  maxSide: 8192
+
+background:
+  # Command that runs rembg, for example "uvx rembg". Empty until the owner OKs the model
+  # download; until then cutouts use the edge flood fill or the chroma key.
+  rembg: ""
+  # RGB distance (0 to 441) that still counts as background, and the soft-edge band after it.
+  tolerance: 48
+  feather: 24
+
+fonts:
+  # Families tried in order; the first one installed wins. Bundled open-license fonts are a
+  # follow-up (they need a download).
+  display: [Impact, "Arial Black", "Segoe UI Black", Arial]
+  body: ["Segoe UI", Arial, Helvetica, "DejaVu Sans"]
+  mono: [Consolas, "Courier New", "DejaVu Sans Mono"]
+
+qa:
+  # Images are sent to the vision model at most this size (longest side).
+  maxSide: 768
+  # A vision score at or above this passes.
+  passScore: 7

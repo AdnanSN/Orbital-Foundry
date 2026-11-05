@@ -1,4 +1,4 @@
-import type { Approval, ArtifactMeta, Objective } from "@orbital/shared";
+import type { Approval, ArtifactMeta, ArtifactReview, Objective } from "@orbital/shared";
 import type Database from "better-sqlite3";
 
 export interface Memory {
@@ -132,8 +132,8 @@ export class WorkStore {
     this.db
       .prepare(
         `INSERT INTO artifacts (id, kind, title, mime, task_id, objective_id, created_by,
-           created_at, size, content, path)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           created_at, size, content, path, room, review, parent_id, info)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         meta.id,
@@ -147,7 +147,48 @@ export class WorkStore {
         meta.size,
         content,
         filePath,
+        meta.room ?? null,
+        meta.review ?? null,
+        meta.parentId ?? null,
+        meta.info ? JSON.stringify(meta.info) : null,
       );
+  }
+
+  /** Change an artifact's gallery review or merge new details into its info. */
+  updateArtifact(
+    id: string,
+    patch: { review?: ArtifactReview | null; info?: Record<string, unknown>; title?: string },
+  ): ArtifactMeta | null {
+    const current = this.artifact(id);
+    if (!current) return null;
+    const meta: ArtifactMeta = {
+      ...current.meta,
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.review !== undefined ? { review: patch.review } : {}),
+      ...(patch.info ? { info: { ...(current.meta.info ?? {}), ...patch.info } } : {}),
+    };
+    this.db
+      .prepare("UPDATE artifacts SET title = ?, review = ?, info = ? WHERE id = ?")
+      .run(meta.title, meta.review ?? null, meta.info ? JSON.stringify(meta.info) : null, id);
+    return meta;
+  }
+
+  /** Artifacts, newest first, optionally only one kind or one room's. */
+  findArtifacts(filter: { kind?: string; room?: string; limit?: number } = {}): ArtifactMeta[] {
+    const where: string[] = [];
+    const args: unknown[] = [];
+    if (filter.kind) {
+      where.push("kind = ?");
+      args.push(filter.kind);
+    }
+    if (filter.room) {
+      where.push("room = ?");
+      args.push(filter.room);
+    }
+    const sql = `SELECT * FROM artifacts ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+      ORDER BY created_at DESC, id DESC LIMIT ?`;
+    const rows = this.db.prepare(sql).all(...args, filter.limit ?? 60) as ArtifactRow[];
+    return rows.map(artifactMeta);
   }
 
   artifact(id: string): { meta: ArtifactMeta; content: string | null; path: string | null } | null {
@@ -233,6 +274,10 @@ interface ArtifactRow {
   size: number;
   content: string | null;
   path: string | null;
+  room: string | null;
+  review: string | null;
+  parent_id: string | null;
+  info: string | null;
 }
 
 interface MemoryRow {
@@ -256,5 +301,9 @@ function artifactMeta(r: ArtifactRow): ArtifactMeta {
     createdBy: r.created_by,
     createdAt: r.created_at,
     size: r.size,
+    ...(r.room ? { room: r.room } : {}),
+    ...(r.review ? { review: r.review as ArtifactReview } : {}),
+    ...(r.parent_id ? { parentId: r.parent_id } : {}),
+    ...(r.info ? { info: JSON.parse(r.info) as Record<string, unknown> } : {}),
   };
 }

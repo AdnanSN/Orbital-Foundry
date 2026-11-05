@@ -134,6 +134,9 @@ export const approvalSchema = z.object({
 });
 export type Approval = z.infer<typeof approvalSchema>;
 
+export const ARTIFACT_REVIEWS = ["pending", "approved", "rejected"] as const;
+export type ArtifactReview = (typeof ARTIFACT_REVIEWS)[number];
+
 /** A deliverable's metadata. Content is fetched separately (GET /api/artifacts/:id). */
 export const artifactMetaSchema = z.object({
   id: z.string(),
@@ -146,6 +149,14 @@ export const artifactMetaSchema = z.object({
   createdAt: z.number(),
   /** Bytes, for files; characters, for text. */
   size: z.number().int().nonnegative(),
+  /** The room whose gallery shows it (images). */
+  room: z.string().nullable().optional(),
+  /** The owner's call in the gallery. Absent for text deliverables. */
+  review: z.enum(ARTIFACT_REVIEWS).nullable().optional(),
+  /** The artifact this one was made from (an upscale's source image, say). */
+  parentId: z.string().nullable().optional(),
+  /** Tool details: prompt, seed, size, method, QA score, IP screen. */
+  info: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 export type ArtifactMeta = z.infer<typeof artifactMetaSchema>;
 
@@ -267,6 +278,13 @@ export const artifactCreatedEventSchema = z.object({
   artifact: artifactMetaSchema,
 });
 
+/** An artifact's metadata changed: a gallery review, or a QA score added. */
+export const artifactUpdatedEventSchema = z.object({
+  ...base,
+  type: z.literal("artifact.updated"),
+  artifact: artifactMetaSchema,
+});
+
 export const stationEventSchema = z.discriminatedUnion("type", [
   snapshotEventSchema,
   agentSpawnedEventSchema,
@@ -280,6 +298,7 @@ export const stationEventSchema = z.discriminatedUnion("type", [
   objectiveUpdatedEventSchema,
   approvalUpdatedEventSchema,
   artifactCreatedEventSchema,
+  artifactUpdatedEventSchema,
 ]);
 export type StationEvent = z.infer<typeof stationEventSchema>;
 export type StationEventType = StationEvent["type"];

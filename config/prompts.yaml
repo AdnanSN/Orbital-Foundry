@@ -1,0 +1,70 @@
+# The prompt library: named styles for generate_image. A style wraps the subject:
+#   "<prefix> <subject>, <suffix>"
+# `avoid` is folded into the prompt as plain words (FLUX schnell has no negative prompt).
+# `aspect` is the default aspect ratio (config/creative.yaml) and `cutout` says how the
+# pipeline should remove the background, if at all.
+
+styles:
+  pod-design:
+    description: Artwork for shirts, mugs and totes (print-on-demand)
+    prefix: "Flat vector illustration of"
+    suffix: "bold clean outlines, limited colour palette, centred composition, isolated on a plain pure white background"
+    avoid: [text, letters, watermark, signature, frame, mockup, photo, gradient background]
+    aspect: "1:1"
+    cutout: edges
+
+  wall-art:
+    description: Printable wall art and posters
+    prefix: "Fine art print of"
+    suffix: "balanced composition, rich colour, gallery quality, soft natural light"
+    avoid: [text, watermark, signature, frame, border]
+    aspect: "4:5"
+    cutout: none
+
+  sticker:
+    description: Die-cut sticker designs
+    prefix: "Cute sticker design of"
+    suffix: "thick white outline, kawaii style, vibrant flat colours, isolated on a plain pure white background"
+    avoid: [text, watermark, shadow, background scenery]
+    aspect: "1:1"
+    cutout: edges
+
+  thumbnail-bg:
+    description: YouTube thumbnail backgrounds with room for a headline
+    prefix: "Dramatic cinematic scene of"
+    suffix: "high contrast, saturated colours, strong subject on the right, empty space on the left third for a headline"
+    avoid: [text, letters, watermark, logo]
+    aspect: "16:9"
+    cutout: none
+
+  thumbnail-subject:
+    description: A subject to cut out and place on a thumbnail
+    prefix: "Studio photo of"
+    suffix: "expressive, sharp focus, rim lighting, isolated on a plain flat green background"
+    avoid: [text, watermark, props at the edges]
+    aspect: "1:1"
+    cutout: chroma
+
+  game-icon:
+    description: A single game item icon for asset packs
+    prefix: "Single game item icon of"
+    suffix: "centred, bold readable silhouette, clean shading, isolated on a plain flat magenta background"
+    avoid: [text, letters, watermark, shadow on the background, multiple items]
+    aspect: "1:1"
+    cutout: chroma
+
+  pixel-sprite:
+    description: Pixel-art friendly source images (pixelate afterwards)
+    prefix: "Simple pixel art style sprite of"
+    suffix: "flat colours, strong outline, centred, isolated on a plain flat magenta background"
+    avoid: [text, gradients, noise, multiple items]
+    aspect: "1:1"
+    cutout: chroma
+
+  product-mockup:
+    description: Lifestyle scene for listing photos (sandbox only until mockups are licensed)
+    prefix: "Cozy lifestyle product photo of"
+    suffix: "natural window light, shallow depth of field, warm tones"
+    avoid: [text, watermark, logo, brand names]
+    aspect: "4:5"
+    cutout: none

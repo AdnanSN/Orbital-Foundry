@@ -9,6 +9,7 @@ import type {
 } from "@orbital/shared";
 import { parseModelRef } from "@orbital/shared";
 import { z } from "zod";
+import type { CreativeStudio } from "../creative/studio";
 import type { ProviderGate } from "../llm/rateLimiter";
 import type { ModelRouter, RouterEvent } from "../llm/router";
 import type { SimServer } from "../sim/simServer";
@@ -72,6 +73,8 @@ export interface WorkDeps {
   cafeAfterMs?: number;
   sleep?: (ms: number) => Promise<void>;
   log?: (message: string) => void;
+  /** The creative toolchain (Stage 5): image tools for the crew. */
+  studio?: CreativeStudio;
 }
 
 interface Hold {
@@ -110,6 +113,7 @@ export class WorkDirector {
         ...(deps.gates ? { gates: deps.gates } : {}),
         ...(deps.sleep ? { sleep: deps.sleep } : {}),
         ...(deps.cafeAfterMs !== undefined ? { cafeAfterMs: deps.cafeAfterMs } : {}),
+        ...(deps.studio ? { studio: deps.studio } : {}),
       },
       {
         askOverseer: (asker, q) => this.askOverseer(asker, q),
@@ -374,9 +378,8 @@ export class WorkDirector {
           schema: planSchema,
           system: `${this.overseerSystem()}
 Plan the owner's objective into 1 to 4 tasks. Each task goes to one role: ${PLANNABLE_ROLES.join(", ")}.
-Tasks are text work: research, ranking, concepts, prompts, listing copy, plans. Image generation and
-publishing are not available yet. Give each task a clear title and a brief that says exactly what
-to deliver.`,
+${this.deps.studio ? "Tasks can be text work (research, ranking, concepts, listing copy, plans) or image work: the\nthumbnailer, forger and operator roles can generate, upscale, cut out, compose, pixelate and QA\nimages." : "Tasks are text work: research, ranking, concepts, prompts, listing copy, plans. Image generation\nis not available."} Publishing is not available yet. Give each task a clear title and a brief that
+says exactly what to deliver.`,
           prompt: `Objective: ${objective.text}\nCrew: ${crewList}${memories ? `\nStation memory:\n${memories}` : ""}`,
           maxTokens: 2_000,
           purpose: `plan ${objective.id}`,

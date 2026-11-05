@@ -33,6 +33,8 @@ An always-on pixel-art space station where AI agents run small online businesses
   - `src/work/`: the agent runtime (`runtime.ts`), tools (`tools.ts`), WARDEN's loop
     (`director.ts`), the work store (objectives, approvals, artifacts, memory, notes) and web access.
   - `src/llm/fixtures.ts`: the fixture transport for deterministic end-to-end tests.
+  - `src/creative/`: the image toolchain (`raster.ts` pixel ops, `compose.ts`, `qa.ts` vision QA
+    and IP screen, `external.ts` Real-ESRGAN and rembg runners, `studio.ts`, agent `tools.ts`).
 - `apps/client`: Vite + Phaser 4 + a React overlay (Tailwind).
   - `src/sim/`: the world model built from station events, the sim clock, and `StationLink`
     (the mock link now, a WebSocket link in Stage 3).
@@ -44,7 +46,8 @@ An always-on pixel-art space station where AI agents run small online businesses
   (`llm.ts`), the station (`station/`: map JSON and loader, A* pathfinding, crew, roles, events),
   and the sim engine (`sim/`: `StationSim`, used by the server and by the client's mock mode).
 - `config/`: `providers.yaml`, `tiers.yaml`, the generated `models.census.json`, role templates
-  (`roles/*.yaml`) and the web allowlist (`web.yaml`).
+  (`roles/*.yaml`), the web allowlist (`web.yaml`), the creative settings (`creative.yaml`), the
+  prompt library (`prompts.yaml`) and the IP blocklist (`ip-blocklist.yaml`).
 - `data/`: SQLite database and artifacts (git-ignored).
 
 ## Rules that matter

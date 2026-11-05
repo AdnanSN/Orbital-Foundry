@@ -4,7 +4,8 @@ An always-on pixel-art space station where AI agents run small online businesses
 print-on-demand, a thumbnail studio and a game-asset forge. The agents answer to an Overseer, and
 you approve anything that leaves the station.
 
-**Status:** Stage 4 of 11 is built. The station runs on a server that saves it, and the crew do
+**Status:** Stage 5 of 11 is built: the crew also make images now (generate, cut out, upscale,
+compose, pixelate, QA). The station runs on a server that saves it, and the crew do
 real work through free models: give WARDEN an objective and watch it get planned, worked,
 reviewed and delivered to your Owner's Desk. The full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -17,6 +18,7 @@ reviewed and delivered to your Owner's Desk. The full plan is in [docs/ROADMAP.m
    keep busy with ambient mock work; real objectives need the keys from step 3.
    - Click **Work** to give WARDEN an objective and follow the task board.
    - Click **Desk** for the Owner's Desk: results to accept, actions to approve, crew who are stuck.
+   - Click **Gallery** for the studio's images: run the one-click image pipeline, compare, approve.
    - Click **Hire** to recruit crew. They arrive through the airlock.
    - To run everything in the browser instead, use `npm run client` and open it with `?mock=1`.
    - Drag or use WASD to pan, scroll to zoom, and press F to fit the whole station.

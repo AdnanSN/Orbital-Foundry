@@ -18,7 +18,7 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 2 | The station: visuals with a mock crew | 1 session | ✅ done (`npm run client`) |
 | 3 | Sim engine, persistence, realtime link | 1 session | ✅ done (`npm run dev`) |
 | 4 | Agent brains: runtime, Overseer, task board | 1–2 sessions | ✅ done (Work and Desk panels) |
-| 5 | Creative toolchain (images, upscale, QA) | 1 session | ☐ |
+| 5 | Creative toolchain (images, upscale, QA) | 1 session | ✅ done; Real-ESRGAN and rembg wait for your OK |
 | 6 | Factory 1: Etsy POD studio (sandbox) | 1 session | ☐ |
 | 7 | Go live: Printify → Etsy | 1 session | ☐ |
 | 8 | Factory 2: Thumbnail studio | 1 session | ☐ |
@@ -513,15 +513,18 @@ tests pass.
 
 **Goal:** the shared tools every factory needs.
 
-- [ ] `generate_image`: picks a provider by lane; supports aspect ratios, seeds and a prompt library.
-- [ ] `upscale`: Real-ESRGAN-ncnn-vulkan on your RTX 3050, 4× up to print resolution. *Needs your OK to
-      download the official release binary.*
-- [ ] `remove_background` with rembg (via uv), plus a fast `chroma_key` path.
-- [ ] `compose`: text and layout with @napi-rs/canvas and bundled open-license fonts.
-- [ ] `pixelate` (nearest-neighbor downscale + palette quantization) and a `spritesheet` packer.
-- [ ] `vision_qa`: a rubric score for defects, garbled text, artifacts and legibility.
-- [ ] `ip_screen`: blocklist + LLM + safety model.
-- [ ] An artifact store, with a gallery per room where you can compare, approve or reject.
+- [x] `generate_image`: picks a provider by lane; supports aspect ratios, seeds and a prompt library.
+- [~] `upscale`: Real-ESRGAN-ncnn-vulkan on your RTX 3050, 4× up to print resolution. *Needs your OK to
+      download the official release binary.* The runner is built and off; until then a high-quality
+      resampler does the 4× (D-026).
+- [~] `remove_background` with rembg (via uv), plus a fast `chroma_key` path. Chroma key and an
+      edge flood fill work now; rembg is wired but off until you OK its model download (D-026).
+- [x] `compose`: text and layout with @napi-rs/canvas. Fonts: installed system fonts for now;
+      bundled open-license fonts need a download (D-027).
+- [x] `pixelate` (nearest-neighbor downscale + palette quantization) and a `spritesheet` packer.
+- [x] `vision_qa`: a rubric score for defects, garbled text, artifacts and legibility.
+- [x] `ip_screen`: blocklist + LLM + safety model.
+- [x] An artifact store, with a gallery per room where you can compare, approve or reject.
 
 **Done when:** prompt → image → 4× upscale → cutout → QA score runs in one click and shows up in the
 gallery, and every tool has unit tests.
@@ -769,3 +772,18 @@ your phone.
   - Restarts put in-progress work back in the queue, and retrying a task reopens its objective.
     132 tests (9 new).
   - **Next:** Stage 5 (creative toolchain).
+- **2026-11-05:** Stage 5 built: the creative toolchain and the gallery.
+  - `apps/server/src/creative/`: generate (lane-aware, styles from `config/prompts.yaml`, aspect
+    ratios, seeds), upscale, cutout (edge flood fill, chroma key, rembg when allowed), compose
+    (layers and auto-fit text), pixelate (area average and median-cut palette), sprite sheets
+    with an atlas, vision QA (rubric scored by the vision tier, plus deterministic checks) and the
+    IP screen (blocklist in `config/ip-blocklist.yaml` plus a model check).
+  - Images are artifacts: PNGs under `data/artifacts/images`, with the source image, the room and
+    the tool details recorded. Agents chain the tools by image id.
+  - The Gallery (toolbar button): per-room grid, details and lineage, side-by-side comparison,
+    approve or reject, and the one-click pipeline (prompt → image → cutout → 4× upscale → QA).
+  - 151 tests (19 new).
+  - Real run from the Gallery: a pine candle design on Cloudflare FLUX → edge cutout → 4× to 4096×4096 → vision QA 8/10 (pass; it flagged faint white halos on the pine needles), in about a minute.
+  - Waiting for your OK: downloading Real-ESRGAN-ncnn-vulkan and rembg's model. Until then the
+    built-in resampler and cutouts are used.
+  - **Next:** Stage 6 (Etsy POD studio in the sandbox).

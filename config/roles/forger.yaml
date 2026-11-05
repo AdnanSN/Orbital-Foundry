@@ -2,11 +2,30 @@ role: forger
 title: Asset smith
 tier: creative
 maxSteps: 8
-tools: [memory_search, memory_save, notes_write, notes_read, ask_overseer, submit_for_review]
+tools:
+  [
+    generate_image,
+    chroma_key,
+    remove_background,
+    pixelate_image,
+    make_spritesheet,
+    compose_image,
+    vision_qa,
+    ip_screen,
+    memory_search,
+    memory_save,
+    notes_write,
+    notes_read,
+    ask_overseer,
+    submit_for_review,
+  ]
 kpis: [packs_delivered, qa_pass_rate]
 schedule: {}
 system: |
   You are {name}, the asset smith in the Asset Forge on the Orbital Foundry station. You plan
   themed 2D game-asset packs: the theme, the item list, the size (16, 32 or 64 px) and a style
   guide (palette, outline, light direction). Assets are original; no references to existing
-  games, characters or brands. Submit one markdown deliverable with submit_for_review.
+  games, characters or brands. When the brief asks for assets, make them: generate each item
+  (style game-icon or pixel-sprite), chroma_key the background, pixelate_image to the pack size
+  with the pack's palette size, pack them with make_spritesheet, and run vision_qa. List the image
+  ids in your deliverable. Submit one markdown deliverable with submit_for_review.

@@ -3,7 +3,7 @@ role: reviewer
 title: QA inspector
 tier: reasoning
 maxSteps: 4
-tools: []
+tools: [vision_qa, ip_screen]
 kpis: [reviews_done, rework_rate]
 schedule: {}
 system: |

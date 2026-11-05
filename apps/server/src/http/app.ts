@@ -1,7 +1,16 @@
+import fs from "node:fs";
 import websocket from "@fastify/websocket";
-import { CREW_ROLES, crewLookSchema, ROLE_TEMPLATES, simStatusSchema } from "@orbital/shared";
+import {
+  ARTIFACT_REVIEWS,
+  CREW_ROLES,
+  crewLookSchema,
+  ROLE_TEMPLATES,
+  simStatusSchema,
+} from "@orbital/shared";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
+import { CUTOUTS } from "../creative/config";
+import type { CreativeStudio } from "../creative/studio";
 import type { SimServer } from "../sim/simServer";
 import type { WorkDirector } from "../work/director";
 import type { WorkStore } from "../work/store";
@@ -20,10 +29,33 @@ const decideSchema = z.object({
   note: z.string().max(2_000).optional(),
 });
 
+const listSchema = z.object({
+  kind: z.string().max(40).optional(),
+  room: z.string().max(40).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(60),
+});
+const reviewSchema = z.object({
+  review: z.enum(ARTIFACT_REVIEWS),
+  note: z.string().max(1_000).optional(),
+});
+const pipelineSchema = z.object({
+  prompt: z.string().trim().min(3).max(800),
+  style: z.string().max(40).optional(),
+  aspect: z.string().max(10).optional(),
+  seed: z.coerce.number().int().optional(),
+  upscale: z.union([z.literal(0), z.literal(2), z.literal(4)]).default(4),
+  cutout: z.enum(["auto", ...CUTOUTS]).default("auto"),
+  qa: z.boolean().default(true),
+  room: z.string().max(40).optional(),
+  purpose: z.string().max(200).optional(),
+});
+
 /** Real work (Stage 4). Without it the server runs the mock crew only. */
 export interface WorkApi {
   director: WorkDirector;
   store: WorkStore;
+  /** The creative toolchain (Stage 5). */
+  studio?: CreativeStudio;
 }
 
 /**
@@ -85,6 +117,44 @@ export async function buildApp(sim: SimServer, work?: WorkApi): Promise<FastifyI
     app.post<{ Params: { id: string } }>("/api/approvals/:id/decide", async (req) => {
       const body = decideSchema.parse(req.body ?? {});
       return work.director.decide(req.params.id, body.decision, body.note);
+    });
+    app.get("/api/artifacts", async (req) => {
+      const q = listSchema.parse(req.query ?? {});
+      return work.store.findArtifacts({
+        limit: q.limit,
+        ...(q.kind ? { kind: q.kind } : {}),
+        ...(q.room ? { room: q.room } : {}),
+      });
+    });
+    app.get<{ Params: { id: string } }>("/api/artifacts/:id/file", async (req, reply) => {
+      const file = work.studio?.file(req.params.id);
+      if (!file) return reply.code(404).send({ error: "No such file" });
+      // Files never change once written (every edit makes a new artifact).
+      reply.header("content-type", file.mime);
+      reply.header("cache-control", "private, max-age=31536000, immutable");
+      return reply.send(fs.createReadStream(file.path));
+    });
+    app.patch<{ Params: { id: string } }>("/api/artifacts/:id", async (req, reply) => {
+      const body = reviewSchema.parse(req.body ?? {});
+      if (!work.studio) return reply.code(503).send({ error: "The creative studio is offline" });
+      return work.studio.review(req.params.id, body.review, body.note);
+    });
+    app.get("/api/creative/styles", async () => ({
+      styles: work.studio?.styles() ?? [],
+      aspects: work.studio?.aspects() ?? [],
+    }));
+    app.post("/api/creative/pipeline", async (req, reply) => {
+      if (!work.studio) return reply.code(503).send({ error: "The creative studio is offline" });
+      const { room, ...input } = pipelineSchema.parse(req.body ?? {});
+      const result = await work.studio.pipeline(input, {
+        createdBy: "owner",
+        room: room ?? null,
+      });
+      return reply.code(201).send(result);
+    });
+    app.post<{ Params: { id: string } }>("/api/creative/qa/:id", async (req, reply) => {
+      if (!work.studio) return reply.code(503).send({ error: "The creative studio is offline" });
+      return work.studio.qa(req.params.id);
     });
     app.get<{ Params: { id: string } }>("/api/artifacts/:id", async (req, reply) => {
       const artifact = work.store.artifact(req.params.id);

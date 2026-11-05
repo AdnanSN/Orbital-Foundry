@@ -1,4 +1,6 @@
 import {
+  type ArtifactMeta,
+  type ArtifactReview,
   type CrewLook,
   type CrewRole,
   crewFromTemplate,
@@ -30,6 +32,31 @@ export interface StationCommands {
   decide(id: string, decision: "approve" | "reject", note?: string): Promise<void>;
   standup(): Promise<void>;
   artifact(id: string): Promise<{ title: string; content: string | null; mime: string }>;
+  /** The creative studio (Stage 5, station server only). */
+  listArtifacts(filter: { kind?: string; room?: string; limit?: number }): Promise<ArtifactMeta[]>;
+  reviewArtifact(id: string, review: ArtifactReview, note?: string): Promise<void>;
+  runPipeline(input: PipelineRequest): Promise<{ final: ArtifactMeta; steps: ArtifactMeta[] }>;
+  creativeStyles(): Promise<{ styles: StyleInfo[]; aspects: string[] }>;
+  qaArtifact(id: string): Promise<void>;
+  /** The URL of an image artifact's file ("" without a server). */
+  fileUrl(id: string): string;
+}
+
+export interface PipelineRequest {
+  prompt: string;
+  style?: string;
+  aspect?: string;
+  upscale: 0 | 2 | 4;
+  cutout: "auto" | "none" | "edges" | "chroma" | "rembg";
+  qa: boolean;
+  room?: string;
+}
+
+export interface StyleInfo {
+  id: string;
+  description: string;
+  aspect: string;
+  cutout: string;
 }
 
 const SERVER_ONLY = async (): Promise<never> => {
@@ -91,6 +118,12 @@ export class MockLink implements StationLink {
       decide: SERVER_ONLY,
       standup: SERVER_ONLY,
       artifact: SERVER_ONLY,
+      listArtifacts: async () => [],
+      reviewArtifact: SERVER_ONLY,
+      runPipeline: SERVER_ONLY,
+      creativeStyles: async () => ({ styles: [], aspects: [] }),
+      qaArtifact: SERVER_ONLY,
+      fileUrl: () => "",
     };
   }
 
@@ -150,6 +183,18 @@ export class SocketLink implements StationLink {
         throw new Error(text || `${method} ${path} failed (${res.status})`);
       }
     };
+    /** GET (no body) or POST (with one), returning the JSON reply; errors carry the server's message. */
+    const json = async (path: string, body?: unknown): Promise<unknown> => {
+      const res = await fetch(`${this.base}/api${path}`, {
+        method: body === undefined ? "GET" : "POST",
+        ...(body === undefined
+          ? {}
+          : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error ?? `${path} failed (${res.status})`);
+      return data;
+    };
     this.commands = {
       setSim: (change) => post("/sim", change),
       hire: (req) => post("/agents", req),
@@ -166,6 +211,25 @@ export class SocketLink implements StationLink {
         if (!res.ok) throw new Error(`Could not load ${id} (${res.status})`);
         return (await res.json()) as { title: string; content: string | null; mime: string };
       },
+      listArtifacts: async (filter) => {
+        const q = new URLSearchParams();
+        if (filter.kind) q.set("kind", filter.kind);
+        if (filter.room) q.set("room", filter.room);
+        if (filter.limit) q.set("limit", String(filter.limit));
+        return (await json(`/artifacts?${q}`)) as ArtifactMeta[];
+      },
+      reviewArtifact: (id, review, note) =>
+        post(
+          `/artifacts/${encodeURIComponent(id)}`,
+          { review, ...(note ? { note } : {}) },
+          "PATCH",
+        ),
+      runPipeline: async (input) =>
+        (await json("/creative/pipeline", input)) as { final: ArtifactMeta; steps: ArtifactMeta[] },
+      creativeStyles: async () =>
+        (await json("/creative/styles")) as { styles: StyleInfo[]; aspects: string[] },
+      qaArtifact: (id) => post(`/creative/qa/${encodeURIComponent(id)}`, {}),
+      fileUrl: (id) => `${this.base}/api/artifacts/${encodeURIComponent(id)}/file`,
     };
   }
 

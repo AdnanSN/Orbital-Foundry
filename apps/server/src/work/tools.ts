@@ -1,5 +1,6 @@
 import type { CrewMember, CrewRole, Lane, Objective, Task } from "@orbital/shared";
 import { z } from "zod";
+import type { CreativeStudio } from "../creative/studio";
 import type { ToolSpec } from "../llm/transport";
 import type { WorkStore } from "./store";
 import type { WebClient } from "./web";
@@ -32,6 +33,8 @@ export interface ToolContext {
   escalate(reason: string): void;
   /** Set for external tools running after approval: the approval id. */
   idempotencyKey?: string;
+  /** The creative toolchain (Stage 5), when the station has one. */
+  studio?: CreativeStudio;
 }
 
 export interface ToolDef<I = unknown> {
