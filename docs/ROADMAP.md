@@ -1,10 +1,13 @@
 # Orbital Foundry: Master Plan & Roadmap
 
-> **Working title.** An always-on pixel-art space station where AI agents live, run small online
-> businesses, and answer to an Overseer. You watch and steer it from your browser.
+> **Working title.** An always-on pixel-art space station where AI agents run a **faceless video
+> studio**. They find ideas, research and write scripts, voice them, make the visuals, edit, and post
+> long-form videos and shorts to YouTube, TikTok and Instagram, and they answer to an Overseer. You
+> watch and steer it from your browser.
 >
-> Written 2026-11-04. Facts about providers and marketplaces were checked that day (sources in §13).
-> Re-check anything more than a few months old before relying on it.
+> Written 2026-11-04 for online shops; re-planned 2026-11-05 for the studio (DECISIONS D-049). Facts
+> about providers, platforms and licences were checked on those dates (sources in §13 and
+> `docs/STUDIO-RESEARCH.md`). Re-check anything more than a few months old before relying on it.
 
 **To resume in any session, say:** "Read `docs/ROADMAP.md` and start Stage N."
 At the end of each stage: tick its boxes, add a line to the Session Log (§14), and commit.
@@ -19,46 +22,77 @@ At the end of each stage: tick its boxes, add a line to the Session Log (§14), 
 | 3 | Sim engine, persistence, realtime link | 1 session | ✅ done (`npm run dev`) |
 | 4 | Agent brains: runtime, Overseer, task board | 1–2 sessions | ✅ done (Work and Desk panels) |
 | 5 | Creative toolchain (images, upscale, QA) | 1 session | ✅ done; Real-ESRGAN and rembg wait for your OK |
-| 6 | Factory 1: Etsy POD studio (sandbox) | 1 session | ✅ done (Stores panel; sandbox packages) |
-| 7 | Go live: Printify → Etsy | 1 session | 🟡 built, dry run; live needs your Printify token and Etsy shop |
-| 8 | Factory 2: Thumbnail studio | 1 session | ✅ done (Thumbs panel; Fiverr stays manual) |
-| 9 | Factory 3: Asset forge | 1 session | 🟡 built and tested; first real pack after the image budget resets |
-| 10 | Economy, KPIs, learning loop | 1 session | ✅ done (Vault panel; real sales wait for Stage 7 live) |
+| 6 | Factory 1: Etsy POD studio (sandbox) | 1 session | ✅ done; ⏸ parked for the studio (D-049) |
+| 7 | Go live: Printify → Etsy | 1 session | 🟡 built, dry run; ⏸ parked (D-049) |
+| 8 | Factory 2: Thumbnail studio | 1 session | ✅ done; it will make the channel's own thumbnails (Stage 16) |
+| 9 | Factory 3: Asset forge | 1 session | 🟡 built and tested; ⏸ parked (D-049) |
+| 10 | Economy, KPIs, learning loop | 1 session | ✅ done; its retro loop moves to platform stats (Stage 19) |
 | 11 | Always-on ops & polish | 1 session | 🟡 built; the 72-hour run and a phone approval need you |
+| **12** | **Studio prep: accounts and keys** | you, ~1–2 hours | ⬜ **next**, alongside Stage 13 |
+| 13 | Studio core: media router, voice-over, captions, render | 1 session | ⬜ |
+| 14 | Visual sources: stock library, camera moves, music | 1 session | ⬜ |
+| 15 | Writers' Room: channel bible, ideas, research, scripts | 1 session | ⬜ |
+| 16 | Edit Bay: script to finished video, screening, preview approval | 1–2 sessions | ⬜ |
+| 17 | Uplink: posting to YouTube, TikTok and Instagram | 1 session | ⬜ |
+| 18 | GPU lane: AI video clips, local and on free cloud credits | 1 session | ⬜ |
+| 19 | Analytics and the learning loop | 1 session | ⬜ |
+| 20 | Studio makeover and a 7-day unattended run | 1 session | ⬜ |
 
-Dependencies run in order through Stage 7. Stages 8 and 9 depend only on Stage 5 (and 4), not on
-each other, so they can run as parallel sessions. Stage 11 can start any time after Stage 4.
+Stages 0 to 11 built the station, the router, the crew and the ops, and the studio reuses all of it.
+The studio stages run in the order 13 → 14 → 16 → 19 → 20. Stage 12 is yours, alongside 13.
+Stage 15 (scripts) needs only the existing router, so it can run in parallel with 13 or 14. Stages 17
+(posting) and 18 (GPU lane) need only Stage 13 and can be parallel sessions; 17 goes live with
+Stage 16's first videos.
 
 ---
 
 ## 1. What we're building
 
-| In the reel | Our version |
-|---|---|
-| AI agents "placed" into a space-station game | An original 2D pixel-art station in the browser. You hire agents from role templates and drag them into rooms. |
-| "Ultron", a Hermes agent on GPT-5.5, keeps everyone working | **The Overseer** (default name WARDEN) runs on the strongest free reasoning model. It plans, assigns, reviews, nudges idle agents and escalates to you. |
-| Factory room 1: three Etsy print-on-demand stores | **Etsy POD Studio**: niche research → designs → print-ready files → listings → Printify → Etsy |
-| Factory room 2: a Fiverr YouTube-thumbnail service | **Thumbnail Studio**: a brief becomes 3 thumbnail variants in minutes; you handle Fiverr itself |
-| Selling 2D game assets on marketplaces | **Asset Forge**: themed sprite and icon packs for itch.io and others |
-| A money counter toward $1T | **The Vault**: a real ledger plus a (very) long-term goal meter |
+A faceless channel studio inside the station: one channel identity, posted on three platforms.
 
-What makes it more than a dashboard is that every animation is driven by a real event:
+| Room (after Stage 20) | What happens there |
+|---|---|
+| **Trend Lab** | Scout finds ideas in real signals (YouTube's charts and competitors' uploads, Google Trends, Wikipedia page views) and scores them for demand, competition, an original angle and fit. |
+| **Writers' Room** | Research with sources, an outline, the script, hook and title options, and a shot list. |
+| **Edit Bay** | Voice-over, visuals from five kinds of source, captions, music and sound effects, rendered to MP4: 16:9 long-form and 9:16 shorts. |
+| **Thumbnail Studio** | Stage 8's studio, now making the channel's own thumbnails. |
+| **Screening Room** | QA of sound and picture, the fact-check, copyright and policy screens, and the AI-disclosure decision. |
+| **Uplink** | Posting through the platforms' official APIs, after your approval. |
+| **Vault** | Views, watch time, subscribers, revenue and costs, feeding the weekly retro. |
+
+The first plan (an Etsy print-on-demand studio, a Fiverr thumbnail gig, game-asset packs) is parked.
+Its code and tests stay, no autopilot starts it, and it can come back later, for example as channel
+merch through Printify once there is an audience (D-049).
+
+What makes it more than a dashboard is still that every animation is driven by a real event:
 
 - an agent typing at a terminal is a real LLM call;
-- the image on its holo-screen is the real output;
+- the frame on its holo-screen is the real render;
 - a walk to the café is a real rate-limit back-off.
 
 ## 2. Reality check & ground rules
 
-- **The reel's numbers are self-reported.** Etsy POD is crowded, and Etsy tightened its AI and POD
-  rules in 2026: AI disclosure, "Designed by" labelling, and disclosure of the production partner.
-  Shops mostly get suspended for IP/trademark hits and spammy volume. So the Overseer optimizes for
-  quality and niche fit, caps listings per day, and screens every design for IP.
-- **You stay in the loop.** Anything that publishes, messages a customer or spends money goes through
-  your approval inbox, the **Owner's Desk**. Once you trust an action type you can relax this for it.
-- **No ToS-breaking automation.** Fiverr has no seller API and bans bots, so Fiverr stays manual: the
-  studio does the work and you deliver it. Marketplace AI-disclosure rules are applied automatically.
-- **Sandbox first.** Every pipeline is built and tested in Sandbox Mode before any real listing goes live.
+- **Volume is not the goal.** AI-made faceless channels can be monetized, but YouTube's "inauthentic
+  content" policy (renamed from "repetitious content" on 2025-07-15) removes mass-produced and
+  repetitive channels from the Partner Program, and the first channel-level enforcement wave came in
+  January 2026. YouTube now splits it into generic or repetitive content, unsatisfying or off-putting
+  content, and AI personas on sensitive topics. So the studio optimizes watch time and viewer
+  satisfaction, not output: original research and a point of view in every script, varied structure
+  and visuals, daily caps, and no reused content (no compilations of other people's clips, no Reddit
+  posts read aloud, no film recaps) (D-053).
+- **Disclosure is automatic.** Realistic synthetic scenes set YouTube's altered-or-synthetic flag
+  (`containsSyntheticMedia`) and TikTok's AI-generated label (`is_aigc`), and every description says
+  the narration is an AI voice.
+- **You stay in the loop.** Nothing is published, scheduled, replied to or paid for without your
+  approval at the Owner's Desk or on your phone. Once you trust an action type you can relax it.
+- **Official APIs only.** No browser bots on YouTube Studio, TikTok or Instagram: they break the
+  platforms' terms and get accounts banned. Where an API is gated (TikTok's Direct Post before its
+  audit), the studio sends the video to your TikTok inbox and you tap Post (D-051).
+- **Every asset carries its licence.** Stock clips, music, fonts and model outputs are recorded with
+  their source and licence, credits go in the description where a licence asks for them, and nothing
+  from the sandbox lane is ever published.
+- **Sandbox first.** Every pipeline is built and tested in Sandbox Mode before anything reaches a
+  platform.
 
 ## 3. Free-model strategy: two lanes (important)
 
@@ -108,6 +142,29 @@ queues calls per provider (on screen, agents wait in line at the terminal), so t
 workable. If the live text lane turns out too thin, the fallback is a few dollars a month on a cheap
 paid API once revenue exists. With the router, that is a config change.
 
+### 3.1 Media lanes (the studio)
+
+Voice, footage, music and video models follow the same rule (D-050). They are providers in
+`config/media.yaml`, each with lanes, a licence note and budgets, behind the same gates, circuit
+breakers and usage log as the model router. Every capability has a free first choice, at least one
+free fallback, and a paid upgrade that becomes a config change once there is revenue:
+
+| Capability | Live lane, in order | Never live | Paid later |
+|---|---|---|---|
+| Voice-over | ElevenLabs (your Creator plan) → Kokoro-82M on this laptop → Cloudflare's speech models | Edge TTS | ElevenLabs Pro |
+| Word timings | ElevenLabs alignment → whisper.cpp on this laptop → Cloudflare Whisper | — | — |
+| Motion graphics, render | HyperFrames on this laptop → plain FFmpeg assembly | — | Cloud rendering |
+| Stock | our own clip library → Pixabay → NASA, Wikimedia, Openverse (licence per item) | — | Storyblocks, Artgrid |
+| AI stills | Cloudflare FLUX.1-schnell → local FLUX.1-schnell overnight | NVIDIA FLUX | Nano Banana, Ideogram |
+| Camera moves on stills | depth parallax (Depth Anything V2 Small) → Ken Burns | — | Higgsfield's API |
+| AI video clips | LTX-2 or Wan 2.2 on this laptop overnight → Modal's free credits → Kaggle | Hunyuan-based models, shared Hugging Face Spaces | Kling, Seedance, Veo through Muapi, fal or Higgsfield |
+| Music, sound effects | our own library (YouTube Audio Library, CC0) → ACE-Step 1.5 on this laptop | — | ElevenLabs Music |
+| Posting | YouTube Data API, Instagram API, TikTok upload to inbox | browser automation | TikTok Direct Post after its audit |
+
+Pexels' licence would allow all of this, but it has paused new API keys, so it joins only if you
+already have one. The full matrix, with free allowances, licences and sources, is in
+`docs/STUDIO-RESEARCH.md` §3.
+
 ## 4. Architecture
 
 ```
@@ -122,17 +179,17 @@ paid API once revenue exists. With the router, that is a config change.
 │   Orchestrator · Overseer loop, objectives → tasks, scheduler          │
 │   Agent runtime  role templates, tool loop, memory, retries            │
 │   Tool belt ···· image gen · upscale · cutout · compose · QA · research│
-│   Businesses ··· Etsy POD · Thumbnail Studio · Asset Forge             │
+│   Studio ······· ideas · scripts · voice · render · uplink             │
 │   Approval gate  every external side effect → Owner's Desk             │
 │   Model router · lanes, tiers, rate limits, fallbacks, usage log       │
 │   Event bus ···· append-only event log → WebSocket broadcast           │
-│  SQLite (Drizzle) + data/artifacts/ (images, packs, listing packages)  │
+│  SQLite (Drizzle) + data/artifacts/ (images, renders, video packages)  │
 └───────┬────────────────────────┬────────────────────────────┬──────────┘
-        │ OpenAI-compatible HTTP │ local binaries             │ marketplace APIs
+        │ OpenAI-compatible HTTP │ local binaries             │ platform APIs
         ▼                        ▼                            ▼
-  NVIDIA · Cloudflare ·    Real-ESRGAN (GPU) ·          Printify → Etsy ·
-  Groq · Gemini ·          rembg · Ollama (optional)    Etsy API (read) ·
-  OpenRouter                                            itch.io butler
+  NVIDIA · Cloudflare ·    FFmpeg · HyperFrames ·       YouTube Data API ·
+  Groq · Gemini ·          Kokoro · whisper.cpp ·       TikTok · Instagram ·
+  OpenRouter · ElevenLabs  Wan2GP · Real-ESRGAN · rembg (Printify: parked)
 ```
 
 **Tech stack** (defaults; §11 lists what you can change):
@@ -147,6 +204,11 @@ paid API once revenue exists. With the router, that is a config change.
 | UI overlay | React + Tailwind | Panels, forms, kanban |
 | Image processing | @napi-rs/canvas, sharp, image-q | Text compositing, resizing, palette quantization |
 | Local GPU tools | Real-ESRGAN-ncnn-vulkan, rembg (via uv) | Free 4× upscaling and background removal |
+| Video render (studio) | HyperFrames (Apache-2.0) + FFmpeg, NVENC encoding | HTML scenes that agents write well; deterministic MP4s (D-052) |
+| Voice-over (studio) | ElevenLabs API; Kokoro-82M through `kokoro-js` | Your paid plan first, an unlimited local voice behind it |
+| Caption timing (studio) | ElevenLabs alignment; whisper.cpp | Captions that land on each word, without another paid service |
+| AI video (studio) | A Wan2GP worker (Python via uv) on the RTX 3050; Modal | Free clips overnight; free cloud credits for bursts |
+| Posting (studio) | YouTube Data API, Instagram API, TikTok Content Posting API | Official APIs only (D-051) |
 | Tests | Vitest + a mock LLM provider | Deterministic simulation tests |
 | Lint/format | Biome | One fast tool |
 
@@ -191,17 +253,21 @@ with original art and borrow only ideas, such as character state machines and gr
          └───────────────────┘  └───────────┘
 ```
 
-**Starting crew** (about 9 agents; hire more any time):
+**The crew in the studio.** The same nine agents change jobs as the studio stages land, so their
+history carries over. Stage 20 renames the rooms in the map data; you can hire more any time.
 
-| Agent | Room | Job | Tiers |
+| Agent | Room today → studio room | Job | Tiers |
 |---|---|---|---|
-| WARDEN (Overseer) | Command Bridge | Sets daily objectives, assigns, reviews, nudges, escalates | reasoning |
-| Scout | Research Lab | Niches, keywords, seasonality, competition | reasoning |
-| Wick, Gift, Frame | Factory 1 | One operator per Etsy store: design + list | creative, image |
-| Flash | Factory 2 | Thumbnail concepts and compositing | creative, image, vision |
-| Forge | Factory 3 | Game-asset packs | creative, image |
-| Lens | QA Bay | Vision QA, IP screening, policy checks | vision, reasoning |
-| Ledger | Vault | Revenue sync, fees, KPIs, reports | fast |
+| WARDEN (Overseer) | Command Bridge | Showrunner: the week's slate, assignments, reviews, nudges, escalations | reasoning |
+| Scout | Research Lab → Trend Lab | Ideas from real signals, the niche study, research briefs with sources | reasoning |
+| Wick, Gift | Factory 1 → Writers' Room | Outlines, scripts, hooks, titles and shot lists (Wick long-form, Gift shorts) | creative |
+| Frame | Factory 3 → Edit Bay | Voice-over, visuals, captions, music, the render | creative, vision |
+| Forge | Server Room → Render Farm | The GPU queue, the clip library and the music library | fast |
+| Flash | Factory 2 → Thumbnail Studio | Thumbnails and channel art | creative, image, vision |
+| Lens | QA Bay → Screening Room | QA, fact-check, copyright, policy, AI disclosure | vision, reasoning |
+| Ledger | Vault | Platform stats, budgets, revenue, the weekly numbers | fast |
+
+Posting has no agent of its own: the Uplink runs only what you approve at the Owner's Desk.
 
 **What you see, and what's really happening:**
 
@@ -216,6 +282,10 @@ with original art and borrow only ideas, such as character state machines and gr
 | A coin burst and a cha-ching in the Vault | A real sale was recorded |
 | The Overseer walks over: "Back to work." | An idle or stuck agent was detected and reassigned |
 | A new crew member enters through the airlock | You hired an agent |
+| A frame of the video on an Edit Bay screen | A real render in progress, with its progress bar |
+| The Render Farm racks glowing at night | The GPU making AI clips in quiet hours |
+| The Uplink antenna lighting up | A video you approved is being posted |
+| Confetti in the Vault | A subscriber or view milestone from the platforms' stats |
 
 **Art direction.** Original pixel art made in code: 16×16 crew sprites defined as pixel matrices with
 palette swaps, plus procedural floors, walls, consoles and starfield windows. No third-party art is
@@ -283,63 +353,69 @@ defineTool({
 - per-agent daily call budgets;
 - kill switches per business and for the whole station.
 
-## 7. Business pipelines
+## 7. The studio pipeline
 
-### 7.1 Factory 1: Etsy POD Studio
+### 7.1 One video, end to end
 
-1. **Scout** proposes niches and keywords from a seasonal calendar, LLM research and, optionally,
-   competition counts from the Etsy API.
-2. **Operator** turns a concept into 4–8 image prompts and generates them. Lens picks the best one by
-   vision QA, and weak ones are reworked.
-3. **Production:**
-   - upscale 4× with Real-ESRGAN;
-   - remove the background, or keep a full-bleed design;
-   - fit to the blueprint's print area, using sizes from Printify's catalog.
-4. **Listing:**
-   - title of at most 140 characters;
-   - 13 tags of at most 20 characters each;
-   - description and attributes;
-   - price from cost plus a target margin.
-5. **Compliance:**
-   - IP/trademark screen: blocklist + LLM + safety model;
-   - AI disclosure ("Designed by" + the AI flag);
-   - production-partner disclosure;
-   - honest mockups.
-6. **Owner approval.** In Sandbox Mode this exports a listing package. In Live Mode it creates the
-   product in Printify and publishes it to Etsy.
-7. **Sync.** Orders and revenue flow to the Vault, and listing stats go into Scout's memory.
+1. **Idea.** Scout keeps a scored backlog from real signals: YouTube's most-popular charts and the
+   recent uploads of channels in the niche (cheap API reads), Google Trends' public "trending now"
+   feed, Wikipedia page views, and your own ideas. Each idea is scored for demand, competition, an
+   original angle, fit with what we can produce for free, and policy risk. WARDEN picks the week's
+   slate; you can veto or add.
+2. **Research.** A brief with sources from allowlisted sites (Wikipedia, NASA and others per
+   channel): the facts, the numbers, and where each one came from.
+3. **Script.** An outline (hook, beats, pattern breaks, payoff), then the script for the format, two
+   or three hooks and titles, and a shot list that names a visual source for each beat. Lens checks
+   every claim against the brief and cuts what has no source. A style check removes stock AI phrases
+   and anything too close to our earlier scripts.
+4. **Voice.** Made only after the script passes review: ElevenLabs with the channel's voice, which
+   returns word timings. Kokoro voices the drafts, and takes over if the month's credits run low.
+   Loudness is normalized for each platform.
+5. **Visuals.** Each shot comes from the cheapest source that fits it, with a fallback when a source
+   is busy or out of budget:
+   - motion graphics written as HTML scenes (titles, lists, charts, maps, quotes, captions);
+   - stock and public-domain footage, reused from our own library first;
+   - AI stills with a camera move (push-in, dolly, orbit, crane) made from a depth map;
+   - AI video clips from the GPU queue, for hooks and key moments;
+   - frames and diagrams drawn in code.
+6. **Edit.** Scene lengths come from the voice timings. HyperFrames assembles the visuals, word-by-word
+   captions (burned in for shorts), lower thirds, music ducked under the voice, and sound effects,
+   then renders 1920×1080 long-form and 1080×1920 shorts.
+7. **Thumbnail.** Stage 8's studio makes three options from the title and the video's best frames,
+   and Lens picks by phone-size readability.
+8. **Screening.** FFmpeg's black, freeze and silence detectors, loudness, caption sync, vision QA on
+   sampled frames at phone size, the IP and policy screens, and the AI-disclosure decision.
+9. **Package.** Title, description (sources, credits, the AI-narration note, chapters for long-form),
+   tags, and captions and hashtags for each platform.
+10. **Approval.** The Owner's Desk plays the video. Approve it per platform, or send it back with a
+    note for a re-edit. Telegram brings the same buttons to your phone.
+11. **Posting.** The Uplink posts what you approved, once each, at the scheduled time: YouTube
+    (scheduled publishing, thumbnail, captions file), Instagram Reels, and TikTok as a draft in your
+    inbox until the audit allows Direct Post.
+12. **Learning.** Stats come back after an hour, a day and a week, and the Vault and the weekly retro
+    turn them into the next slate.
 
-### 7.2 Factory 2: Thumbnail Studio
+### 7.2 Formats and cadence
 
-1. **Intake form:** video title or topic, channel style, optional face photo, references.
-2. **Flash** writes 3 concepts (curiosity, emotion, contrast), each with a hook of 5 words or fewer.
-3. A 16:9 scene or background is generated, and the subject is cut out of the client's photo.
-4. Text is composited with stroke and shadow, using bundled open-license fonts and the brand colors.
-5. **Lens** checks readability at mobile size (~168×94), plus contrast and clutter.
-6. **Delivery:** three 1280×720 images and layered sources in a ZIP, with a revision loop driven by
-   your feedback.
-7. **Gig kit:**
-   - gig title, description, FAQ and pricing tiers;
-   - a portfolio set.
+- **Long-form:** 8 to 12 minutes, 16:9, on YouTube, with chapters.
+- **Shorts:** 30 to 60 seconds, 9:16, on YouTube Shorts, TikTok and Instagram Reels. Some get a 61 to
+  90 second TikTok cut, because TikTok's Creator Rewards pay only for videos over a minute.
+- **The waterfall:** every long-form yields three to five shorts with their own hooks.
+- **Starting cadence:** one long-form a week and one short a day. WARDEN raises it only while
+  retention and satisfaction hold (D-053).
 
-   Fiverr itself stays manual: there's no seller API, bots break its ToS, and Fiverr removes AI work that
-   infringes IP.
+### 7.3 The channel bible
 
-### 7.3 Factory 3: Asset Forge
+`config/channels/<id>.yaml` (Stage 15) holds what makes the channel recognizable: the niche and
+audience, the narrator's persona, the ElevenLabs voice and the Kokoro fallback voice, a style guide
+and banned phrases, palette, fonts and motion templates, the thumbnail style, formats and cadence,
+topics to avoid, and disclosure defaults.
 
-1. **Pack plan:**
-   - theme and item list;
-   - size (16, 32 or 64 px);
-   - style guide (palette, outline, light direction).
-2. Batch generation on a flat chroma background, with a locked style prompt and fixed seeds.
-3. Chroma key → nearest-neighbor downscale → palette quantization → outline cleanup.
-4. **Lens** checks style consistency across the pack, and outliers are regenerated.
-5. **Package:** a ZIP with:
-   - individual PNGs and a sprite sheet;
-   - a preview PNG/GIF;
-   - LICENSE.txt and a README.
-6. Store copy with the mandatory AI-generated tag (itch.io requires disclosure for assets), then
-   approval, then `butler push`.
+### 7.4 The parked businesses
+
+Etsy POD (Stages 6 and 7), the Fiverr thumbnail gig kit (Stage 8) and the Asset Forge (Stage 9) are
+built and tested. Their autopilots go off in Stage 13 and their rooms change jobs (D-049). They are
+described in their stage sections below and in the git history before 2026-11-05.
 
 ## 8. Data model & protocol (summary)
 
@@ -370,6 +446,12 @@ four join the union in the stages that produce them (DECISIONS D-016).
 
 **Positions.** The server owns the logical state: room, station and activity. Clients run the same
 deterministic pathfinding and animate locally. That keeps bandwidth low and every open tab in sync.
+
+**Planned for the studio** (Stages 13 to 19): the tables `channels`, `ideas`, `videos` (one per
+project, with its state), `shots`, `assets` (source, licence, credit, reuse count), `renders`,
+`publications` (one per platform, idempotent) and `platform_stats`, plus `media_calls`, which logs
+voice, footage, GPU and render usage beside `llm_calls`. New events: `video.updated`,
+`render.progress` and `publish.updated`.
 
 ---
 
@@ -638,6 +720,182 @@ visibly changes the Overseer's plan.
 **Done when:** it runs unattended for 72 hours without a crash, and you've approved something from
 your phone.
 
+### Stage 12: Studio prep (you, ~1–2 hours, alongside Stage 13)
+
+The accounts and keys the studio needs. Start the slow ones first: the platform app reviews take
+days. Keys go in `.env`; Stage 13 adds their names to `.env.example`.
+
+- [ ] **ElevenLabs:** create an API key and put it in `ELEVENLABS_API_KEY`. If your account settings
+      let you, give the key a credit limit and turn off usage-based billing, so the Creator plan never
+      charges past its 121,000 monthly credits. (The station also stops itself before that, D-050.)
+- [ ] **The channel's voice:** pick one ElevenLabs voice: a premade voice, or one you make with Voice
+      Design. Avoid community library voices, which their owners can withdraw.
+- [ ] **Pixabay:** a free account and its API key (`PIXABAY_API_KEY`). If you already have a Pexels
+      key, add it too; Pexels has paused new keys.
+- [ ] **YouTube:** a channel for the brand, and a Google Cloud project with the YouTube Data API v3,
+      the YouTube Analytics API and an OAuth client of type "Desktop app". Set the OAuth consent
+      screen to **In production**. It stays unverified, which is fine for your own channel; in
+      "Testing", Google's refresh tokens expire after 7 days.
+- [ ] **Instagram:** switch the account to a professional (Creator) account, and create a Meta
+      developer app with the Instagram API (Instagram Login). In development mode it can post to
+      accounts that have a role in the app, which covers yours.
+- [ ] **TikTok:** a TikTok for Developers app with Login Kit and the Content Posting API. It asks for a
+      website, a privacy policy and terms; the studio can draft those pages for a free GitHub Pages
+      site.
+- [ ] **Optional:** a Modal account ($30 of free compute a month) for Stage 18, and a Freesound API
+      key for sound effects.
+- [ ] **Your call:** a niche you already like, or let Scout propose three in Stage 15 (§11).
+
+### Stage 13: Studio core (1 session)
+
+**Goal:** a script becomes a voiced, captioned, rendered short on this laptop.
+
+- [ ] Park the old businesses: the Etsy autopilot off by config, the open shop objectives from the
+      first production run closed, the Stores, Thumbs and Forge panels kept but marked parked, and
+      their tests still running.
+- [ ] `config/media.yaml` and a media router: providers with lanes, licence notes and budgets per day
+      and per month, in each provider's own unit (characters, credits, requests, GPU seconds), behind
+      the existing `ProviderGate` and circuit breakers, with a `media_calls` usage log.
+- [ ] Voice: an ElevenLabs client (speech with timestamps; the subscription's remaining credits read
+      before each job; a hard stop before the monthly quota) and Kokoro-82M through `kokoro-js` as the
+      local voice. Pronunciation fixes per channel.
+- [ ] Word timings from ElevenLabs' alignment, or from whisper.cpp for local voices. Caption chunking
+      for shorts (two to four words, highlighted as they're spoken) and SRT files for long-form.
+- [ ] Render: a timeline schema (scenes, voice, captions, music) compiled to a HyperFrames
+      composition and rendered with FFmpeg, on NVENC when the GPU is free. First scene templates:
+      title card, kinetic captions, list item, quote, still with Ken Burns, lower third.
+- [ ] `npm run studio:smoke`: a 20-second vertical test short from a fixed script, saved to
+      `data/artifacts/studio/smoke/`.
+- [ ] Tests for the timeline schema, caption chunking, budgets and media lanes, with fake voice and
+      render runners.
+
+**Done when:** the smoke short plays with a clear voice and captions that land on each word, in both
+a Kokoro and an ElevenLabs version, and renders in a few minutes on this laptop.
+
+**You provide:** `ELEVENLABS_API_KEY`, and your OK to download FFmpeg, a headless Chrome for
+HyperFrames, Kokoro's model (about 330 MB) and whisper.cpp's base.en model (about 150 MB).
+
+### Stage 14: Visual sources (1 session)
+
+**Goal:** every shot in a shot list can be filled for free, with a fallback.
+
+- [ ] A clip library (SQLite plus `data/library/`): source, licence, credit, tags, length, resolution
+      and reuse count. Reuse comes first, and a size cap cleans up the least recently used clips.
+- [ ] Stock: Pixabay (a 24-hour cache, downloads, its request limits), NASA's Image and Video Library,
+      Wikimedia Commons and Openverse with licence filters and credits, and Pexels if a key exists.
+- [ ] AI stills from the image service at 16:9 and 9:16 (Cloudflare's FLUX is square, so they are
+      cropped or extended), sharing the daily image budget with the Thumbnail Studio.
+- [ ] Camera moves on stills: Depth Anything V2 Small (Apache-2.0, ONNX on the CPU) makes a depth map,
+      and a parallax shader in HyperFrames turns it into push-in, dolly, orbit and crane moves.
+- [ ] Music and sound: a library you can fill from YouTube's Audio Library, beds made locally with
+      ACE-Step 1.5 (MIT, under 4 GB of VRAM), Freesound CC0 effects, ducking under the voice, and
+      loudness to each platform's target.
+- [ ] A credits file for each video that lists every asset with its licence.
+
+**Done when:** a 60-second short that uses every kind of source renders, with a correct credits file.
+
+### Stage 15: Writers' Room (1 session)
+
+**Goal:** approved scripts you'd want to watch, for a niche you chose.
+
+- [ ] The channel bible (`config/channels/<id>.yaml`, §7.3), and studio playbooks for scripting,
+      screening and analysis.
+- [ ] The niche study: Scout scores candidate niches for demand, competition, likely ad rates, policy
+      risk and fit with the free stack, and proposes three at the Owner's Desk. You pick one.
+- [ ] Idea sources: YouTube Data API reads (charts and competitors' uploads; search is capped at 100
+      calls a day), Google Trends' trending feed, Wikipedia page views and your own ideas, in a scored
+      backlog on the Work panel.
+- [ ] Research briefs with sources; outlines and scripts for long-form and shorts; hook and title
+      options; shot lists; and Lens's fact-check, style check and sameness check against our own
+      earlier scripts.
+
+**Done when:** one long-form script and two shorts scripts, each with sources, a shot list, titles and
+thumbnail ideas, are approved at the Owner's Desk.
+
+### Stage 16: Edit Bay (1–2 sessions)
+
+**Goal:** an approved script becomes finished videos with one click.
+
+- [ ] The §7.1 pipeline as code, as the factories were (D-029): voice, timings, shots, assets,
+      timeline, renders, captions, chapters, thumbnails and the package, with every step in the
+      event log.
+- [ ] The waterfall: three to five shorts cut from each long-form, with new hooks.
+- [ ] Screening: FFmpeg's black, freeze and silence detectors, loudness, caption sync, vision QA on
+      sampled frames at phone size, the IP and policy screens, and the AI-disclosure decision.
+- [ ] The Owner's Desk plays the video, and a send-back note starts a re-edit.
+
+**Done when:** one 8 to 10 minute long-form and three shorts you'd genuinely publish were made end to
+end, in the live lane only.
+
+### Stage 17: Uplink (1 session)
+
+**Goal:** an approved video reaches all three platforms through their official APIs.
+
+- [ ] Publishers behind the approval and outbox pattern (D-033): a dry run unless `PUBLISH_MODE=live`,
+      once per approval, the kill switch, and daily caps per platform.
+- [ ] YouTube: `npm run auth:youtube` (OAuth for a desktop app), resumable upload, scheduled
+      publishing, thumbnail, captions file, playlists, `containsSyntheticMedia`, and quota tracking
+      (100 uploads and 10,000 units a day).
+- [ ] Instagram: Reels through the Instagram API (a resumable upload of the local file), the caption,
+      the 100-posts-a-day cap and token refresh.
+- [ ] TikTok: upload to your inbox as a draft, with a phone notice to post it. Direct Post with
+      `is_aigc` switches on by config once the audit passes.
+- [ ] An upload kit (file, caption, hashtags, thumbnail) for any platform that isn't connected yet.
+
+**Done when:** a long-form and a short are scheduled on YouTube, the short is on Instagram and in your
+TikTok inbox, all through approval clicks, and the kill switch has been tested.
+
+**You provide:** the Stage 12 accounts, and the first sign-in to each platform in your browser.
+
+### Stage 18: GPU lane (1 session)
+
+**Goal:** AI video clips without paying, where the shot list asks for them.
+
+- [ ] A benchmark on the RTX 3050 (6 GB): Wan2GP with LTX-2 distilled and Wan 2.2 (TI2V-5B and 1.3B),
+      against ComfyUI's API. The faster one becomes a worker with a job queue.
+- [ ] The queue runs in quiet hours (23:00 to 07:00) and whenever the GPU is idle. Shots that aren't
+      done by their deadline fall back to stock or a camera move.
+- [ ] Modal as the burst lane (LTX-2 or Wan 2.2 on a cloud GPU), hard-capped below the $30 of free
+      credit a month, and Kaggle's free GPU hours as an optional batch lane.
+- [ ] Paid providers wired but off (Muapi, fal, kie.ai and the Higgsfield API, for Kling, Seedance and
+      Veo), so turning one on later is a config change.
+- [ ] Licences: LTX-2 is free for commercial use under $10M a year in revenue; Wan 2.2 is Apache-2.0;
+      Hunyuan-based models stay out of the live lane, because their licence excludes the EU, the UK and
+      South Korea.
+
+**Done when:** an overnight run fills a long-form's AI shots, and a video still finishes on time when
+the queue falls behind.
+
+**You provide:** your OK for the model downloads (about 15 to 25 GB; disk is the limit, §10) and,
+optionally, a Modal account.
+
+### Stage 19: Analytics and the learning loop (1 session)
+
+**Goal:** the studio learns what its audience watches.
+
+- [ ] Stats: YouTube Analytics (views, watch time, average view duration and percentage, subscribers,
+      traffic sources), Instagram Insights, and TikTok's video stats.
+- [ ] The Vault per video and per format: costs (ElevenLabs credits, GPU time, Modal) and shadow cost,
+      and progress toward the Partner Program and TikTok's Creator Rewards thresholds.
+- [ ] WARDEN's standup and weekly retro on real numbers (Stage 10's loop): idea-score weights, lessons
+      on hooks, titles and thumbnails, and changes to formats and cadence, clamped and approved by you.
+
+**Done when:** a week of real stats visibly changes the next week's slate.
+
+### Stage 20: Studio makeover and a 7-day run (1 session)
+
+**Goal:** the station runs the channel, and you only approve.
+
+- [ ] The rooms renamed in the map data (§5), a small Uplink room by the Owner's Desk, and studio
+      screens that show real frames and render progress.
+- [ ] A Studio panel: each video's board (idea → script → voice → visuals → render → screening →
+      approval → posted), a preview player, the budgets left (credits, images, GPU queue, Modal) and
+      platform status.
+- [ ] Always-on: the weekly production schedule, overnight GPU work, disk clean-up after posting, and
+      backups that include the finished videos.
+
+**Done when:** for 7 days, ideas become posted videos while you only approve, from your phone.
+
 ---
 
 ## 10. Risks & mitigations
@@ -652,8 +910,19 @@ your phone.
 | Laptop sleeps or goes offline | The station stops | Stage 11: run as a service with resume-safe tasks; optional always-on host |
 | Scope creep | Never finishing | Each stage has a "done when"; extras go to the backlog |
 | Surprise costs | Money | No paid APIs by default, spend caps, shadow-cost tracking |
+| YouTube's inauthentic-content policy | A demonetized channel | Quality caps and originality rules (D-053), varied formats, your approval on every video |
+| A platform strike or ban | A lost channel | Official APIs only, disclosures, licence records, no reused content |
+| TikTok's audit takes a long time | Posting stays a tap on your phone | Inbox drafts until then; Direct Post is a config switch |
+| Stock dries up (Pexels paused new keys) | Weaker visuals | Pixabay, public-domain archives, our own library, AI stills with camera moves |
+| ElevenLabs credits run out | No premium voice that month | A hard monthly cap; Kokoro voices the drafts and the overflow |
+| The 6 GB GPU is too slow for AI video | Few AI clips | AI clips only for hooks and key moments, an overnight queue, Modal's credits; motion graphics and footage carry the rest |
+| Disk space (59 GB free) | Failed renders | Clean-up after posting, a library size cap, models or archives on an external drive |
+| Music Content ID claims | Lost revenue on a video | Licensed library music, ACE-Step originals, YouTube's Audio Library |
+| Factual mistakes | Lost trust; strikes on sensitive topics | Sources in every brief, Lens's fact-check, sensitive topics avoided |
 
-## 11. Decisions to confirm before Stage 1 (defaults in bold)
+## 11. Decisions (defaults in bold)
+
+**Before Stage 1 (2026-11-04); you kept every default (D-002):**
 
 1. **Name and folder:** **`orbital-foundry`**, in a folder you pick.
 2. **Stack:** **TypeScript end to end.** Alternative: a Python backend with a TypeScript client.
@@ -666,21 +935,35 @@ your phone.
    but use an original name if you'll post videos of it.
 8. **Where it runs 24/7:** **your laptop for now**, with hosting decided in Stage 11.
 
-## 12. Backlog (after Stage 11)
+**For the studio (2026-11-05):**
 
+9. **Niche:** **Scout proposes three in Stage 15 and you pick.** My suggestion is space and science
+   explainers: NASA's public-domain archive solves footage, motion graphics suit explainers, the topics
+   are evergreen and policy-safe, and it fits a space station. Avoid at the start: finance, health and
+   news (sensitive topics), kids' content (made-for-kids limits), and Reddit stories or recaps
+   (reused content).
+10. **One brand on all three platforms:** **yes**, with one name and handle.
+11. **Cadence:** **one long-form a week and one short a day** to start (§7.2).
+12. **Voice:** **one ElevenLabs voice for the channel**, with Kokoro for drafts and overflow.
+13. **Renderer:** **HyperFrames**, with plain FFmpeg as the fallback (D-052).
+14. **Autonomy:** **you approve every post**, relaxed later per platform.
+15. **Language:** **English first**; dubbing is a backlog experiment.
+16. **The old businesses:** **parked, not deleted** (D-049).
+
+## 12. Backlog (after Stage 20)
+
+- Dubbing into other languages (ElevenLabs Dubbing, Kokoro's other voices): more channels from the
+  same scripts.
+- A second channel in another niche, from the same pipeline.
+- Channel merch through the parked Printify pipeline, once there is an audience.
+- Comment replies drafted by the crew, posted only after your approval.
+- Facebook Reels, Threads, X and Pinterest through their APIs.
+- A bigger GPU, owned or rented, for LTX-2.5 with sound; Hildegard becomes an option at 12 GB or more.
+- **"TV mode"**: a cinematic camera that tours the station, as content in itself (the reel's idea).
 - Nous Research's **Hermes Agent** (MIT, accepts custom OpenAI-compatible endpoints) as an alternative
   Overseer brain, through a bridge.
-- More rooms:
-  - a sticker shop;
-  - a stock-asset studio;
-  - low-content books;
-  - digital packs on Gumroad.
-- A plugin SDK, so a new business room is a drop-in config plus tools.
-- **"TV mode"**: a cinematic camera that tours the station for screen recording (social content, like
-  the reel itself).
-- A voice for the Overseer (TTS) and daily spoken briefings.
+- A voice for the Overseer and daily spoken briefings (free now, with Kokoro).
 - Save slots and multiple stations.
-- A local Ollama lane for unlimited cosmetic crew banter.
 
 ## 13. Sources (checked 2026-11-04)
 
@@ -715,6 +998,9 @@ your phone.
 - Visualizers used for ideas only:
   - https://github.com/fumeilab/pixelfloor
   - https://github.com/neomatrix25/pixel-office-openclaw
+
+**The studio (checked 2026-11-05):** platforms, tools, licences and free allowances, with every
+source, are in `docs/STUDIO-RESEARCH.md` §9.
 
 ## 14. Session log
 
@@ -920,3 +1206,16 @@ your phone.
     was already spent today (36 images), so the Etsy autopilot waits for the 00:00 UTC reset.
   - **Still needs you:** a Printify token and shop id (with Etsy connected in Printify) to publish,
     a Telegram bot for phone approvals, and butler plus an itch.io page for the Forge's packs.
+- **2026-11-05:** New direction: the station becomes a faceless channel studio (D-049 to D-053).
+  - Researched the free stack: faceless-video repos (MoneyPrinterTurbo, short-video-maker,
+    claude-faceless-shorts-creator, OpenShorts and others), the "free Higgsfield" repos
+    (Open-Higgsfield-AI, Open-Generative-AI, Hildegard), Claude Motion and HyperFrames, YouTube's,
+    TikTok's and Instagram's posting rules, ElevenLabs' Creator plan, free voice, music and video
+    models, free GPU credits, and this laptop. The results are in `docs/STUDIO-RESEARCH.md`.
+  - Key findings: YouTube lifted the private-only lock on uploads from unverified API projects
+    (October 2026) and meters uploads at 100 a day; TikTok posts publicly from its API only after an
+    audit, so drafts go to your inbox until then; Pexels has paused new API keys; the "free
+    Higgsfield" repos are free interfaces to a paid API; Claude Motion has no API, so HyperFrames
+    renders the same kind of code-built animation here.
+  - The plan: Stages 12 to 20 (§9). The Etsy, gig and asset businesses are parked, not deleted.
+  - **Next:** Stage 12 (your accounts and keys) alongside Stage 13 (studio core).

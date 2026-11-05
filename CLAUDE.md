@@ -1,8 +1,11 @@
 # Orbital Foundry: notes for Claude
 
-An always-on pixel-art space station where AI agents run small online businesses.
+An always-on pixel-art space station where AI agents run a faceless video channel studio: ideas,
+scripts, voice-over, video and posting to YouTube, TikTok and Instagram. (Since 2026-11-05; the
+online-shop factories from Stages 6 to 9 are parked, D-049.)
 **Start every session by reading `docs/ROADMAP.md`** (plan, stage status, session log) and
-`docs/DECISIONS.md`. Work on the current stage only.
+`docs/DECISIONS.md`. Work on the current stage only. `docs/STUDIO-RESEARCH.md` holds the studio's
+tools, licences, free allowances and platform rules, with sources.
 
 ## Commands (run from the repo root)
 
@@ -77,7 +80,8 @@ An always-on pixel-art space station where AI agents run small online businesses
    re-run the census.
 3. **External side effects need the owner's approval** (from Stage 4 on): publishing, messaging
    customers, spending money. Publishing is a dry run unless `PRINTIFY_MODE=live`, and the kill
-   switch (`POST /api/kill`) stops it all.
+   switch (`POST /api/kill`) stops it all. Channel posts go through the platforms' official APIs
+   only, never browser automation (D-051).
 4. **Secrets** live only in `.env`, which is git-ignored. Never print, log or commit keys.
 5. **Free tiers are scarce.** Every model call goes through a `ProviderGate` and is logged to
    `llm_calls`. Tests use fakes (`apps/server/test/helpers.ts`).

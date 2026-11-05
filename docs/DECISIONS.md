@@ -721,3 +721,88 @@ Live traffic hit problems the sandbox never showed:
 - **Still open:** Cloudflare's Llama 3.3 answers 400 ("content is an array, not a string") from the
   third step of an agent's tool loop, while single-turn calls pass the census. Cloudflare's daily
   allocation was spent, so it couldn't be tested further; re-check after the 00:00 UTC reset.
+
+## D-049: The station becomes a faceless channel studio (2026-11-05)
+
+**Context.** The owner changed direction: the whole agency now runs faceless video channels, from
+ideas to scripts, voice-over, video and posting on YouTube, TikTok and Instagram, in long and short
+form. It should run free at first; paid plans come once it earns.
+
+**Decision.**
+
+- The station, the router, the crew, approvals, the Vault, ops and Telegram stay. The studio
+  pipeline (ROADMAP §7) replaces the three factories as the station's work, in Stages 12 to 20.
+- Etsy POD (Stages 6 and 7), the Fiverr gig kit (Stage 8) and the Asset Forge (Stage 9) are
+  **parked, not deleted**: their code and tests stay, their autopilots go off in Stage 13, and their
+  rooms change jobs. The Thumbnail Studio's engine makes the channel's own thumbnails, and Stage 10's
+  retro loop runs on platform stats.
+- The same nine crew members take the studio jobs (ROADMAP §5), so their history carries over.
+- The research behind the plan, with sources, is in `docs/STUDIO-RESEARCH.md`.
+
+## D-050: Media providers follow the lanes (2026-11-05)
+
+- Voice, word timings, stock, stills, video models, music and render runners become providers in
+  `config/media.yaml`: lanes, a licence note, `termsChecked`, and budgets in each provider's own unit
+  (characters, credits, requests, GPU seconds, dollars), behind `ProviderGate`, circuit breakers and
+  a `media_calls` log, as the model router does (D-001, D-032).
+- **The live lane** takes only what may be published: ElevenLabs (a paid plan, with its commercial
+  licence), Kokoro-82M (Apache-2.0), whisper.cpp (MIT), HyperFrames (Apache-2.0), Pixabay (its
+  licence allows commercial use), public-domain and openly licensed items with their credits,
+  Cloudflare's models under its terms, LTX-2 (community licence: free for commercial use under $10M a
+  year in revenue), Wan 2.2 (Apache-2.0), ACE-Step 1.5 (MIT) and Depth Anything V2 Small
+  (Apache-2.0).
+- **Never live:** Edge TTS (an unofficial client of Microsoft's online service), Hunyuan-based video
+  models (their licence excludes the EU, the UK and South Korea, and the owner may be in the EU,
+  D-047), shared Hugging Face Spaces, and, as before, the NVIDIA trial and the FreeLLMAPI pool.
+- Every published asset records its source and licence, and credits go in the description when a
+  licence asks for them.
+- **ElevenLabs never bills past the plan.** The Creator plan bills usage beyond its 121,000 monthly
+  credits, so the station reads the remaining credits before each job and stops short of the quota;
+  Kokoro takes the overflow.
+- Pexels joins only with a key the owner already has: new keys were paused on 2026-11-05.
+
+## D-051: Posting through official APIs only (2026-11-05)
+
+- YouTube Data API v3, the Instagram API with Instagram Login, and TikTok's Content Posting API. No
+  browser automation of YouTube Studio, TikTok or Instagram: it breaks their terms and puts the
+  accounts at risk.
+- **YouTube:** the private-only lock on uploads from unverified projects was lifted in October 2026
+  (Google, issue tracker 572863050), so the first upload goes out unlisted as a check. The OAuth app
+  stays unverified but "In production", because refresh tokens in "Testing" expire after 7 days.
+  Uploads are metered at 100 a day per project.
+- **TikTok:** upload to the owner's inbox as a draft until the audit passes; then Direct Post with
+  `is_aigc`, switched on by config.
+- Every post is an Owner's Desk approval, runs once through the outbox (D-033), obeys the kill switch,
+  and sets the platform's AI disclosure when the content calls for it.
+
+## D-052: HyperFrames renders; Claude Design and Claude Motion design (2026-11-05)
+
+**Context.** The owner wants Claude Design's video feature in the mix. Claude Motion builds
+animations as code and exports MP4, but only by hand in claude.ai: there is no API.
+
+**Decision.**
+
+- The station renders with HyperFrames (Apache-2.0): HTML scenes that agents write well,
+  frame-accurate seekable animation, and deterministic MP4s through headless Chrome and FFmpeg.
+  Remotion would work too, but its licence is source-available and free only for individuals and
+  companies of up to three people. Plain FFmpeg assembly is the fallback.
+- The channel's motion identity (intro, lower thirds, chart and list styles, end screens) is designed
+  in Claude Design or Claude Motion. Designs come into the repo as HyperFrames templates (HyperFrames
+  documents starting from a Claude Design design), and the station fills them for every episode. MP4s
+  exported from Claude Motion can also go into the library as assets.
+
+## D-053: Quality over volume (2026-11-05)
+
+YouTube's inauthentic-content policy is the main risk to an AI channel: renamed from "repetitious
+content" on 2025-07-15, with channel-level enforcement since January 2026. So the studio:
+
+- starts at one long-form a week and one short a day per channel, and WARDEN raises that only while
+  retention and satisfaction hold;
+- requires original research with sources and a stated angle in every script, varies structure,
+  hooks and visuals, and checks new scripts against our own earlier ones for sameness;
+- never presents the narrator as a real person, and keeps an AI narrator away from sensitive topics
+  (health, finance, news, elections);
+- uses no reused content: other people's clips, Reddit posts read aloud, film or TV recaps;
+- labels realistic synthetic media on every platform and notes the AI narration in descriptions.
+
+TikTok's Creator Rewards pay only for videos over a minute, so some shorts get a 61 to 90 second cut.
