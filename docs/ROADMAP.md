@@ -740,8 +740,9 @@ days. Keys go in `.env`; Stage 13 adds their names to `.env.example`.
       developer app with the Instagram API (Instagram Login). In development mode it can post to
       accounts that have a role in the app, which covers yours.
 - [ ] **TikTok:** a TikTok for Developers app with Login Kit and the Content Posting API. It asks for a
-      website, a privacy policy and terms; the studio can draft those pages for a free GitHub Pages
-      site.
+      website, a privacy policy and terms: those pages (plus a data-deletion page, which Meta also
+      asks for) are in `site/`, published free by GitHub Pages through
+      `.github/workflows/pages.yml` once the branch is on `main`.
 - [ ] **Optional:** a Modal account ($30 of free compute a month) for Stage 18, and a Freesound API
       key for sound effects.
 - [ ] **Your call:** a niche you already like, or let Scout propose three in Stage 15 (§11).
