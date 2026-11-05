@@ -45,6 +45,8 @@ export interface ChatResult {
   finishReason?: string;
   inputTokens?: number;
   outputTokens?: number;
+  /** For gateways (FreeLLMAPI): the upstream that actually answered, "platform/model". */
+  routedVia?: string;
 }
 
 export interface EmbedRequest {
@@ -74,21 +76,26 @@ export class OpenAICompatibleTransport implements Transport {
   constructor(
     private readonly providers: ResolvedProviders,
     private readonly timeoutMs = 120_000,
+    /** Tests inject a fake network here. */
+    private readonly fetchImpl?: typeof fetch,
   ) {}
 
   async chat(provider: string, req: ChatRequest, signal?: AbortSignal): Promise<ChatResult> {
     const client = this.client(provider);
     try {
-      const res = await client.chat.completions.create(
-        {
-          model: req.model,
-          messages: req.messages.map(toOpenAIMessage),
-          ...(req.tools?.length ? { tools: req.tools.map(toOpenAITool) } : {}),
-          ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-          ...(req.maxTokens !== undefined ? { max_tokens: req.maxTokens } : {}),
-        },
-        { signal },
-      );
+      const { data: res, response } = await client.chat.completions
+        .create(
+          {
+            model: req.model,
+            messages: req.messages.map(toOpenAIMessage),
+            ...(req.tools?.length ? { tools: req.tools.map(toOpenAITool) } : {}),
+            ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+            ...(req.maxTokens !== undefined ? { max_tokens: req.maxTokens } : {}),
+          },
+          { signal },
+        )
+        .withResponse();
+      const routed = response.headers.get("x-routed-via");
       const choice = res.choices[0];
       const toolCalls: ToolCall[] = [];
       for (const call of choice?.message.tool_calls ?? []) {
@@ -106,6 +113,7 @@ export class OpenAICompatibleTransport implements Transport {
         finishReason: choice?.finish_reason ?? undefined,
         inputTokens: res.usage?.prompt_tokens,
         outputTokens: res.usage?.completion_tokens,
+        ...(routed ? { routedVia: decodeHeader(routed).slice(0, 120) } : {}),
       };
     } catch (err) {
       throw toProviderError(provider, err);
@@ -143,9 +151,19 @@ export class OpenAICompatibleTransport implements Transport {
       baseURL: provider.resolvedBaseURL,
       maxRetries: 0,
       timeout: this.timeoutMs,
+      ...(this.fetchImpl ? { fetch: this.fetchImpl } : {}),
     });
     this.clients.set(id, client);
     return client;
+  }
+}
+
+/** Gateways percent-encode non-ASCII model ids in headers. */
+function decodeHeader(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
   }
 }
 

@@ -15,6 +15,8 @@ export interface UsageEntry {
   /** Who made the call, e.g. "census:json" or "agent:scout". */
   purpose?: string;
   error?: string;
+  /** For gateways: the upstream that actually answered ("groq/llama-3.3-70b"). */
+  routedVia?: string;
 }
 
 /** Every request a provider actually received. Feeds daily budgets now and the Server Room later. */
@@ -34,9 +36,9 @@ export class SqliteUsageLog implements UsageLog {
   constructor(db: Database.Database) {
     this.insert = db.prepare(
       `INSERT INTO llm_calls (ts, lane, tier, provider, model, kind, ok, outcome, latency_ms,
-         input_tokens, output_tokens, purpose, error)
+         input_tokens, output_tokens, purpose, error, routed_via)
        VALUES (@ts, @lane, @tier, @provider, @model, @kind, @ok, @outcome, @latencyMs,
-         @inputTokens, @outputTokens, @purpose, @error)`,
+         @inputTokens, @outputTokens, @purpose, @error, @routedVia)`,
     );
     this.count = db.prepare("SELECT COUNT(*) AS n FROM llm_calls WHERE provider = ? AND ts >= ?");
   }
@@ -56,6 +58,7 @@ export class SqliteUsageLog implements UsageLog {
       outputTokens: entry.outputTokens ?? null,
       purpose: entry.purpose ?? null,
       error: entry.error?.slice(0, 500) ?? null,
+      routedVia: entry.routedVia ?? null,
     });
   }
 

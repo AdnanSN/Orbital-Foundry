@@ -68,6 +68,22 @@ providers:
     lanes: [sandbox]
     limits: { rpm: 25, rpd: 900, concurrency: 2 }
 
+  # FreeLLMAPI: a local pool of ~34 free tiers behind one key (infra/freellmapi, D-044). It picks
+  # the upstream per request and fails over on 429/5xx; the upstream lands in llm_calls.routed_via.
+  freellm:
+    name: FreeLLMAPI (local pool of free tiers)
+    baseURL: http://127.0.0.1:3001/v1
+    apiKeyEnv: FREELLM_API_KEY
+    lanes: [sandbox] # never live: which upstream answers is decided per request
+    production: forbidden
+    termsChecked: 2026-11-05
+    # Our own ceiling; the pool also tracks each upstream key's limits itself.
+    limits: { rpm: 40, concurrency: 4 }
+    terms: >-
+      FreeLLMAPI's README (checked 2026-11-05): "for personal experimentation and learning, not
+      production"; each upstream provider's own terms still apply, and some free upstreams log
+      prompts for research. Sandbox only: drafts, planning and tests, never anything sold.
+
 images:
   nvidia-flux-schnell:
     provider: nvidia

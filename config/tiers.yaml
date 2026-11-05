@@ -13,6 +13,7 @@ tiers:
     description: Overseer planning, reviews, research synthesis
     requires: [chat, json, tools]
     sandbox:
+      - freellm:auto:smart # the pool's highest-intelligence free models (D-044)
       - nvidia:nvidia/nemotron-3-ultra-550b-a55b
       - nvidia:mistralai/mistral-large-4-1t-a52b
       - groq:openai/gpt-oss-120b
@@ -26,6 +27,7 @@ tiers:
     # Groq first (2026-11-05): structured factory calls took 0.8-1 s there against 60-120 s on
     # Mistral Large, which thinks before answering (D-036). Mistral stays as the fallback.
     sandbox:
+      - freellm:auto # the pool's balanced routing (D-044)
       - groq:qwen/qwen3.8-27b
       - nvidia:mistralai/mistral-large-4-1t-a52b
       - nvidia:meta/muse-glimmer-30b
@@ -38,6 +40,7 @@ tiers:
     description: Classification, tagging, short status lines
     requires: [chat, json]
     sandbox:
+      - freellm:auto:fast # the pool's fastest models (D-044)
       - nvidia:nvidia/nemotron-3.5-lightning-30b-a3b
       - nvidia:nvidia/nemotron-3.5-bolt-e4b
       - groq:openai/gpt-oss-20b
@@ -51,6 +54,7 @@ tiers:
     requires: [chat, vision]
     sandbox:
       - nvidia:nvidia/nemotron-3.5-super-vl-120b-a12b
+      - freellm:auto # routes to a vision model when an image is attached (D-044)
       - cloudflare:@cf/mistralai/mistral-small-3.1-24b-instruct
     live:
       - cloudflare:@cf/mistralai/mistral-small-3.1-24b-instruct # Apache-2.0

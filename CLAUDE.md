@@ -20,6 +20,7 @@ An always-on pixel-art space station where AI agents run small online businesses
 | `npm run printify -- shops` | Browses Printify with your token (shops, blueprints, providers, variants). Read-only. |
 | `npm run station` | Keeps the station server running (restarts, health checks, daily logs). See docs/OPERATIONS.md. |
 | `npm run backup` | Backs up the database and new artifact files now. |
+| `npm run pool:up` | Starts the FreeLLMAPI pool of free model tiers in Docker (`pool:down`, `pool:logs`). See infra/freellmapi/README.md. |
 | `npm run format` | Biome auto-fix and formatting. |
 
 ## Layout
@@ -61,6 +62,7 @@ An always-on pixel-art space station where AI agents run small online businesses
   (`roles/*.yaml`), the web allowlist (`web.yaml`), the creative settings (`creative.yaml`), the
   prompt library (`prompts.yaml`), the IP blocklist (`ip-blocklist.yaml`), the stores
   (`businesses/*.yaml`), products (`products.yaml`) and marketplace rules (`marketplaces.yaml`).
+- `infra/freellmapi/`: the Docker setup for the FreeLLMAPI free-tier pool (sandbox lane only, D-044).
 - `data/`: SQLite database and artifacts (git-ignored).
 
 ## Rules that matter

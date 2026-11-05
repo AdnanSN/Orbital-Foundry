@@ -467,6 +467,7 @@ export class ModelRouter {
       outputTokens: result?.outputTokens,
       purpose: opts.purpose,
       error,
+      ...(result?.routedVia ? { routedVia: result.routedVia } : {}),
     });
   }
 

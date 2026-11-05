@@ -36,10 +36,12 @@ reviewed and delivered to your Owner's Desk. The full plan is in [docs/ROADMAP.m
 3. For the model router, fill in `.env` (see `.env.example`).
    - At minimum, set `NVIDIA_API_KEY`.
    - For live-lane images, also set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
-4. Run `npm run census` to see which free models actually work.
-5. Run `npm run smoke` for one real call per tier and two test images.
-6. Run `npm run check` for lint, typecheck and tests.
-7. To leave it running, use `npm run station`; backups, phone approvals and remote access are in
+4. Optional: run more agents on a pool of ~34 free model tiers with one key:
+   [infra/freellmapi/README.md](infra/freellmapi/README.md) (`npm run pool:up`).
+5. Run `npm run census` to see which free models actually work.
+6. Run `npm run smoke` for one real call per tier and two test images.
+7. Run `npm run check` for lint, typecheck and tests.
+8. To leave it running, use `npm run station`; backups, phone approvals and remote access are in
    [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Two lanes

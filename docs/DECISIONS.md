@@ -613,3 +613,28 @@ Access in front (docs/OPERATIONS.md).
 - **Achievements** are checked every minute from what the station records (first package, first
   publish, first thumbnails, first pack, first weekly plan, first real sale, 100 real tasks) and
   announced by WARDEN once.
+
+## D-044: The FreeLLMAPI pool serves the sandbox lane (2026-11-05)
+
+The owner asked to run the agents on a pool of free API keys (FreeLLMAPI,
+https://github.com/tashfeenahmed/freellmapi, MIT): a self-hosted Docker router that puts up to 34
+providers' free tiers behind one OpenAI-compatible endpoint and one key, with per-key rate
+tracking and failover.
+
+- **Sandbox only, enforced.** Its README says "for personal experimentation and learning, not
+  production", and it chooses the upstream per request, so no single provider's terms can be
+  checked for a given answer. `providers.yaml` gives it `lanes: [sandbox]` and
+  `production: forbidden`; config validation refuses it in the live lane (D-032).
+- **First choice in the sandbox:** `freellm:auto:smart` for reasoning, `freellm:auto` for
+  creative, `freellm:auto:fast` for fast, and `freellm:auto` as the second vision choice (it routes
+  image requests to vision models). Our own providers stay behind it as fallbacks, and the router
+  skips it while `FREELLM_API_KEY` is unset.
+- **Not for embeddings:** the pool's embedding families have different dimensions from ours, and
+  vectors from different families must never share a memory store.
+- **Auditable:** the transport keeps the gateway's `X-Routed-Via` header and `llm_calls` stores it
+  (`routed_via`), so every answer can be traced to the upstream that produced it.
+- **Install:** `infra/freellmapi/docker-compose.yml` pins the image to a release, publishes on
+  127.0.0.1 only, builds nothing locally and leaves out the Watchtower sidecar (it needs the Docker
+  socket). The encryption key is generated into a git-ignored `.env` beside it. Signing up for
+  provider keys, pasting them into the pool's dashboard and copying the unified key into `.env`
+  are the owner's steps.

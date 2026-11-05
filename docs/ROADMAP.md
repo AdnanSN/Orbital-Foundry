@@ -904,3 +904,7 @@ your phone.
   - 211 tests (9 new).
   - **Not done (needs you):** the 72-hour unattended run, an approval from your phone (a
     Telegram bot token), the remote-access choice, and the hosting choice.
+- **2026-11-05:** The free model pool. FreeLLMAPI (34 providers' free tiers behind one key) is set
+  up in `infra/freellmapi` and wired in as the first sandbox choice for reasoning, creative and
+  fast, sandbox-only by config, with the answering upstream logged per call. Starting the
+  container and adding provider keys are yours: infra/freellmapi/README.md.

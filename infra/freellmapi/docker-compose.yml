@@ -1,0 +1,39 @@
+# FreeLLMAPI: a local pool of free LLM tiers behind one OpenAI-compatible endpoint.
+# https://github.com/tashfeenahmed/freellmapi (MIT). See infra/freellmapi/README.md and D-044.
+#
+# Start: npm run pool:up   Stop: npm run pool:down   Logs: npm run pool:logs
+#
+# Differences from the upstream compose file, on purpose:
+# - the image is pinned to a release (update by changing the tag, then npm run pool:up);
+# - no local build (nothing is cloned) and no Watchtower sidecar (it needs the Docker socket);
+# - published on 127.0.0.1 only: the pool is single-user and guarded only by its unified key.
+services:
+  freellmapi:
+    image: ghcr.io/tashfeenahmed/freellmapi:v0.16.19
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - freellmapi-data:/app/server/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/api/ping').then((res) => { if (!res.ok) process.exit(1); }).catch(() => process.exit(1));",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  freellmapi-data:
