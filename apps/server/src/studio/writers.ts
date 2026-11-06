@@ -252,6 +252,79 @@ export function sameness(a: string, b: string): number {
   return shared / x.size;
 }
 
+const SUPERSCRIPT: Record<string, string> = {
+  "⁰": "0",
+  "¹": "1",
+  "²": "2",
+  "³": "3",
+  "⁴": "4",
+  "⁵": "5",
+  "⁶": "6",
+  "⁷": "7",
+  "⁸": "8",
+  "⁹": "9",
+  "⁻": "-",
+};
+const SCALE: Record<string, number> = { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 };
+
+/**
+ * The numbers a text states, read the way a viewer would: "3,000", "1.5 million", "10^9" and
+ * "1.5 × 10⁶". A power of ten counts as one number, so "10^9" never passes for "10".
+ */
+export function numbersIn(text: string): number[] {
+  let t = text
+    .replace(
+      /(10)([⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+)/g,
+      (_m, b: string, e: string) => `${b}^${[...e].map((c) => SUPERSCRIPT[c]).join("")}`,
+    )
+    .replace(/(\d),(?=\d{3}\b)/g, "$1");
+  const out: number[] = [];
+  t = t.replace(
+    /(?:(\d+(?:\.\d+)?)\s*[×x*]\s*)?10\s*\^\s*(-?\d+)/g,
+    (_m, coef: string | undefined, exp: string) => {
+      out.push((coef ? Number(coef) : 1) * 10 ** Number(exp));
+      return " ";
+    },
+  );
+  for (const m of t.matchAll(/(\d+(?:\.\d+)?)(?:\s*(thousand|million|billion|trillion)\b)?/gi)) {
+    out.push(Number(m[1]) * (m[2] ? (SCALE[m[2].toLowerCase()] ?? 1) : 1));
+  }
+  return out;
+}
+
+/** Stat cards showing a number that neither their own line nor the facts give (e.g. "10 tesla" for 10^9). */
+export function statMismatches(beats: Beat[], facts: string): { beat: number; value: number }[] {
+  const known = numbersIn(facts);
+  const out: { beat: number; value: number }[] = [];
+  beats.forEach((b, i) => {
+    const v = b.visual;
+    if (v.kind !== "stat" || v.value === undefined) return;
+    const said = [...numbersIn(b.narration), ...known];
+    const close = (n: number) =>
+      n === v.value || Math.abs(n - (v.value as number)) <= Math.abs(v.value as number) * 0.02;
+    if (!said.some(close)) out.push({ beat: i, value: v.value });
+  });
+  return out;
+}
+
+/** Pairs of beats that say nearly the same thing (a fact repeated as filler). */
+export function repeatedBeats(beats: Beat[], threshold = 0.5): [number, number][] {
+  const grams = beats.map((b) => trigrams(b.narration));
+  const out: [number, number][] = [];
+  for (let i = 0; i < grams.length; i++) {
+    for (let j = i + 1; j < grams.length; j++) {
+      const a = grams[i] as Set<string>;
+      const b = grams[j] as Set<string>;
+      const small = Math.min(a.size, b.size);
+      if (small < 4) continue;
+      let shared = 0;
+      for (const t of a) if (b.has(t)) shared++;
+      if (shared / small >= threshold) out.push([i, j]);
+    }
+  }
+  return out;
+}
+
 const VISUAL_GUIDE = `Each beat is 1 to 3 sentences of narration and one visual:
 - "stock-video" with "query": 2 to 4 concrete, filmable words (e.g. "rocket launch night", "ocean waves aerial"). Real footage of real things.
 - "stock-image" with "query": a photo search, same style. Prefer for specific named objects (planets, telescopes, places).
@@ -759,6 +832,25 @@ export class WritersRoom {
         checks.problems.push(`Beats ${i - 2}-${i} all use "${k}"; vary the visuals.`);
         break;
       }
+    }
+    // A stat card is on screen: its number has to be one the facts or its own line give (D-061).
+    // The raw facts, without their "F12:" labels (those numbers would pass a "12" stat).
+    for (const m of statMismatches(doc.beats, doc.brief.facts.map((f) => f.fact).join("\n"))) {
+      if (checks.unsupported.some((u) => u.beat === m.beat)) continue;
+      checks.unsupported.push({
+        beat: m.beat,
+        claim: `the stat card shows ${m.value}${doc.beats[m.beat]?.visual.suffix ?? ""}`,
+        why: "no fact or line gives that number",
+      });
+    }
+    const repeats = repeatedBeats(doc.beats);
+    if (repeats.length > 0) {
+      checks.problems.push(
+        `${repeats
+          .slice(0, 3)
+          .map(([a, b]) => `Beats ${a} and ${b}`)
+          .join("; ")} say nearly the same thing; cut the repeats.`,
+      );
     }
     doc.checks = checks;
     if (revise && (checks.unsupported.length > 0 || checks.banned.length > 0)) {

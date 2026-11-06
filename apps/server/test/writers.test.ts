@@ -9,9 +9,13 @@ import type { GenerateOptions, ModelRouter } from "../src/llm/router";
 import { bannedIn, channelSchema, loadChannels } from "../src/studio/channel";
 import type { SignalService } from "../src/studio/signals";
 import {
+  type Beat,
+  numbersIn,
   renderScript,
+  repeatedBeats,
   type ShotKind,
   sameness,
+  statMismatches,
   WritersRoom,
   wordCount,
 } from "../src/studio/writers";
@@ -48,7 +52,7 @@ const SHORT = {
     beat(
       "Saturn's rings are mostly water ice, and in places only about ten metres thick, which is a mind-blowing thing.",
     ),
-    beat("They span hundreds of thousands of kilometres.", "stat", {
+    beat("They span about 282,000 kilometres.", "stat", {
       value: 282000,
       suffix: " km",
       label: "across",
@@ -321,5 +325,48 @@ describe("writers' room", () => {
     expect(saved.status).toBe("active");
     expect(saved.sources.wikipediaSeeds).toEqual(["Saturn", "Moon"]);
     expect(saved.persona).toMatch(/AI voice/);
+  });
+});
+
+describe("Lens's number and repetition checks", () => {
+  const stat = (narration: string, value: number, suffix = ""): Beat => ({
+    narration,
+    visual: { kind: "stat", value, suffix, label: "x" },
+  });
+  const line = (narration: string): Beat => ({ narration, visual: { kind: "code" } });
+
+  it("reads numbers the way a viewer would", () => {
+    expect(numbersIn("roughly 10^9 to 10^11 tesla")).toEqual([1e9, 1e11]);
+    expect(numbersIn("10⁹ tesla and 1.5 × 10^6 Jy")).toEqual([1e9, 1.5e6]);
+    expect(numbersIn("3,000 neutron stars, 1.5 million Jy ms, 116.75 days")).toEqual([
+      3000, 1.5e6, 116.75,
+    ]);
+  });
+
+  it("flags stat cards whose number no fact or line gives", () => {
+    const facts =
+      "Magnetars have magnetic fields of 10^9 to 10^11 tesla. FRB 200428 had a fluence over 1.5 million Jy ms.";
+    const beats = [
+      stat("Magnetar fields reach 10^9 to 10^11 tesla.", 10, " tesla"),
+      stat("Its fluence passed 1.5 million Jy ms.", 1_500_000, " Jy ms"),
+      stat("The strongest are a hundred billion tesla.", 1e11, " tesla"),
+      stat("In 2020 a burst came from our own galaxy.", 2020),
+      stat("Its field is unimaginably strong.", 1e13, " tesla"),
+    ];
+    expect(statMismatches(beats, facts)).toEqual([
+      { beat: 0, value: 10 },
+      { beat: 4, value: 1e13 },
+    ]);
+  });
+
+  it("finds beats that repeat each other", () => {
+    const repeat =
+      "As of January 2021, 31 confirmed magnetars have been identified out of an estimated 3,000 known neutron stars.";
+    const beats = [
+      line(`Magnetars are rare. ${repeat}`),
+      line("Fast radio bursts last a few milliseconds and come from far beyond our galaxy."),
+      line(`${repeat} This makes them a fascinating area of study.`),
+    ];
+    expect(repeatedBeats(beats)).toEqual([[0, 2]]);
   });
 });

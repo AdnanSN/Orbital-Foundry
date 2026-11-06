@@ -1019,6 +1019,13 @@ three approvals per video (script, cut, post plan), from the Desk or Telegram.
 
 ## 12. Backlog (after Stage 20)
 
+- **Lens checks claims against the source text, not only the brief.** The Venus brief said "a day
+  (sidereal rotation period) is 116.75 Earth days"; the solar day is, and one rotation takes about
+  243. A wrong brief passes a check against the brief. Unit-aware stat checks too: "10^13" in gauss
+  passed for a tesla card.
+- Vision QA on sampled frames (AI stills drew moons around Venus and, once, a person), and a
+  caption-sync check, from Stage 16's screening list.
+- TikTok versions over one minute, since Creator Rewards pay nothing for shorter videos.
 - Dubbing into other languages (ElevenLabs Dubbing, Kokoro's other voices): more channels from the
   same scripts.
 - A second channel in another niche, from the same pipeline.

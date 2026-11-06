@@ -1049,3 +1049,16 @@ icon-pack plan was accepted to close its objective. The Forge stays parked.
   steps (idea, script, voice, visuals, render, screening, approval, posted), a player, the
   budgets left (ElevenLabs credits, AI stills today, the GPU queue, Modal's cap, free disk),
   platform status, the schedule and the progress toward monetisation.
+
+## D-063: Lens checks numbers and repetition (2026-11-06)
+
+- **Why:** a frame review of the first real videos found stat cards with wrong numbers ("10 tesla"
+  for magnetars, whose fields are 10⁹ to 10¹¹ tesla) and a long-form that repeated the same two
+  facts three or four times. Lens's fact-check passed both, because the narration lines were true.
+- **Stat cards:** a card's number must be one its own line or the facts state, read the way a
+  viewer would ("3,000", "1.5 million", "10^9", "1.5 × 10⁶"; a power of ten is one number). A card
+  that fails counts as an unsupported claim, so the Writers' Room's rewrite pass fixes it.
+- **Repetition:** beats sharing half their phrasing are listed at the Desk ("Beats 10 and 16 say
+  nearly the same thing").
+- **Known gaps (backlog):** a wrong brief still passes, because Lens checks against the brief, not
+  the source text. Units aren't compared either.
