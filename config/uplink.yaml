@@ -1,0 +1,36 @@
+# The Uplink (Stage 17, D-059): how approved videos are posted. Times are this computer's local
+# time. Posting is a dry run unless PUBLISH_MODE=live in .env, and every post needs your approval.
+
+platforms:
+  youtube:
+    enabled: true
+    # Our own cap, far below YouTube's 100 uploads a day for the project.
+    dailyCap: 4
+    formats: [long, short]
+  instagram:
+    enabled: true
+    # Instagram allows 100 API posts a day; a new account looks spammy well before that.
+    dailyCap: 2
+    formats: [short]
+  tiktok:
+    enabled: true
+    # Drafts land in your TikTok inbox; you post them in the app.
+    dailyCap: 2
+    formats: [short]
+
+schedule:
+  # One short a day and one long-form a week to start (ROADMAP §7.2).
+  shortTimes: ["17:00"]
+  longDays: [sat]
+  longTime: "15:00"
+  # Nothing is scheduled sooner than this after approval.
+  leadMinutes: 30
+
+youtube:
+  # The first upload goes out unlisted, to check the API project isn't locked to private.
+  firstUploadUnlisted: true
+  # Per channel: new videos join these playlists (created the first time). Empty means none.
+  playlists:
+    rare-scientific-phenomena:
+      long: "Rare Phenomena: Deep Dives"
+      short: ""

@@ -76,6 +76,13 @@ export class TelegramNotifier {
     return true;
   }
 
+  /** A plain notice without buttons ("your TikTok draft is ready"). Skipped in quiet hours. */
+  async message(text: string): Promise<boolean> {
+    if (this.opts.quiet?.()) return false;
+    await this.call("sendMessage", { chat_id: this.opts.chatId, text: text.slice(0, 3500) });
+    return true;
+  }
+
   /** When quiet hours end, one message lists what is waiting. */
   async morningSummary(): Promise<boolean> {
     if (this.held === 0 || this.opts.quiet?.()) return false;

@@ -65,14 +65,14 @@
   "rooms": [
     {
       "id": "research",
-      "name": "Research Lab",
-      "label": "RESEARCH LAB",
+      "name": "Trend Lab",
+      "label": "TREND LAB",
       "theme": "lab",
       "x": 2,
       "y": 2,
       "w": 14,
       "h": 10,
-      "description": "Scout studies niches, keywords, seasonality and competition here."
+      "description": "Scout reads real signals (Google Trends, Wikipedia page views, YouTube) and scores video ideas for demand, originality, fit and risk."
     },
     {
       "id": "owners-desk",
@@ -87,26 +87,27 @@
     },
     {
       "id": "server-room",
-      "name": "Server Room",
-      "label": "SERVER ROOM",
+      "name": "Server Room and Uplink",
+      "label": "UPLINK",
+      "sublabel": "SERVERS",
       "theme": "grate",
       "x": 42,
       "y": 2,
       "w": 14,
       "h": 10,
-      "description": "One rack row per model provider. Amber lights mean a provider is rate-limited; sparks mean it is down."
+      "description": "One rack row per model provider (amber: rate-limited; sparks: down), and the Uplink, which posts to YouTube, Instagram and TikTok through their official APIs after your approval."
     },
     {
       "id": "factory-1",
-      "name": "Factory 1: Etsy POD Studio",
-      "label": "FACTORY 1",
-      "sublabel": "ETSY POD",
+      "name": "Writers' Room",
+      "label": "WRITERS' ROOM",
+      "sublabel": "SCRIPTS",
       "theme": "industrial",
       "x": 2,
       "y": 15,
       "w": 14,
       "h": 13,
-      "description": "Three print-on-demand stores with one operator each: Wick (candles), Gift (personalized gifts) and Frame (wall art)."
+      "description": "Research briefs with sources, then scripts with hooks, titles and shot lists, checked by Lens before they reach the Owner's Desk."
     },
     {
       "id": "bridge",
@@ -121,26 +122,26 @@
     },
     {
       "id": "factory-2",
-      "name": "Factory 2: Thumbnail Studio",
-      "label": "FACTORY 2",
+      "name": "Thumbnail Studio",
+      "label": "THUMBNAIL STUDIO",
       "sublabel": "THUMBNAILS",
       "theme": "studio",
       "x": 42,
       "y": 15,
       "w": 14,
       "h": 13,
-      "description": "Flash turns a video brief into three thumbnail variants."
+      "description": "Flash makes the channel's thumbnails: the strongest early frame with the script's thumbnail text."
     },
     {
       "id": "qa-bay",
-      "name": "QA Bay",
-      "label": "QA BAY",
+      "name": "Screening Room",
+      "label": "SCREENING ROOM",
       "theme": "clinic",
       "x": 2,
       "y": 31,
       "w": 14,
       "h": 10,
-      "description": "Every deliverable lands on the intake table. Lens runs vision QA, IP screening and policy checks."
+      "description": "Every cut lands on the intake table. Lens screens black frames, freezes, silence, loudness, the IP and policy rules and the AI-disclosure call."
     },
     {
       "id": "vault",
@@ -151,19 +152,19 @@
       "y": 31,
       "w": 18,
       "h": 10,
-      "description": "Ledger syncs revenue and fees, and keeps the KPIs and the (very) long-term goal meter."
+      "description": "Views, watch time, subscribers, revenue and costs per video, feeding WARDEN's weekly retro (and the very long-term goal meter)."
     },
     {
       "id": "factory-3",
-      "name": "Factory 3: Asset Forge",
-      "label": "FACTORY 3",
-      "sublabel": "ASSET FORGE",
+      "name": "Edit Bay",
+      "label": "EDIT BAY",
+      "sublabel": "VIDEO",
       "theme": "forge",
       "x": 42,
       "y": 31,
       "w": 14,
       "h": 10,
-      "description": "Forge builds themed sprite and icon packs for game-asset marketplaces."
+      "description": "Voice-over, shots from footage, photos, AI stills and clips, captions, music and the render. Its screen shows the cut in progress."
     },
     {
       "id": "cafe",
@@ -599,6 +600,17 @@
     { "id": "qa-plant", "kind": "plant", "room": "qa-bay", "x": 14, "y": 35, "w": 1, "h": 1 },
     { "id": "vault-safe", "kind": "safe", "room": "vault", "x": 21, "y": 32, "w": 3, "h": 2 },
     { "id": "vault-coins-1", "kind": "coins", "room": "vault", "x": 24, "y": 32, "w": 1, "h": 1 },
+    {
+      "id": "editbay-screen",
+      "kind": "wallscreen",
+      "room": "factory-3",
+      "x": 43,
+      "y": 31,
+      "w": 4,
+      "h": 1,
+      "wall": true,
+      "variant": "studio"
+    },
     {
       "id": "vault-goal",
       "kind": "wallscreen",
@@ -1111,12 +1123,12 @@
     { "id": "airlock-spawn", "room": "airlock", "x": 49, "y": 47, "facing": "left", "use": "spawn" }
   ],
   "labels": [
-    { "text": "CANDLES", "x": 3, "y": 18, "w": 2 },
-    { "text": "GIFTS", "x": 6, "y": 18, "w": 2 },
-    { "text": "WALL ART", "x": 11, "y": 18, "w": 2 },
+    { "text": "BRIEFS", "x": 3, "y": 18, "w": 2 },
+    { "text": "HOOKS", "x": 6, "y": 18, "w": 2 },
+    { "text": "SHOTS", "x": 11, "y": 18, "w": 2 },
     { "text": "NVIDIA", "x": 44, "y": 5, "w": 3 },
     { "text": "CLOUDFLARE", "x": 51, "y": 5, "w": 3 },
     { "text": "GROQ", "x": 44, "y": 8, "w": 3 },
-    { "text": "SPARE", "x": 51, "y": 8, "w": 3 }
+    { "text": "UPLINK", "x": 51, "y": 8, "w": 3 }
   ]
 }

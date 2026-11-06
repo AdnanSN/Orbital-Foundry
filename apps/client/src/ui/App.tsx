@@ -13,6 +13,7 @@ import { RecruitmentBay } from "./RecruitmentBay";
 import { RoomPanel } from "./RoomPanel";
 import { StationLog } from "./StationLog";
 import { StoresPanel } from "./StoresPanel";
+import { StudioPanel } from "./StudioPanel";
 import { ambientTint, muted, play, setMuted } from "./sound";
 import { type UiStore, useUi } from "./store";
 import { ThumbsPanel } from "./ThumbsPanel";
@@ -89,6 +90,7 @@ export function App({
       {panel === "forge" && <ForgePanel ctx={ctx} />}
       {panel === "vault" && <VaultPanel ctx={ctx} />}
       {panel === "uplink" && <UplinkPanel ctx={ctx} />}
+      {panel === "studio" && <StudioPanel ctx={ctx} />}
       {panel === null && selection?.kind === "agent" && (
         <AgentInspector key={selection.id} ctx={ctx} id={selection.id} />
       )}
@@ -206,6 +208,13 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
       </div>
       <div className="panel rounded-xl px-2.5 py-2 flex items-center gap-1.5">
         <Button
+          title="Studio: every video from idea to posted, the budgets and the schedule"
+          onClick={() => ui.set({ panel: panel === "studio" ? null : "studio" })}
+          active={panel === "studio"}
+        >
+          Studio
+        </Button>
+        <Button
           title="Objectives and the task board"
           onClick={() => ui.set({ panel: panel === "work" ? null : "work" })}
           active={panel === "work"}
@@ -253,7 +262,7 @@ function TopBar({ ctx, seed, status }: { ctx: Ctx; seed: number | null; status: 
           Vault
         </Button>
         <Button
-          title="Uplink: connect TikTok and send finished videos to your TikTok inbox"
+          title="Uplink: the platform accounts, post plans, upload kits and the kill switch"
           onClick={() => ui.set({ panel: panel === "uplink" ? null : "uplink" })}
           active={panel === "uplink"}
         >

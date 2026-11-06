@@ -12,7 +12,9 @@
     "printify": "tsx src/scripts/printify.ts",
     "backup": "tsx src/scripts/backup.ts",
     "test": "vitest run",
-    "studio": "tsx src/scripts/studio.ts"
+    "studio": "tsx src/scripts/studio.ts",
+    "uplink": "tsx src/scripts/uplink.ts",
+    "gpu": "tsx src/scripts/gpu.ts"
   },
   "dependencies": {
     "@fastify/websocket": "^11.3.7",

@@ -82,3 +82,44 @@ providers:
     termsChecked: 2026-11-05
     licence: Per item; only CC0, the Public Domain Mark and CC BY (credited). No BY-SA, since a crop or zoom may adapt it.
     limits: { rpm: 10, rpd: 200, concurrency: 1 }
+
+  # Stage 18, the GPU lane (D-060). Model licences decide the lane: Wan 2.2 is Apache-2.0, and
+  # LTX-2 is free for commercial use under $10M a year in revenue. Hunyuan-based models stay out of
+  # the live lane (their licence excludes the EU, the UK and South Korea); config validation
+  # refuses one there.
+  comfyui-video:
+    name: ComfyUI on this laptop's GPU (Wan 2.2 TI2V-5B or LTX-2)
+    kind: video
+    local: true
+    lanes: [sandbox, live]
+    production: allowed
+    termsChecked: 2026-11-06
+    licence: "Wan 2.2 Apache-2.0 (LTX-2 workflows: free for commercial use under $10M revenue a year)."
+    limits: { rpm: 6, concurrency: 1 }
+
+  modal-video:
+    name: Modal (our Wan 2.2 app on a cloud GPU, the burst lane)
+    kind: video
+    lanes: [sandbox, live]
+    production: allowed
+    termsChecked: 2026-11-06
+    licence: Wan 2.2 Apache-2.0; Modal's terms leave customer data and outputs with the customer.
+    apiKeyEnv: MODAL_KEY
+    limits: { rpm: 4, concurrency: 1 }
+    # Our own ceiling in USD a month, below the $30 of free credit (config/gpu.yaml caps it too).
+    budget: { unit: usd, monthly: 25 }
+
+  # Paid, wired but off: set enabled: true (and fal.monthlyCapUsd in config/gpu.yaml) to use it.
+  # Kling, Seedance and Veo are all on fal; Muapi, kie.ai and the Higgsfield API would each need
+  # their own adapter and a terms check before the live lane.
+  fal-video:
+    name: fal (Kling, Seedance, Veo and more)
+    kind: video
+    lanes: [sandbox]
+    production: unverified
+    licence: Per model; check each model page's commercial-use terms before the live lane.
+    apiKeyEnv: FAL_KEY
+    limits: { rpm: 10, concurrency: 2 }
+    budget: { unit: usd, monthly: 1 }
+    settings:
+      enabled: false

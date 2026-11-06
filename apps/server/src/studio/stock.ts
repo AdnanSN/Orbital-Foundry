@@ -94,7 +94,10 @@ export class StockService {
         const hits = (await this.search(provider, req)).filter(
           (h) => !library.get(assetId(h)) && !(req.exclude ?? []).includes(assetId(h)),
         );
-        const best = pick(hits, req);
+        const best = pick(
+          hits.filter((h) => relevant(h, req.query)),
+          req,
+        );
         if (best) return await this.download(best, req.lane);
       } catch (err) {
         this.opts.log?.(
@@ -390,4 +393,16 @@ export function mediaStartFor(asset: Pick<Asset, "source" | "duration">, need: n
 /** The shortest clip that still leaves `need` seconds after the opening is skipped. */
 export function minClipFor(source: string, need: number): number {
   return source === "nasa" ? need + 8 : need + 1;
+}
+
+/**
+ * Whether a hit is about the query: it must share one of the query's proper nouns ("Venus"), or,
+ * when there are none, one of its longer words. Stock search alone returns off-topic art.
+ */
+export function relevant(hit: Pick<StockHit, "tags" | "title">, query: string): boolean {
+  const have = new Set([...hit.tags.flatMap((t) => terms(t)), ...terms(hit.title)]);
+  const proper = [...query.matchAll(/\b[A-Z][a-z]{2,}\b/g)].map((m) => m[0].toLowerCase());
+  if (proper.length > 0) return proper.some((p) => have.has(p));
+  const want = terms(query).filter((w) => w.length >= 4);
+  return want.length === 0 || want.some((w) => have.has(w));
 }

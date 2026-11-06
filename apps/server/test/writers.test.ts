@@ -173,9 +173,15 @@ function setup(router: ModelRouter) {
   const store = new WorkStore(db);
   const channelsDir = path.join(dir, "channels");
   fs.mkdirSync(channelsDir);
-  fs.copyFileSync(
-    path.join(__dirname, "..", "..", "..", "config", "channels", "space-explainers.yaml"),
+  // A draft copy of the space channel, so Desk items carry the draft label.
+  fs.writeFileSync(
     path.join(channelsDir, "space-explainers.yaml"),
+    fs
+      .readFileSync(
+        path.join(__dirname, "..", "..", "..", "config", "channels", "space-explainers.yaml"),
+        "utf8",
+      )
+      .replace("status: paused", "status: draft"),
   );
   const desk: Approval[] = [];
   const hooks: ((a: Approval) => void | Promise<void>)[] = [];
@@ -228,9 +234,9 @@ function setup(router: ModelRouter) {
 
 describe("channel bible", () => {
   it("loads the space draft and flags banned phrases", () => {
-    const [space] = loadChannels();
-    expect(space?.id).toBe("space-explainers");
-    expect(space?.status).toBe("draft");
+    const space = loadChannels().find((c) => c.id === "space-explainers");
+    expect(space?.status).toBe("paused");
+    expect(loadChannels().find((c) => c.id === "rare-scientific-phenomena")?.status).toBe("active");
     expect(bannedIn("A mind-blowing fact. Let's dive in!", channelSchema.parse(space))).toEqual([
       "let's dive in",
       "mind-blowing",
@@ -294,9 +300,9 @@ describe("writers' room", () => {
     const doc = await writers.settled(writers.start("space-explainers", { format: "long" }).id);
     expect(doc?.beats).toHaveLength(8);
     expect(fake.calls.filter((c) => c.prompt?.includes("Write section"))).toHaveLength(4);
-    expect(renderScript(loadChannels()[0] as never, doc as never)).toContain(
-      "Long-form (8-12 min)",
-    );
+    expect(
+      renderScript(loadChannels().find((c) => c.id === "space-explainers") as never, doc as never),
+    ).toContain("Long-form (8-12 min)");
   });
 
   it("fails cleanly without an idea for the format", async () => {

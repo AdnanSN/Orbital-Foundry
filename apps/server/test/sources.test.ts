@@ -391,3 +391,17 @@ describe("clip openings", () => {
     expect(minClipFor("nasa", 5)).toBe(13);
   });
 });
+
+describe("relevance", () => {
+  it("needs the query's proper noun, or one of its longer words", async () => {
+    const { relevant } = await import("../src/studio/stock");
+    expect(
+      relevant({ tags: ["gravity", "house", "cartoon"], title: "Gravity" }, "Venus from space"),
+    ).toBe(false);
+    expect(relevant({ tags: ["venus", "planet"], title: "Venus" }, "Venus from space")).toBe(true);
+    expect(relevant({ tags: ["sunflower", "woman"], title: "" }, "rocket launch night")).toBe(
+      false,
+    );
+    expect(relevant({ tags: ["rocket", "launch"], title: "" }, "rocket launch night")).toBe(true);
+  });
+});

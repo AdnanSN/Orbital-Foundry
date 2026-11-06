@@ -24,6 +24,7 @@ export interface UiState {
     | "forge"
     | "vault"
     | "uplink"
+    | "studio"
     | null;
   /** The gallery's room filter ("" for every room). */
   galleryRoom: string;

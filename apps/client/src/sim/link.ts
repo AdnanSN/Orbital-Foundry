@@ -71,6 +71,17 @@ export interface StationCommands {
   tiktokConnect(returnTo: string): Promise<string>;
   tiktokDisconnect(): Promise<void>;
   tiktokUpload(file: File): Promise<TikTokUploadInfo>;
+  /** The rest of the Uplink (Stage 17): YouTube, Instagram, post plans and the posts list. */
+  uplink(): Promise<UplinkInfo | null>;
+  platformConnect(platform: "youtube" | "instagram", returnTo: string): Promise<string>;
+  platformDisconnect(platform: "youtube" | "instagram"): Promise<void>;
+  planPost(videoId: string, opts?: { platforms?: PlatformId[]; now?: boolean }): Promise<void>;
+  postAction(id: string, action: "resume" | "cancel"): Promise<void>;
+  /** Download URL for a post's upload kit (video, caption, hashtags, thumbnail). */
+  kitUrl(id: string): string;
+  /** The Studio panel (Stage 20): every script and video, budgets, platforms, the schedule. */
+  studioBoard(): Promise<StudioBoardInfo | null>;
+  runSchedule(): Promise<{ started: string[]; proposed: number }>;
   /** The Vault (Stage 10). */
   vault(): Promise<VaultInfo>;
   simulateWeek(): Promise<{ sales: number; revenue: number }>;
@@ -118,6 +129,160 @@ export interface TikTokUploadInfo {
   detail?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export type PlatformId = "youtube" | "instagram" | "tiktok";
+
+export interface PostInfo {
+  id: string;
+  videoId: string;
+  platform: PlatformId;
+  format: "short" | "long";
+  title: string;
+  status:
+    | "awaiting"
+    | "scheduled"
+    | "posting"
+    | "posted"
+    | "draft"
+    | "kit"
+    | "held"
+    | "failed"
+    | "cancelled";
+  mode: "dry-run" | "live";
+  how: "api" | "kit";
+  at: string;
+  privacy?: "unlisted" | "public";
+  remoteId?: string;
+  url?: string;
+  detail?: string;
+  warnings: string[];
+}
+
+export const BOARD_STEP_NAMES = [
+  "idea",
+  "script",
+  "voice",
+  "visuals",
+  "render",
+  "screening",
+  "approval",
+  "posted",
+] as const;
+export type BoardStepName = (typeof BOARD_STEP_NAMES)[number];
+
+export interface StudioBoardItem {
+  id: string;
+  scriptId: string;
+  videoId?: string;
+  channel: string;
+  title: string;
+  format: "short" | "long";
+  kind: "main" | "cutdown" | "script";
+  test: boolean;
+  status: string;
+  progress: number;
+  steps: Record<BoardStepName, "done" | "current" | "todo" | "failed">;
+  posts: { platform: PlatformId; status: string; at: string; url?: string; mode: string }[];
+  voice?: { provider: string; fallback?: string };
+  hasFile: boolean;
+  updatedAt: string;
+}
+
+export interface StudioBoardInfo {
+  items: StudioBoardItem[];
+  budgets: {
+    elevenlabs: { creditsLeft: number | null; budget: number | null; usedThisMonth: number };
+    stills: { madeToday: number };
+    gpu: {
+      counts: Record<string, number>;
+      spend: { modal: number; modalCap: number; fal: number; falCap: number };
+      ready: string[];
+    };
+    disk: { freeGb: number | null };
+  };
+  posting: {
+    mode: "dry-run" | "live";
+    killed: boolean;
+    platforms: {
+      platform: PlatformId;
+      enabled: boolean;
+      connected: boolean;
+      dailyCap: number;
+      today: number;
+    }[];
+  } | null;
+  schedule: {
+    enabled: boolean;
+    hour: number;
+    lastRun: string | null;
+    lastCleanup: string | null;
+    startedToday: number;
+    pipeline: {
+      channel: string;
+      short: number;
+      long: number;
+      target: { short: number; long: number };
+    }[];
+  } | null;
+  numbers: {
+    formats: {
+      format: "short" | "long";
+      videos: number;
+      views: number;
+      avgViews: number;
+      avgViewPercent: number | null;
+      shadowUsd: number;
+      shadowUsdPer1kViews: number | null;
+    }[];
+    progress: {
+      youtube: {
+        subscribers: number;
+        watchHours12m: number;
+        shortsViews90d: number;
+        at: string;
+        tiers: { early: number; full: number; from2027: number };
+      } | null;
+      tiktok: {
+        followers: number;
+        views30d: number;
+        at: string;
+        rewards: number;
+        minVideoSeconds: number;
+      } | null;
+      instagram: { followers: number; at: string } | null;
+    };
+    collectedAt: string | null;
+  } | null;
+  channels: { id: string; name: string; status: string }[];
+}
+
+export interface UplinkInfo {
+  publisher: {
+    mode: "dry-run" | "live";
+    killed: boolean;
+    platforms: {
+      platform: PlatformId;
+      enabled: boolean;
+      connected: boolean;
+      dailyCap: number;
+      today: number;
+    }[];
+    posts: PostInfo[];
+  } | null;
+  youtube: {
+    configured: boolean;
+    connected: boolean;
+    channel: { id: string; title: string } | null;
+    quota: { uploads: number; units: number; limits: { uploads: number; units: number } };
+  } | null;
+  instagram: {
+    configured: boolean;
+    connected: boolean;
+    account: { id: string; username: string } | null;
+    expiresAt: string | null;
+  } | null;
+  tiktok: TikTokInfo | null;
 }
 
 export interface TikTokInfo {
@@ -307,6 +472,14 @@ export class MockLink implements StationLink {
       tiktokConnect: SERVER_ONLY,
       tiktokDisconnect: SERVER_ONLY,
       tiktokUpload: SERVER_ONLY,
+      uplink: async () => null,
+      platformConnect: SERVER_ONLY,
+      platformDisconnect: SERVER_ONLY,
+      planPost: SERVER_ONLY,
+      postAction: SERVER_ONLY,
+      kitUrl: () => "",
+      studioBoard: async () => null,
+      runSchedule: SERVER_ONLY,
       vault: SERVER_ONLY,
       simulateWeek: SERVER_ONLY,
       weeklyRetro: SERVER_ONLY,
@@ -461,6 +634,16 @@ export class SocketLink implements StationLink {
         if (!res.ok || !data) throw new Error(data?.error ?? `Upload failed (${res.status})`);
         return data;
       },
+      uplink: async () => (await json("/uplink")) as UplinkInfo,
+      platformConnect: async (platform, returnTo) =>
+        ((await json(`/uplink/${platform}/connect`, { returnTo })) as { url: string }).url,
+      platformDisconnect: (platform) => post(`/uplink/${platform}/disconnect`, {}),
+      planPost: (videoId, opts) => post("/uplink/posts", { videoId, ...opts }),
+      postAction: (id, action) => post(`/uplink/posts/${encodeURIComponent(id)}/${action}`, {}),
+      kitUrl: (id) => withToken(`${this.base}/api/uplink/posts/${encodeURIComponent(id)}/kit`),
+      studioBoard: async () => (await json("/studio/board")) as StudioBoardInfo,
+      runSchedule: async () =>
+        (await json("/studio/schedule/run", {})) as { started: string[]; proposed: number },
       vault: async () => (await json("/vault")) as VaultInfo,
       simulateWeek: async () =>
         (await json("/vault/simulate", {})) as { sales: number; revenue: number },

@@ -258,6 +258,10 @@ export function wallScreen(width: number, variant: string | undefined, accent: s
         p.text(1, 1, "$1T", withAlpha(accent, 0.95));
         p.rect(17, 2, width - 19, 3, "#1d2b3a");
         p.rect(17, 2, 1 + f, 3, accent);
+      } else if (variant === "studio") {
+        // Idle: "CUT" and a blinking cursor; the scene draws the live bar over it while a video renders.
+        p.text(1, 1, "CUT", withAlpha(accent, 0.95));
+        if (f === 0) p.rect(width - 4, 1, 2, 5, withAlpha(accent, 0.8));
       } else {
         p.text(1, 1, "INBOX 0", withAlpha(accent, 0.95));
         if (f === 0) p.rect(width - 4, 1, 2, 5, withAlpha(accent, 0.8));

@@ -12,6 +12,7 @@ import { chunkCaptions, splitWords, toSrt, type WordTiming } from "./captions";
 import type { Channel } from "./channel";
 import { writeProject } from "./compose";
 import { frameAt } from "./ffmpeg";
+import type { GpuQueue } from "./gpu";
 import { type Asset, type AssetLibrary, creditsText, terms } from "./library";
 import type { MediaLane } from "./media";
 import { type RenderOptions, type RenderResult, renderProject } from "./render";
@@ -31,7 +32,15 @@ import type { Beat, ScriptDoc, WritersRoom } from "./writers";
  * yields three shorts with their own hooks (the waterfall, ROADMAP §7.2).
  */
 
-export type VideoStatus = "producing" | "review" | "approved" | "rejected" | "failed" | "posted";
+/** "waiting": an approved script's AI clips are in the GPU queue (Stage 18); the cut starts after. */
+export type VideoStatus =
+  | "waiting"
+  | "producing"
+  | "review"
+  | "approved"
+  | "rejected"
+  | "failed"
+  | "posted";
 
 export interface ShotRecord {
   beat: number;
@@ -69,6 +78,10 @@ export interface VideoDoc {
   assets: string[];
   screening?: ScreeningReport;
   disclosure: { syntheticMedia: boolean; aiNarration: boolean };
+  /** The lane it was made in; only live-lane videos can be posted (D-059). */
+  lane?: Lane;
+  /** Disk clean-up (Stage 20): the render's working files, or the whole folder, are gone. */
+  cleaned?: "workfiles" | "folder";
   artifactId?: string;
   note?: string;
   error?: string;
@@ -96,6 +109,10 @@ export interface EditBayDeps {
   frame?: (file: string, seconds: number, out: string) => Promise<void>;
   thumbnail?: typeof makeThumbnail;
   renderOptions?: Pick<RenderOptions, "workers" | "gpu" | "quality">;
+  /** The GPU lane (Stage 18): AI clips for "ai-video" shots. */
+  gpu?: Pick<GpuQueue, "request" | "clip" | "settled" | "config">;
+  /** Every saved change, for the studio screen on the station (Stage 20). */
+  onProgress?: (v: VideoDoc) => void;
   say?: (role: string, text: string) => void;
   log?: (message: string) => void;
   now?: () => number;
@@ -250,6 +267,11 @@ export class EditBay {
         v.createdAt,
         v.updatedAt,
       );
+    try {
+      this.deps.onProgress?.(v);
+    } catch {
+      // The screen on the station is a nicety; a failed broadcast never stops a render.
+    }
   }
 
   /**
@@ -273,6 +295,61 @@ export class EditBay {
       test: Boolean(opts.test) || channel.status === "draft",
       ...(opts.note ? { note: opts.note } : {}),
     });
+    // Approved scripts queue their AI clips first; test renders use only clips already made.
+    const gpu = this.deps.gpu;
+    if (gpu && !video.test) {
+      const cap =
+        script.format === "short" ? gpu.config.perScript.short : gpu.config.perScript.long;
+      const wanted = script.beats
+        .map((b, i) => ({ b, i }))
+        .filter(({ b }) => b.visual.kind === "ai-video")
+        .slice(0, cap);
+      for (const { b, i } of wanted) {
+        gpu.request(script.id, i, {
+          prompt: b.visual.prompt ?? b.narration,
+          orientation: script.format === "short" ? "portrait" : "landscape",
+          lane: this.deps.lane as MediaLane,
+        });
+      }
+      if (wanted.length > 0 && !gpu.settled(script.id)) {
+        video.status = "waiting";
+        video.stage = "ai-clips";
+        this.save(video);
+        this.deps.say?.(
+          "operator",
+          `${wanted.length} AI clip(s) queued for the GPU; the cut starts when they're ready.`,
+        );
+        return video;
+      }
+    }
+    this.start(video, script, channel, opts);
+    return video;
+  }
+
+  /** The GPU lane settled a script's clips (made, failed or late): start the waiting cuts. */
+  resume(scriptId: string): void {
+    const script = this.deps.writers.script(scriptId);
+    if (!script) return;
+    const channel = this.deps.writers.channel(script.channel);
+    for (const v of this.videos(undefined, "waiting").filter((x) => x.scriptId === scriptId)) {
+      v.status = "producing";
+      v.stage = "voice";
+      this.save(v);
+      this.start(v, script, channel, {});
+    }
+  }
+
+  /** True while any video is in production (the GPU lane waits, so they don't compete). */
+  busy(): boolean {
+    return this.running.size > 0;
+  }
+
+  private start(
+    video: VideoDoc,
+    script: ScriptDoc,
+    channel: Channel,
+    opts: { cutdowns?: number; fresh?: boolean },
+  ): void {
     this.track(
       video.id,
       this.run(video, script, channel, script.beats, opts.fresh ?? false).then(async () => {
@@ -280,7 +357,6 @@ export class EditBay {
           await this.waterfall(video, script, channel, opts.cutdowns ?? 3);
       }),
     );
-    return video;
   }
 
   /** Waits for background work on a video (tests and scripts). */
@@ -327,6 +403,7 @@ export class EditBay {
       shots: [],
       assets: [],
       disclosure: { syntheticMedia: false, aiNarration: channel.disclosure.aiNarration },
+      lane: this.deps.lane,
       createdAt: at,
       updatedAt: at,
       ...extra,
@@ -360,6 +437,8 @@ export class EditBay {
       out: path.join(out, "voice"),
       pronounce,
       voice: channel.voice.kokoro,
+      // Test renders use the free local voice; ElevenLabs credits go to approved scripts only.
+      draft: v.test,
     });
     v.voice = {
       provider: voice.provider,
@@ -385,6 +464,11 @@ export class EditBay {
         const g = span > 8 ? 5 : span;
         pieces.push({ start: t.start, dur: g, kind: vis.kind });
         if (span > 8) pieces.push(...this.split(t.start + g, span - g, "stock-image"));
+      } else if (vis.kind === "ai-video") {
+        // The clip covers the first piece; the rest of a long beat falls back to footage.
+        pieces.push(
+          ...this.split(t.start, span, vis.kind, this.deps.gpu?.config.clip.seconds ?? 5),
+        );
       } else pieces.push(...this.split(t.start, span, vis.kind));
       for (const [k, piece] of pieces.entries()) {
         let visual: Scene["visual"];
@@ -423,11 +507,18 @@ export class EditBay {
             ...(vis.prefix ? { prefix: vis.prefix } : {}),
             ...(vis.suffix ? { suffix: vis.suffix } : {}),
           };
+        } else if (
+          piece.kind === "ai-video" &&
+          k === 0 &&
+          this.deps.gpu?.clip(script.id, vis.prompt ?? beat.narration)
+        ) {
+          const clip = this.deps.gpu.clip(script.id, vis.prompt ?? beat.narration) as Asset;
+          used.push(clip);
+          record.got = "ai-video";
+          record.assetId = clip.id;
+          visual = { type: "video", src: clip.path, mediaStart: 0 };
         } else {
-          const query =
-            vis.query ??
-            (vis.prompt ? terms(vis.prompt).slice(0, 4).join(" ") : vis.text) ??
-            script.idea.title;
+          const query = vis.query ?? (vis.prompt ? keyTerms(vis.prompt) : keyTerms(beat.narration));
           const media = await this.media(
             piece.kind === "stat" ? "stock-image" : piece.kind,
             query,
@@ -573,13 +664,15 @@ export class EditBay {
               .slice(0, 4)
               .map((t) => `#${t.replace(/\s+/g, "")}`)
               .join(" ")}`.slice(0, 2200),
-            isAigc: v.disclosure.syntheticMedia,
+            // TikTok and Meta label realistic AI audio too, so the AI narrator counts (D-059).
+            isAigc: v.disclosure.syntheticMedia || v.disclosure.aiNarration,
           },
           instagram: {
             caption: `${v.title}\n\n${v.tags
               .slice(0, 8)
               .map((t) => `#${t.replace(/\s+/g, "")}`)
               .join(" ")}\n\nNarration: AI voice.`,
+            isAiGenerated: v.disclosure.syntheticMedia || v.disclosure.aiNarration,
           },
         },
         null,
@@ -598,8 +691,9 @@ export class EditBay {
     start: number,
     dur: number,
     kind: string,
+    max = 7,
   ): { start: number; dur: number; kind: string }[] {
-    const n = Math.max(1, Math.ceil(dur / 7));
+    const n = Math.max(1, Math.ceil(dur / max));
     return Array.from({ length: n }, (_x, i) => ({
       start: start + (dur / n) * i,
       dur: dur / n,
@@ -630,11 +724,14 @@ export class EditBay {
     const chain =
       kind === "stock-video"
         ? ["stock-video", "stock-image", "ai-still"]
-        : kind === "ai-still"
-          ? ["ai-still", "stock-image", "stock-video"]
-          : kind === "code"
-            ? []
-            : ["stock-image", "stock-video", "ai-still"];
+        : kind === "ai-video"
+          ? // A missing AI clip becomes footage, or a still with a camera move.
+            ["stock-video", "ai-still", "stock-image"]
+          : kind === "ai-still"
+            ? ["ai-still", "stock-image", "stock-video"]
+            : kind === "code"
+              ? []
+              : ["stock-image", "stock-video", "ai-still"];
     const notes: string[] = [];
     for (const step of chain) {
       try {
@@ -784,7 +881,7 @@ export class EditBay {
     this.deps.director?.fileDeskItem({
       kind: "deliverable",
       title: `${v.test ? "[Test render] " : ""}Video ready: ${v.title.slice(0, 80)}`,
-      summary: `${v.format === "long" ? "Long-form" : "Short"}, ${(v.duration ?? 0).toFixed(0)} s, ${s?.ok ? "screening clear" : `${s?.problems.length ?? 0} screening note(s)`}. ${v.test ? "Watch it; it can't be posted." : "Approve it for posting; send it back with a note to re-edit."}`,
+      summary: `${v.format === "long" ? "Long-form" : "Short"}, ${(v.duration ?? 0).toFixed(0)} s, ${s?.ok ? "screening clear" : `${s?.problems.length ?? 0} screening note(s)`}.${!v.test && v.voice?.fallback ? ` Voiced by Kokoro, not the channel's ElevenLabs voice (${v.voice.fallback.slice(0, 80)}); send it back to re-voice.` : ""} ${v.test ? "Watch it; it can't be posted." : "Approve it for posting; send it back with a note to re-edit."}`,
       requestedBy: "frame",
       objectiveId: null,
       taskId: null,
@@ -828,4 +925,20 @@ export class EditBay {
       }
     }
   }
+}
+
+/**
+ * A stock search from a line of narration: its proper nouns first ("Venus"), then its longest
+ * words, at most three. Better than the video's title for shots no query was written for.
+ */
+export function keyTerms(text: string, max = 3): string {
+  const words = text.split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}'-]/gu, ""));
+  const proper = words.filter(
+    (w, i) =>
+      i > 0 &&
+      /^[A-Z][a-z]{2,}/.test(w) &&
+      !/^(The|This|That|These|Its|It|And|But|For|When|Then|Some|Each)$/.test(w),
+  );
+  const rest = terms(text).sort((a, b) => b.length - a.length);
+  return [...new Set([...proper, ...rest])].slice(0, max).join(" ");
 }

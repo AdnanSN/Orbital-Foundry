@@ -206,7 +206,17 @@ export interface VoiceServiceOptions {
   /** Injected in tests; built from config and .env otherwise. */
   eleven?: ElevenLabsVoice | null;
   kokoro?: () => Promise<KokoroEngine>;
+  /** Waits between ElevenLabs retries (tests pass a fast one). */
+  sleep?: (ms: number) => Promise<void>;
   log?: (message: string) => void;
+}
+
+/** A dropped connection or a busy server, worth another try (not a refusal or a spent budget). */
+export function transientError(err: unknown): boolean {
+  const text = err instanceof Error ? `${err.message} ${String(err.cause ?? "")}` : String(err);
+  return /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|socket hang up|network error|HTTP 5\d\d|HTTP 429/i.test(
+    text,
+  );
 }
 
 export class VoiceService {
@@ -259,11 +269,20 @@ export class VoiceService {
       else if (!this.opts.hub.available("elevenlabs", req.lane))
         fallback = `ElevenLabs can't serve the ${req.lane} lane.`;
       else {
-        try {
-          return await this.speakEleven(text, req);
-        } catch (err) {
-          fallback = err instanceof Error ? err.message : String(err);
-          if (req.strict) throw err;
+        // A real video keeps its channel voice through a brief outage: three tries, 20 s and 60 s
+        // apart, before Kokoro steps in (D-061).
+        const waits = [20_000, 60_000];
+        for (let attempt = 0; ; attempt++) {
+          try {
+            return await this.speakEleven(text, req);
+          } catch (err) {
+            fallback = err instanceof Error ? err.message : String(err);
+            const wait = waits[attempt];
+            if (req.strict && (wait === undefined || !transientError(err))) throw err;
+            if (wait === undefined || !transientError(err)) break;
+            this.opts.log?.(`voice: ElevenLabs failed (${fallback}); trying again`);
+            await (this.opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))))(wait);
+          }
         }
       }
       if (req.strict && fallback) throw new Error(fallback);

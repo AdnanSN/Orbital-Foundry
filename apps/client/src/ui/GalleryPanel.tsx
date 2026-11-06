@@ -7,9 +7,9 @@ import { useUi } from "./store";
 
 const ROOMS: { id: string; label: string }[] = [
   { id: "", label: "All" },
-  { id: "factory-1", label: "Etsy POD" },
+  { id: "factory-1", label: "Writers' Room" },
   { id: "factory-2", label: "Thumbnails" },
-  { id: "factory-3", label: "Asset Forge" },
+  { id: "factory-3", label: "Edit Bay" },
 ];
 
 const REVIEW_COLOR: Record<ArtifactReview, string> = {

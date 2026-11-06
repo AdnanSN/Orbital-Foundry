@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { withToken } from "../sim/link";
 import type { Ctx } from "./App";
 import { Markdown } from "./Markdown";
 
@@ -65,10 +66,25 @@ export function ArtifactViewer({ ctx, id }: { ctx: Ctx; id: string }) {
           ) : state.content === null ? (
             <div className="text-dim">Loading…</div>
           ) : (
-            <Markdown
-              text={state.content}
-              resolveImage={(ref) => (/^I-\d+$/.test(ref) ? link.commands.fileUrl(ref) : null)}
-            />
+            <>
+              {/* The Edit Bay marks its videos in the deliverable; play them right here. */}
+              {[...state.content.matchAll(/<!-- video:([A-Z]-\d+) -->/g)].map((m) => (
+                <video
+                  key={m[1]}
+                  controls
+                  preload="metadata"
+                  poster={withToken(`/api/studio/videos/${m[1]}/thumbnail`)}
+                  src={withToken(`/api/studio/videos/${m[1]}/file`)}
+                  className="w-full max-h-[62vh] rounded-md bg-black mb-3"
+                >
+                  <track kind="captions" />
+                </video>
+              ))}
+              <Markdown
+                text={state.content.replace(/<!-- video:[A-Z]-\d+ -->\n?/g, "")}
+                resolveImage={(ref) => (/^I-\d+$/.test(ref) ? link.commands.fileUrl(ref) : null)}
+              />
+            </>
           )}
         </div>
       </div>

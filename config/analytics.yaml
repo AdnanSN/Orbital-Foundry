@@ -1,0 +1,35 @@
+# Analytics and the learning loop (Stage 19, D-061).
+
+# How often the station fetches platform stats (YouTube Analytics lags about two days).
+collectEveryHours: 6
+
+# The weekly retro needs this many posted videos with at least two days of stats.
+retro:
+  minVideos: 3
+  # Sunday from 18:00 local time, at most once a week.
+  day: 0
+  hour: 18
+
+# Shadow cost: what the free work would cost on paid tiers (the Vault's view, Stage 10).
+costs:
+  # ElevenLabs Creator: $22 for 121,000 credits a month (also used for Kokoro's characters).
+  usdPerVoiceCredit: 0.00018
+  # The laptop's GPU making AI clips: about 120 W at $0.30 a kWh.
+  localGpuUsdPerHour: 0.04
+  # Rendering on the laptop (CPU and NVENC).
+  renderUsdPerHour: 0.03
+  # One FLUX still on a paid API.
+  imageUsd: 0.003
+
+# Monetisation thresholds (checked 2026-11-06; sources in docs/STUDIO-RESEARCH.md).
+thresholds:
+  youtube:
+    # The fan-funding tier: memberships, Super Thanks (needs 3 public uploads in 90 days too).
+    early: { subscribers: 500, watchHours12m: 3000, shortsViews90d: 3000000 }
+    # Ad revenue.
+    full: { subscribers: 1000, watchHours12m: 4000, shortsViews90d: 10000000 }
+    # Announced 2026-08-10 for new applicants in 2027 (no exact date yet).
+    from2027: { subscribers: 1000, watchHours12m: 8000, shortsViews90d: 20000000 }
+  tiktok:
+    # Creator Rewards: only videos longer than one minute earn.
+    rewards: { followers: 10000, views30d: 100000, minVideoSeconds: 60 }

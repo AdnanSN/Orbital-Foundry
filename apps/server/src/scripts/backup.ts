@@ -8,6 +8,7 @@
 import { openDb } from "../db";
 import { loadEnv } from "../env";
 import { loadOpsConfig, OpsService } from "../ops/ops";
+import { backupSkip } from "../studio/schedule";
 import { WorkStore } from "../work/store";
 
 loadEnv();
@@ -15,6 +16,7 @@ const db = openDb();
 const store = new WorkStore(db);
 const ops = new OpsService(db, loadOpsConfig(), {
   ...(process.env.ORBITAL_BACKUP_DIR ? { backupDir: process.env.ORBITAL_BACKUP_DIR } : {}),
+  skip: backupSkip,
   getKv: (k) => store.getKv(k),
   setKv: (k, v) => store.setKv(k, v),
 });

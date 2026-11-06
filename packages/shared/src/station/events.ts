@@ -287,6 +287,21 @@ export const artifactUpdatedEventSchema = z.object({
   artifact: artifactMetaSchema,
 });
 
+/** A video moved along in the Edit Bay (Stage 20): the studio screen shows it. */
+export const studioProgressEventSchema = z.object({
+  ...base,
+  type: z.literal("studio.progress"),
+  video: z.object({
+    id: z.string(),
+    title: z.string(),
+    format: z.enum(["short", "long"]),
+    status: z.string(),
+    stage: z.string(),
+    progress: z.number().min(0).max(100),
+    test: z.boolean(),
+  }),
+});
+
 export const stationEventSchema = z.discriminatedUnion("type", [
   snapshotEventSchema,
   agentSpawnedEventSchema,
@@ -301,6 +316,7 @@ export const stationEventSchema = z.discriminatedUnion("type", [
   approvalUpdatedEventSchema,
   artifactCreatedEventSchema,
   artifactUpdatedEventSchema,
+  studioProgressEventSchema,
 ]);
 export type StationEvent = z.infer<typeof stationEventSchema>;
 export type StationEventType = StationEvent["type"];

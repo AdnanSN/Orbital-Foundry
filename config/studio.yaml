@@ -1,0 +1,25 @@
+# The always-on studio (Stage 20, D-062).
+
+schedule:
+  # Starts the scripts the cadence needs once a day. Each one waits for your approval at the
+  # Owner's Desk, so nothing is made or posted without you. Set false to write scripts by hand only.
+  enabled: true
+  # Local hour of the daily run.
+  hour: 9
+  # Keep this many days of shorts in the pipeline (a long-form counts for its three cut-down shorts).
+  leadDays: 3
+  # At most this many new scripts a day, so the free model tiers keep up.
+  maxScriptsPerDay: 2
+  # Propose fresh ideas when fewer than this wait in a format's backlog.
+  minBacklog: 3
+
+cleanup:
+  # Test renders lose their folders after this many days.
+  testRenderDays: 3
+  # Failed and sent-back videos lose their folders after this many days.
+  failedDays: 7
+  # Posted videos keep the MP4, thumbnail, captions and metadata, and lose the render's working
+  # files (the project folder, voice tracks, drawn frames) after this many days.
+  postedWorkfilesDays: 14
+  # The clip library (stock footage, photos, AI stills and clips) stays under this size.
+  libraryCapGb: 8

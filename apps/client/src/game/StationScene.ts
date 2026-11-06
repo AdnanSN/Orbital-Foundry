@@ -71,6 +71,15 @@ export class StationScene extends Phaser.Scene implements CameraCommands {
   private doors: Door[] = [];
   private racks: { sprite: Phaser.GameObjects.Sprite; provider: string; state: string }[] = [];
   private scanner: { sprite: Phaser.GameObjects.Sprite; anchor: string } | null = null;
+  /** The Edit Bay's wall screen: a live bar for the cut in progress (Stage 20). */
+  private studioScreen: {
+    gfx: Phaser.GameObjects.Graphics;
+    x: number;
+    y: number;
+    w: number;
+    accent: number;
+    key: string;
+  } | null = null;
   private intakeCrates: Phaser.GameObjects.Image[] = [];
   private highlight!: Phaser.GameObjects.Graphics;
   private drag: { x: number; y: number; sx: number; sy: number; moved: boolean } | null = null;
@@ -228,6 +237,16 @@ export class StationScene extends Phaser.Scene implements CameraCommands {
               .setOrigin(0, 0)
               .setDepth(1),
           ).play(`wall-${o.id}`);
+          if (o.variant === "studio") {
+            this.studioScreen = {
+              gfx: add(this.add.graphics().setDepth(2)),
+              x: ox + 2,
+              y: oy + 5,
+              w: o.w * TILE - 4,
+              accent: Phaser.Display.Color.HexStringToColor(accent).color,
+              key: "",
+            };
+          }
           break;
         case "scanner": {
           const key = `scan-${accent}`;
@@ -369,6 +388,27 @@ export class StationScene extends Phaser.Scene implements CameraCommands {
       }
     }
     if (this.scanner) this.scanner.sprite.setVisible(busy.has(this.scanner.anchor));
+    const screen = this.studioScreen;
+    if (screen) {
+      const cut = world.studioActive();
+      const key = cut ? `${cut.id}:${Math.round(cut.progress)}:${cut.status}` : "";
+      if (key !== screen.key) {
+        screen.key = key;
+        const g = screen.gfx.clear();
+        if (cut) {
+          // A long-form gets a full-height bar, a short a thinner one; waiting is a dim stub.
+          const h = cut.format === "long" ? 5 : 3;
+          const fill =
+            cut.status === "waiting"
+              ? 1
+              : Math.max(1, Math.round(((screen.w - 2) * cut.progress) / 100));
+          g.fillStyle(0x0f2130, 1).fillRect(screen.x, screen.y, screen.w, 7);
+          g.fillStyle(0x1d2b3a, 1).fillRect(screen.x + 1, screen.y + (7 - h) / 2, screen.w - 2, h);
+          g.fillStyle(screen.accent, cut.status === "waiting" ? 0.5 : 1);
+          g.fillRect(screen.x + 1, screen.y + (7 - h) / 2, fill, h);
+        }
+      }
+    }
     const waiting = world.intakeCount();
     this.intakeCrates.forEach((c, i) => {
       c.setVisible(i < waiting);

@@ -183,11 +183,16 @@ describe("voice", () => {
     expect(fs.statSync(r.file).size).toBeGreaterThan(44);
   });
 
-  function fakeEleven(used: number, limit: number) {
+  function fakeEleven(used: number, limit: number, dropFirst = 0) {
     const calls: string[] = [];
+    let drops = dropFirst;
     const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       calls.push(url);
+      if (drops > 0 && url.includes("text-to-speech")) {
+        drops -= 1;
+        throw new TypeError("fetch failed");
+      }
       if (url.endsWith("/user/subscription")) {
         return Response.json({ character_count: used, character_limit: limit });
       }
@@ -226,6 +231,41 @@ describe("voice", () => {
     expect(r.words.map((w) => w.text)).toEqual(["Every", "agent", "is", "real."]);
     expect(r.words[1]?.start).toBeCloseTo(0.12, 5);
     expect(h.usage.monthUnits("elevenlabs")).toBe(20);
+  });
+
+  it("keeps the ElevenLabs voice through a dropped connection, and says when it gave up", async () => {
+    const waits: number[] = [];
+    const sleep = async (ms: number) => void waits.push(ms);
+    const flaky = fakeEleven(1000, 121_000, 1);
+    const voices = new VoiceService({
+      hub: hub({ ELEVENLABS_API_KEY: "k" }),
+      eleven: flaky.voice,
+      kokoro: async () => fakeKokoro,
+      sleep,
+    });
+    const r = await voices.speak({
+      text: "Every agent is real.",
+      lane: "live",
+      out: path.join(dir, "e3"),
+    });
+    expect(r.provider).toBe("elevenlabs");
+    expect(waits).toEqual([20_000]);
+
+    const down = fakeEleven(1000, 121_000, 5);
+    const offline = new VoiceService({
+      hub: hub({ ELEVENLABS_API_KEY: "k" }),
+      eleven: down.voice,
+      kokoro: async () => fakeKokoro,
+      sleep,
+    });
+    const k = await offline.speak({
+      text: "Every agent is real.",
+      lane: "live",
+      out: path.join(dir, "e4"),
+    });
+    expect(k.provider).toBe("kokoro");
+    expect(k.fallback).toMatch(/fetch failed/);
+    expect(waits).toEqual([20_000, 20_000, 60_000]);
   });
 
   it("stops short of the plan's credits and falls back to Kokoro", async () => {

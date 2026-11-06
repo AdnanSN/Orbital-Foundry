@@ -54,7 +54,7 @@ export function composeTimeline(t: Timeline): Built {
     const tail = next && next.transition === "fade" ? FADE : 0;
     const start = scene.start;
     const dur = scene.duration + tail;
-    const inner = sceneHtml(scene, id, asset, { short, base, start, dur });
+    const inner = sceneHtml(scene, id, asset, { short, base, width: W, start, dur });
     body.push(
       `<div id="${id}" class="clip scene" style="z-index:${i + 1}" data-start="${n(start)}" data-duration="${n(dur)}">${inner}</div>`,
     );
@@ -201,6 +201,7 @@ window.__timelines["main"] = tl;
 interface SceneCtx {
   short: boolean;
   base: number;
+  width: number;
   start: number;
   dur: number;
 }
@@ -224,8 +225,15 @@ function sceneHtml(
       return `<div class="center">${v.heading ? `<div class="heading">${esc(v.heading)}</div>` : ""}${v.index !== undefined ? `<div class="badge">#${v.index}</div>` : ""}<div class="item">${esc(v.item)}</div>${v.detail ? `<div class="detail">${esc(v.detail)}</div>` : ""}</div>`;
     case "quote":
       return `<div class="center"><div class="qmark">“</div><div class="qtext">${esc(v.text)}</div>${v.by ? `<div class="qby">— ${esc(v.by)}</div>` : ""}</div>`;
-    case "stat":
-      return `<div class="center"><div class="stat">${esc(v.prefix ?? "")}<span id="${id}-n">0</span>${esc(v.suffix ?? "")}</div><div class="slabel">${esc(v.label)}</div></div>`;
+    case "stat": {
+      // Units read as words ("116.8 days"), and long numbers shrink to fit the frame.
+      const suffix = v.suffix ? `${/^[A-Za-z]/.test(v.suffix) ? " " : ""}${v.suffix}` : "";
+      const chars = (v.prefix ?? "").length + v.value.toFixed(v.decimals).length + suffix.length;
+      const size = Math.floor(
+        Math.min(ctx.base * 0.2, (ctx.width * 0.86) / Math.max(1, chars * 0.62)),
+      );
+      return `<div class="center"><div class="stat" style="font-size:${size}px">${esc(v.prefix ?? "")}<span id="${id}-n">0</span>${esc(suffix)}</div><div class="slabel">${esc(v.label)}</div></div>`;
+    }
     case "still":
       return `<img class="media" src="${asset(v.src)}" alt="" /><div class="shade"></div>${v.label ? `<div class="label">${esc(v.label)}</div>` : ""}${v.credit ? `<div class="credit">${esc(v.credit)}</div>` : ""}`;
     case "video":

@@ -21,14 +21,17 @@ import type { PodFactory } from "../pod/factory";
 import type { PodPublisher } from "../printify/publisher";
 import type { SimServer } from "../sim/simServer";
 import { type ThumbnailStudio, thumbBriefSchema } from "../thumbs/studio";
+import type { InstagramConnector } from "../uplink/instagram";
+import type { UplinkPublisher } from "../uplink/publisher";
 import type { TikTokConnector } from "../uplink/tiktok";
+import type { YouTubeConnector } from "../uplink/youtube";
 import { type Economy, SimulationOffError } from "../vault/economy";
 import type { KpiService } from "../vault/kpis";
 import { LEDGER_KINDS, type Ledger } from "../vault/ledger";
 import type { WorkDirector } from "../work/director";
 import type { WorkStore } from "../work/store";
 import { registerStudioRoutes, type StudioApi } from "./studio";
-import { registerUplinkRoutes, TIKTOK_CALLBACK_PATH } from "./uplink";
+import { registerUplinkRoutes, UPLINK_OPEN_PATHS } from "./uplink";
 
 const hireSchema = z.object({
   name: z.string().regex(/^[A-Za-z][A-Za-z0-9-]{0,7}$/, "Names are 1-8 letters, digits or dashes"),
@@ -90,8 +93,11 @@ export interface WorkApi {
   ops?: OpsService;
   achievements?: Achievements;
   telegram?: boolean;
-  /** The Uplink's TikTok connection (Stage 17, built early for TikTok's app review). */
+  /** The Uplink (Stage 17): the platform connections and the publisher. */
   tiktok?: TikTokConnector;
+  youtube?: YouTubeConnector;
+  instagram?: InstagramConnector;
+  uplink?: UplinkPublisher;
   /** The faceless studio (Stages 15 on). */
   faceless?: StudioApi;
   /** Where deliverable ZIPs live (served by GET /api/artifacts/:id/zip). */
@@ -153,8 +159,8 @@ export async function buildApp(
   if (token) {
     app.addHook("onRequest", async (req, reply) => {
       const url = new URL(req.url, "http://station.local");
-      // TikTok's sign-in comes back through the website, without the token; `state` guards it.
-      if (url.pathname === "/api/health" || url.pathname === TIKTOK_CALLBACK_PATH) return;
+      // Platform sign-ins come back without the token; `state` guards them.
+      if (url.pathname === "/api/health" || UPLINK_OPEN_PATHS.includes(url.pathname)) return;
       if (!url.pathname.startsWith("/api") && !url.pathname.startsWith("/ws")) return;
       const header = req.headers.authorization;
       const given = header?.startsWith("Bearer ") ? header.slice(7) : url.searchParams.get("token");
@@ -299,6 +305,8 @@ export async function buildApp(
       app.post("/api/kill", async (req) => {
         const body = killSchema.parse(req.body ?? {});
         publisher.setKill(body.on);
+        // Scheduled posts are held at once (a scheduled YouTube upload goes back to private).
+        await work.uplink?.onKill();
         return { killed: publisher.killed() };
       });
       app.post("/api/pod/sync", async () => publisher.syncOrders());
@@ -416,7 +424,14 @@ export async function buildApp(
         ? reply.code(201).send(meta)
         : reply.code(409).send({ error: "No Overseer aboard" });
     });
-    if (work.tiktok) registerUplinkRoutes(app, work.tiktok);
+    if (work.tiktok || work.youtube || work.instagram || work.uplink) {
+      registerUplinkRoutes(app, {
+        tiktok: work.tiktok,
+        youtube: work.youtube,
+        instagram: work.instagram,
+        publisher: work.uplink,
+      });
+    }
     if (work.faceless) registerStudioRoutes(app, work.faceless);
   }
 

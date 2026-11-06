@@ -874,3 +874,178 @@ laptop.
   multi-GB model and Python stack on a disk with 59 GB free).
 - **AI stills** use the station's image service in the video's lane, after the IP blocklist; FLUX's
   square output is cropped by the renderer.
+
+## D-057: The channel's niche: rare phenomena of Earth and space (2026-11-06)
+
+**Context.** The owner asked the studio to pick the niche from real market research and trends.
+Scout's niche study offered three: unusual historical events, rare scientific phenomena, and
+forgotten technologies.
+
+**Research (2026, third-party estimates; real RPM shows only in YouTube Studio):**
+
+- Education and science explainers: CPM about $9 to $15 (Virlo), an ad RPM ceiling near $5 to $8;
+  animated science explainers are reported at $8 to $20 RPM thanks to an educated audience.
+- "Space and science mysteries": CPM $5 to $12 and a low starting difficulty for faceless channels,
+  because NASA and ESA footage is largely public domain and suits an AI narrator (OutlierKit, which
+  points to SEA and Astrum at millions of subscribers).
+- Mysteries break out often (12.5% of tracked videos in one dataset), and 2026 has steady space news
+  hooks (Artemis, JWST, interstellar visitors).
+
+**Decision.** Candidate 2, rare scientific phenomena (Scout scored it demand 9, competition 5, ad
+rates 8, policy risk 1, fit 10), widened to Earth and space: Earth phenomena have good Pixabay
+footage and space phenomena have NASA's free archive, so the free stack covers both. The channel is
+`config/channels/rare-scientific-phenomena.yaml` (active). Its generated persona called the
+narrator an "AI scientist"; that was rewritten, because claiming expertise breaks D-053. The first
+draft, `space-explainers`, is paused, not deleted.
+
+**Also cleared, on the owner's instruction to do what is most efficient:** the five shop-era
+escalations were rejected (their tasks stop; a rejected escalation never retries) and the
+icon-pack plan was accepted to close its objective. The Forge stays parked.
+
+## D-058: How the Edit Bay works (2026-11-06)
+
+- **Voice first, then shots.** Beats are timed from the voice's word timings, counting the
+  channel's pronunciation fixes. Each beat's visual comes from a fallback chain: footage, then a
+  photo, then an AI still, then a code-drawn starfield (for an AI-still beat: AI still, photo,
+  footage). Media shots longer than 7 s are split so the picture keeps moving; motion graphics hold
+  at most 8 s before footage takes over. Every shot records what was wanted, what was used and why.
+- **Shorts** get word-by-word captions and a progress bar; **long-form** gets an SRT file instead
+  of burned captions, and chapters from its title cards (at least three, ten seconds apart). Each
+  long-form is cut into three shorts: the model picks self-contained stretches and writes a new
+  hook for each.
+- **Package:** MP4, SRT, thumbnail (the strongest early frame with the script's thumbnail text),
+  a description with chapters, sources, credits and the AI-narration note, and `metadata.json` per
+  platform with the AI-disclosure flags (`containsSyntheticMedia`, `is_aigc`), set when any AI still
+  is used.
+- **Screening:** FFmpeg's black, freeze and silence detectors, loudness and true peak, and the IP
+  blocklist. Problems are listed on the Desk item; the owner still decides.
+- **Approval:** approving a script at the Desk starts production. Test renders (of scripts still
+  under review, or for a draft channel) are labelled and can never be approved for posting, and
+  they use Kokoro, so ElevenLabs credits go only to approved scripts. The Desk plays the video
+  (range requests, so it can seek).
+- **Pacing:** the Writers' Room writes one script at a time and waits out per-minute rate limits
+  (20 to 80 s, four tries), since parallel scripts only compete for the same tokens per minute.
+
+## D-059: Posting through the Uplink (2026-11-06)
+
+- **Two approvals, as in D-033.** Approving a video says it is good. The Uplink then files a post
+  plan at the Owner's Desk (and the phone): the platforms, the time for each, the captions, the
+  AI labels and the mode. Approving the plan lets it leave the station; sending it back cancels
+  it, and the Uplink panel can plan it again. A plan keeps the mode and route it was approved
+  with: a dry-run plan never posts for real, and a plan for an upload kit stays a kit.
+- **Dry run by default.** `PUBLISH_MODE=live` sends real uploads (separate from `PRINTIFY_MODE`).
+  Otherwise each post is recorded with a `dry-…` id and nothing is sent. Live posting also needs
+  the live lane and a video made in the live lane, and test renders can never be posted.
+- **Once only.** Each post runs through the outbox under its own id (`uplink.U-0001`), so a retry
+  or a resume returns the stored result instead of posting twice.
+- **The kill switch holds everything scheduled.** A scheduled YouTube upload is set back to
+  private with no publish time. Held posts resume only by hand, with a fresh slot if theirs has
+  passed.
+- **Schedule and caps** (`config/uplink.yaml`, local time): shorts at 17:00, long-form on Saturdays
+  at 15:00, nothing sooner than 30 minutes after approval, one post per platform per slot, and at
+  most 4 YouTube, 2 Instagram and 2 TikTok posts a day.
+- **YouTube:** a desktop OAuth client with PKCE and a loopback redirect to the station (no website
+  page needed). The upload happens at approval with `publishAt` (private until then), plus the
+  thumbnail, the captions file, the channel's playlist and `containsSyntheticMedia`. Quota is
+  counted per Pacific-time day: 100 uploads and 10,000 units. The very first live upload goes out
+  unlisted, as a check that the project isn't locked to private.
+- **Instagram:** Instagram API with Instagram Login through the website's callback page (as
+  TikTok), long-lived tokens that refresh themselves, and Reels from the local file (resumable
+  upload) at the slot time.
+- **TikTok:** a draft in the inbox at the slot time, with a phone notice holding the caption.
+  Direct Post with `is_aigc` waits for the audit.
+- **AI labels.** Meta and TikTok label realistic AI audio as well as visuals, so the AI narrator
+  turns on Instagram's `is_ai_generated` (the "AI info" label, in the API since June 2026) and the
+  TikTok label the owner sets when posting a draft. This changes D-058 for those two platforms.
+  YouTube's `containsSyntheticMedia` stays as D-058 sets it, because YouTube's rule covers
+  realistic people, places and events, not a narrator's voice.
+- **Not connected → upload kit.** A ZIP made on request: the video, thumbnail, captions file
+  (YouTube) and a `post.txt` with the title, caption, hashtags and settings.
+- **Sign-in callbacks skip the API token**, because `state` guards them. Tokens live in
+  `data/secrets/` (git-ignored) and never reach logs.
+
+## D-060: The GPU lane (2026-11-06)
+
+- **Where AI video goes.** A new shot kind, `ai-video`: five seconds of AI-made motion for a hook or
+  a key moment no footage shows, at most 2 in a short and 6 in a long-form, never realistic people
+  or real events. Clips count as AI visuals, so they turn on the AI-disclosure flags (D-058, D-059).
+- **The queue.** Approving a script queues its AI clips (`gpu_jobs`) with a 12-hour deadline, and
+  the video waits ("waiting") until every clip is made, failed twice or expired. Then the cut
+  starts. A missing clip becomes footage, or a still with a camera move, so a video still finishes
+  on time when the queue falls behind. Test renders never wait.
+- **When the GPU works.** In quiet hours (23:00 to 07:00) always; otherwise only after 10 minutes
+  under 15% load, and never while the Edit Bay is rendering. One job at a time.
+- **Generators, in order:** ComfyUI on the laptop (its HTTP API with a workflow exported in API
+  format, Wan 2.2 TI2V-5B at 480p to start); Modal as the burst lane, used only when a deadline is
+  under 3 hours away and the laptop can't take the job, hard-capped at $25 a month (under the $30
+  of free credit; spend is the wall time times the L40S rate, so it errs high); fal (Kling,
+  Seedance, Veo) wired but off, sandbox-only until a terms check per model.
+- **Licences and lanes.** ComfyUI with Wan 2.2 (Apache-2.0) and our Modal app serve the live lane:
+  Modal's terms leave customer data and outputs with the customer (checked 2026-11-06). LTX-2
+  workflows are allowed (free for commercial use under $10M a year in revenue). Config validation
+  refuses a Hunyuan-based provider in the live lane, since its licence excludes the EU, the UK and
+  South Korea.
+- **No downloads without the owner.** The models (about 18 GB for Wan 2.2 5B in ComfyUI) wait for
+  your OK, because the disk has about 55 GB free; `npm run gpu -- bench` measures the RTX 3050 once
+  they're in. Wan2GP has no stable API, so it is compared by hand and would need its own adapter.
+
+## D-061: Analytics and the learning loop (2026-11-06)
+
+- **Stats, for live posts only** (dry runs have none), every 6 hours. YouTube Analytics per video:
+  views, watch time, average view duration and percentage, subscribers gained, likes, comments,
+  shares and traffic sources. Per channel: subscribers, long-form watch hours (12 months) and
+  Shorts views (90 days). Instagram Insights per Reel, plus followers. TikTok's numbers are typed
+  in (`POST /api/studio/stats`) until its API grants `video.list` and `user.info.stats`, which
+  means another app review. Each post gets one snapshot a day (`video_stats`, lifetime totals).
+- **Costs per video:** money actually spent (Modal, fal) and shadow cost: ElevenLabs credits at
+  the Creator plan's rate (Kokoro's characters too), AI stills, AI clips (local GPU time or the
+  Modal bill) and render time. Clips count once, on the main video.
+- **Thresholds** (`config/analytics.yaml`): YouTube's 500-subscriber tier (3,000 hours or 3M Shorts
+  views), full ad revenue (1,000 subscribers with 4,000 hours or 10M Shorts views), and the
+  doubled bar for new applicants announced for 2027 (8,000 hours or 20M Shorts views). TikTok's
+  Creator Rewards: 10,000 followers, 100,000 views in 30 days, and only videos over one minute
+  earn. Our shorts run 30 to 60 s, so TikTok pays nothing for them as they are.
+- **The weekly retro** (Sunday from 18:00, or on request) needs three posted videos with two days
+  of stats. WARDEN reads them and proposes idea-score weights, lessons on hooks, titles,
+  thumbnails, topics and formats, and a cadence. Code clamps it: a weight moves at most 0.05 a
+  week within 0.05 to 0.6, and risk never drops below 0.1. Cadence moves one step within 0 to 2
+  long-form a week and 1 to 3 shorts a day. At most six lessons. It goes to the Owner's Desk, and
+  nothing changes until you approve it.
+- **What changes when you approve:** new ideas are scored with the new weights, and the backlog is
+  re-ranked at once (the next slate). Every Writers' Room prompt carries the lessons (the 12
+  newest), and the cadence feeds the production schedule (Stage 20). WARDEN's daily standup
+  quotes the real numbers.
+- **Voice reliability (found while doing this):** two real videos fell back to Kokoro because
+  ElevenLabs answered "fetch failed" just after the laptop woke from sleep. ElevenLabs now gets
+  three tries, 20 s and 60 s apart, on network errors before Kokoro steps in, and the Desk item
+  says when a real video used the fallback voice.
+
+## D-062: The always-on studio (2026-11-06)
+
+- **The production schedule** (`config/studio.yaml`) runs daily at 09:00. Per active channel it
+  counts what is on the way: scripts being written or waiting at the Desk, approved scripts not
+  made yet, and real videos being made, waiting at the Desk or approved but not posted. A
+  long-form counts for its three shorts until the cut-downs exist. Below the cadence's target
+  (shorts a day × 3 days, and the week's long-forms) it starts scripts for the best backlog
+  ideas, long-form first, at most two a day, and proposes fresh ideas once a day when a backlog
+  runs low. Each script still waits for you at the Owner's Desk, so the 7-day run is three taps
+  per video: the script, the cut and the post plan. Approvals reach your phone through Telegram
+  when it is set up.
+- **Clean-up**, daily. Test renders lose their folders after 3 days, and failed or sent-back
+  videos after 7. Posted videos keep the MP4, thumbnail, captions and metadata but lose the
+  render's working files (the project folder, voice tracks, drawn frames) after 14 days. The
+  clip library stays under 8 GB, keeping clips that unposted videos use. Only folders named like
+  a video id inside the videos folder are ever deleted.
+- **Backups** already mirrored all of `data/artifacts`; they now skip the render's working files,
+  so finished videos are backed up without a 26 MB voice track and the project copy for each.
+- **The rooms** became the studio's in the map data: Trend Lab, Writers' Room, Thumbnail Studio,
+  Edit Bay, Screening Room and Vault. The Uplink shares the Server Room by the Owner's Desk ("UPLINK
+  / SERVERS"), because a new room would need new floor space. Room ids stay the same, so nothing
+  else changes.
+- **Screens.** A `studio.progress` station event (re-sent every 15 s while a cut is in progress,
+  for clients that just joined) drives a live bar on the Edit Bay's wall screen. Real frames show
+  in the Studio panel's player and the Desk, since a wall screen is only 7 pixels tall.
+- **The Studio panel** reads one endpoint (`/api/studio/board`): each script and video as eight
+  steps (idea, script, voice, visuals, render, screening, approval, posted), a player, the
+  budgets left (ElevenLabs credits, AI stills today, the GPU queue, Modal's cap, free disk),
+  platform status, the schedule and the progress toward monetisation.

@@ -17,11 +17,30 @@ import { PodPublisher } from "./printify/publisher";
 import { SimServer } from "./sim/simServer";
 import { SimStore } from "./sim/store";
 import { createStation } from "./station";
+import { loadAnalyticsConfig, StudioAnalytics } from "./studio/analytics";
+import { StudioBoard } from "./studio/board";
+import { EditBay, type VideoDoc } from "./studio/editbay";
+import {
+  ComfyUIGenerator,
+  FalGenerator,
+  GpuQueue,
+  loadGpuConfig,
+  ModalGenerator,
+} from "./studio/gpu";
+import { AssetLibrary } from "./studio/library";
 import { loadMediaConfig, MediaHub, MediaUsage } from "./studio/media";
+import { backupSkip, loadStudioConfig, StudioSchedule } from "./studio/schedule";
 import { SignalService } from "./studio/signals";
+import { SoundKit } from "./studio/sound";
+import { generateStill } from "./studio/stills";
+import { StockService } from "./studio/stock";
+import { VoiceService } from "./studio/voice";
 import { WritersRoom } from "./studio/writers";
 import { ThumbnailStudio } from "./thumbs/studio";
+import { InstagramConnector } from "./uplink/instagram";
+import { loadUplinkConfig, UplinkPublisher } from "./uplink/publisher";
 import { TikTokConnector } from "./uplink/tiktok";
+import { YouTubeConnector } from "./uplink/youtube";
 import { Economy } from "./vault/economy";
 import { KpiService, loadVaultConfig } from "./vault/kpis";
 import { Ledger, Outbox } from "./vault/ledger";
@@ -217,6 +236,8 @@ const economyTimer = setInterval(() => economy.tick(), 60 * 60_000);
 // Stage 11: always-on operations. Backups nightly; phone notifications when configured.
 const ops = new OpsService(station.db, loadOpsConfig(), {
   ...(process.env.ORBITAL_BACKUP_DIR ? { backupDir: process.env.ORBITAL_BACKUP_DIR } : {}),
+  // Finished videos are backed up; the render's working files are not (D-062).
+  skip: backupSkip,
   getKv: (k) => work.getKv(k),
   setKv: (k, v) => work.setKv(k, v),
   log: (m) => console.log(`[ops] ${m}`),
@@ -290,6 +311,188 @@ const writers = new WritersRoom({
   say: sayRole,
   log: (m) => console.log(`[writers] ${m}`),
 });
+// Stage 16: the Edit Bay turns approved scripts into finished videos (a test render on request).
+const library = new AssetLibrary(station.db, path.join(DATA_DIR, "library"));
+// Stage 18: the GPU lane makes AI clips for "ai-video" shots (D-060). Without a ready generator
+// the jobs expire at their deadline and those shots use footage or a still instead.
+const gpuConfig = loadGpuConfig();
+const modalUrl = process.env[gpuConfig.modal.urlEnv];
+const gpu = new GpuQueue({
+  db: station.db,
+  hub: media,
+  library,
+  store: work,
+  generators: [
+    new ComfyUIGenerator(gpuConfig.comfyui),
+    new ModalGenerator({
+      ...(modalUrl ? { url: modalUrl } : {}),
+      ...(process.env.MODAL_KEY ? { key: process.env.MODAL_KEY } : {}),
+      ...(process.env.MODAL_SECRET ? { secret: process.env.MODAL_SECRET } : {}),
+      costPerSecond: gpuConfig.modal.costPerSecond,
+      estimateSeconds: gpuConfig.modal.estimateSeconds,
+    }),
+    new FalGenerator({
+      ...(process.env.FAL_KEY ? { key: process.env.FAL_KEY } : {}),
+      model: gpuConfig.fal.model,
+      costPerClip: gpuConfig.fal.costPerClip,
+      enabled:
+        media.has("fal-video") && media.setting<boolean>("fal-video", "enabled", false) === true,
+    }),
+  ],
+  config: gpuConfig,
+  dir: path.join(ARTIFACTS_DIR, "gpu"),
+  busy: () => editbay.busy(),
+  onSettled: (scriptId) => editbay.resume(scriptId),
+  log: (m) => console.log(`[gpu] ${m}`),
+});
+const voices = new VoiceService({ hub: media, log: (m) => console.log(`[voice] ${m}`) });
+// The Edit Bay's screen on the station follows the cut in progress (Stage 20).
+const publishProgress = (v: VideoDoc) =>
+  sim.mutate((s) =>
+    s.publish({
+      type: "studio.progress",
+      t: s.now,
+      video: {
+        id: v.id,
+        title: v.title.slice(0, 120),
+        format: v.format,
+        status: v.status,
+        stage: v.stage,
+        progress: Math.max(0, Math.min(100, v.progress)),
+        test: v.test,
+      },
+    }),
+  );
+const editbay = new EditBay({
+  writers,
+  router: station.router,
+  voices,
+  stock: new StockService({
+    hub: media,
+    library,
+    db: station.db,
+    log: (m) => console.log(`[stock] ${m}`),
+  }),
+  stills: (prompt, orientation) =>
+    generateStill(station.images, library, { prompt, lane, orientation }, blocklist),
+  library,
+  kit: new SoundKit(library),
+  store: work,
+  db: station.db,
+  director,
+  lane,
+  dir: path.join(ARTIFACTS_DIR, "studio", "videos"),
+  blocklist,
+  renderOptions: {
+    workers: media.setting("hyperframes", "workers", 3),
+    gpu: media.setting("hyperframes", "gpuEncode", true),
+    quality: media.setting("hyperframes", "quality", "looks"),
+  },
+  gpu,
+  onProgress: publishProgress,
+  say: sayRole,
+  log: (m) => console.log(`[editbay] ${m}`),
+});
+gpu.start();
+// The snapshot doesn't carry the cut in progress, so it is repeated for clients that just joined.
+const studioPulse = setInterval(() => {
+  for (const v of [
+    ...editbay.videos(undefined, "producing"),
+    ...editbay.videos(undefined, "waiting"),
+  ])
+    publishProgress(v);
+}, 15_000);
+// Stage 17: the Uplink posts approved videos (a dry run unless PUBLISH_MODE=live, D-059).
+const secretsDir = path.join(DATA_DIR, "secrets");
+const youtube = new YouTubeConnector({
+  ...(process.env.YOUTUBE_CLIENT_ID ? { clientId: process.env.YOUTUBE_CLIENT_ID } : {}),
+  ...(process.env.YOUTUBE_CLIENT_SECRET ? { clientSecret: process.env.YOUTUBE_CLIENT_SECRET } : {}),
+  redirectUri: `http://127.0.0.1:${port}/api/uplink/youtube/callback`,
+  secretsDir,
+  log: (m) => console.log(`[youtube] ${m}`),
+});
+const instagram = new InstagramConnector({
+  ...(process.env.INSTAGRAM_APP_ID ? { appId: process.env.INSTAGRAM_APP_ID } : {}),
+  ...(process.env.INSTAGRAM_APP_SECRET ? { appSecret: process.env.INSTAGRAM_APP_SECRET } : {}),
+  redirectUri:
+    process.env.INSTAGRAM_REDIRECT_URI ||
+    "https://adnansn.github.io/Orbital-Foundry/instagram-callback.html",
+  stationPort: port,
+  secretsDir,
+  log: (m) => console.log(`[instagram] ${m}`),
+});
+const uplink = new UplinkPublisher({
+  videos: editbay,
+  store: work,
+  db: station.db,
+  outbox: new Outbox(station.db),
+  director,
+  youtube,
+  instagram,
+  tiktok,
+  config: loadUplinkConfig(),
+  mode: process.env.PUBLISH_MODE === "live" ? "live" : "dry-run",
+  lane,
+  dir: path.join(DATA_DIR, "uplink"),
+  notify: (text) => telegram?.message(text),
+  say: sayRole,
+  log: (m) => console.log(`[uplink] ${m}`),
+});
+uplink.start();
+// Stage 19: real stats, costs and the studio's weekly retro, which the owner approves (D-061).
+const analytics = new StudioAnalytics({
+  db: station.db,
+  store: work,
+  router: station.router,
+  lane,
+  director,
+  videos: editbay,
+  posts: uplink,
+  writers,
+  youtube,
+  instagram,
+  gpuJobs: (scriptId) => gpu.jobs({ scriptId }),
+  config: loadAnalyticsConfig(),
+  say: sayRole,
+  log: (m) => console.log(`[analytics] ${m}`),
+});
+writers.setLearning(analytics);
+director.standupSource(() => analytics.standupFacts());
+analytics.start();
+// Stage 20: the always-on studio. The production schedule keeps scripts coming for the cadence
+// (each still waits at the Owner's Desk), the clean-up keeps the disk in check, and the Studio
+// panel reads one board (D-062).
+const schedule = new StudioSchedule({
+  store: work,
+  writers,
+  videos: editbay,
+  cadence: (id) => analytics.cadence(id),
+  library,
+  videosDir: path.join(ARTIFACTS_DIR, "studio", "videos"),
+  config: loadStudioConfig(),
+  say: sayRole,
+  log: (m) => console.log(`[schedule] ${m}`),
+});
+schedule.start();
+const startOfToday = () => {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
+const board = new StudioBoard({
+  writers,
+  videos: editbay,
+  posts: uplink,
+  gpu,
+  voices,
+  hub: media,
+  stillsToday: () =>
+    library
+      .all("image")
+      .filter((a) => a.source === "generated" && Date.parse(a.createdAt) >= startOfToday()).length,
+  schedule,
+  analytics,
+  diskPath: DATA_DIR,
+});
 const opsTimer = setInterval(() => {
   void ops.tick().catch((err: unknown) => console.log(`[ops] backup failed: ${String(err)}`));
   void telegram?.morningSummary().catch(() => {});
@@ -302,7 +505,10 @@ const app = await buildApp(
     achievements,
     telegram: telegram !== null,
     tiktok,
-    faceless: { writers },
+    youtube,
+    instagram,
+    uplink,
+    faceless: { writers, editbay, gpu, analytics, schedule, board },
     kpis,
     economy,
     forge,
@@ -323,7 +529,7 @@ director.start();
 await app.listen({ host, port });
 const snap = sim.snapshot();
 console.log(
-  `Orbital Foundry station server on http://${host}:${port} (${production ? "PRODUCTION, live lane" : "development, sandbox lane"}; ${sim.restored ? "resumed" : "new station"}, ${snap.type === "snapshot" ? snap.crew.length : 0} crew; publishing: ${publisher.mode})`,
+  `Orbital Foundry station server on http://${host}:${port} (${production ? "PRODUCTION, live lane" : "development, sandbox lane"}; ${sim.restored ? "resumed" : "new station"}, ${snap.type === "snapshot" ? snap.crew.length : 0} crew; Printify: ${publisher.mode}; posting: ${uplink.mode})`,
 );
 
 let closing = false;
@@ -337,6 +543,11 @@ async function shutdown(signal: string): Promise<void> {
   clearInterval(economyTimer);
   clearInterval(opsTimer);
   clearInterval(achievementTimer);
+  uplink.stop();
+  gpu.stop();
+  analytics.stop();
+  schedule.stop();
+  clearInterval(studioPulse);
   telegram?.stop();
   sim.stop();
   await app.close();

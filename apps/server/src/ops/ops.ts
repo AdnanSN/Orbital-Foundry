@@ -51,16 +51,26 @@ export interface BackupResult {
   bytes: number;
 }
 
-/** Copy new files from `src` into `dst` (same relative paths); returns how many were copied. */
-function mirror(src: string, dst: string): { files: number; bytes: number } {
+/**
+ * Copy new files from `src` into `dst` (same relative paths); returns how many were copied.
+ * `skip` gets each entry's path relative to the top folder (render working files, D-062).
+ */
+function mirror(
+  src: string,
+  dst: string,
+  skip?: (relPath: string) => boolean,
+  rel = "",
+): { files: number; bytes: number } {
   if (!fs.existsSync(src)) return { files: 0, bytes: 0 };
   let files = 0;
   let bytes = 0;
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const from = path.join(src, entry.name);
     const to = path.join(dst, entry.name);
+    const relPath = rel ? `${rel}/${entry.name}` : entry.name;
+    if (skip?.(relPath)) continue;
     if (entry.isDirectory()) {
-      const r = mirror(from, to);
+      const r = mirror(from, to, skip, relPath);
       files += r.files;
       bytes += r.bytes;
     } else if (entry.isFile()) {
@@ -84,6 +94,8 @@ export class OpsService {
     private readonly opts: {
       dataDir?: string;
       backupDir?: string;
+      /** Artifact paths (relative to data/artifacts) the backup leaves out. */
+      skip?: (relPath: string) => boolean;
       clock?: () => Date;
       getKv(key: string): string | null;
       setKv(key: string, value: string): void;
@@ -111,6 +123,7 @@ export class OpsService {
     const art = mirror(
       path.join(this.opts.dataDir ?? DATA_DIR, "artifacts"),
       path.join(this.dir, "artifacts"),
+      this.opts.skip,
     );
     const copies = fs
       .readdirSync(this.dir)

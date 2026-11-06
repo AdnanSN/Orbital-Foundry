@@ -1,0 +1,78 @@
+# Channel bible (ROADMAP §7.3). Chosen 2026-11-06 from Scout's niche study, candidate 2, widened to
+# Earth and space (D-057). Edit freely; the studio reads it on each job.
+id: rare-scientific-phenomena
+status: active
+name: Orbital Foundry Studio
+handle: "@orbitalfoundry"
+niche: Rare and bizarre phenomena of Earth and space, explained with real science and how we
+  know it
+audience: Curious adults and older teens (16+) who like mysteries with real answers, science
+  explainers and space, watching on phones and TVs.
+persona: A calm, curious narrator who frames each mystery, then explains it one idea at a time,
+  says plainly what is still unknown, and never pretends to be a person or a scientist. The
+  narration is an AI voice, and every description says so.
+voice:
+  kokoro: am_michael
+  pronounce:
+    NASA: NASA
+    ESA: "E S A"
+    NOAA: "Noah"
+    JWST: "J W S T"
+    km: kilometres
+style:
+  tone: Wonder from real numbers, not hype. Clear, warm and precise; short sentences.
+  rules:
+    - Open with the mystery itself in the first sentence, never with a greeting.
+    - "Shape: the hook, what people see, the explanation step by step, how we know, what is
+      still unknown."
+    - Every number and claim comes from the research brief, with its source.
+    - Say plainly when something is unknown or debated; no speculation presented as fact.
+    - No calls to like or subscribe; end on the idea itself.
+    - Never present the narrator as a human or as an expert.
+  bannedPhrases:
+    - scientists are baffled
+    - nobody can explain
+    - shocking
+    - you won't believe
+formats:
+  long:
+    minWords: 1100
+    maxWords: 1700
+  short:
+    minWords: 70
+    maxWords: 150
+cadence:
+  longPerWeek: 1
+  shortsPerDay: 1
+theme:
+  bg: "#070b1f"
+  bg2: "#1a2a6c"
+  ink: "#ffffff"
+  accent: "#ffd23f"
+  display: Montserrat
+  body: Inter
+music:
+  mood: space
+sources:
+  # NASA's public-domain archive first (space and Earth from orbit), then Pixabay.
+  prefer:
+    - nasa
+    - pixabay
+    - openverse
+  wikipediaSeeds:
+    - Aurora
+    - Ball lightning
+    - Bioluminescence
+    - Rogue planet
+    - Fast radio burst
+    - Sprite (lightning)
+    - Gravitational wave
+    - Morning Glory cloud
+avoid:
+  - Health or medical claims, and financial advice
+  - Politics, elections and breaking news
+  - Conspiracy theories, UFO claims and astrology (except to explain the real science, with sources)
+  - Content made for children
+  - Clips from films, TV shows or other creators
+disclosure:
+  aiNarration: true

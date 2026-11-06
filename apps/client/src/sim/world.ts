@@ -22,6 +22,11 @@ import {
  * whatever produces the events: the station server, or the local sim in mock mode.
  */
 
+/** A cut moving through the Edit Bay (from `studio.progress` events). */
+export type StudioProgress = Extract<StationEvent, { type: "studio.progress" }>["video"] & {
+  t: number;
+};
+
 export interface AgentPose {
   /** Tile coordinates; fractional while walking. */
   x: number;
@@ -79,6 +84,8 @@ export class World {
   readonly objectives = new Map<string, Objective>();
   readonly approvals = new Map<string, Approval>();
   readonly artifacts = new Map<string, ArtifactMeta>();
+  /** The Edit Bay's cuts as they move along (Stage 20), newest last. */
+  readonly studio = new Map<string, StudioProgress>();
   sim: SimStatus = { paused: false, speed: 1 };
   /** Bumped on every applied event; React panels re-render when it changes. */
   version = 0;
@@ -135,6 +142,16 @@ export class World {
       facing = samplePath(move.path, move.end - move.t0).facing ?? facing;
     }
     return { x: v.state.tile.x, y: v.state.tile.y, facing, moving: false };
+  }
+
+  /** The cut the Edit Bay is working on now (or waiting for AI clips), if any. */
+  studioActive(): StudioProgress | null {
+    let best: StudioProgress | null = null;
+    for (const v of this.studio.values()) {
+      if (v.status !== "producing" && v.status !== "waiting") continue;
+      if (!best || v.t > best.t) best = v;
+    }
+    return best;
   }
 
   /** Deliverables waiting on the QA intake table (in review, not yet picked up by Lens). */
@@ -221,6 +238,15 @@ export class World {
       case "artifact.created":
       case "artifact.updated":
         this.artifacts.set(e.artifact.id, e.artifact);
+        return;
+      case "studio.progress":
+        this.studio.delete(e.video.id);
+        this.studio.set(e.video.id, { ...e.video, t: e.t });
+        while (this.studio.size > 30) {
+          const oldest = this.studio.keys().next().value;
+          if (oldest === undefined) break;
+          this.studio.delete(oldest);
+        }
         return;
       case "sim.status":
         this.sim = { ...e.status };

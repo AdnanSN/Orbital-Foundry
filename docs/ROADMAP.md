@@ -816,70 +816,93 @@ that needs your OK); the music library takes your own tracks with a licence side
 
 **Goal:** approved scripts you'd want to watch, for a niche you chose.
 
-- [ ] The channel bible (`config/channels/<id>.yaml`, §7.3), and studio playbooks for scripting,
+- [x] The channel bible (`config/channels/<id>.yaml`, §7.3), and studio playbooks for scripting,
       screening and analysis.
-- [ ] The niche study: Scout scores candidate niches for demand, competition, likely ad rates, policy
+- [x] The niche study: Scout scores candidate niches for demand, competition, likely ad rates, policy
       risk and fit with the free stack, and proposes three at the Owner's Desk. You pick one.
-- [ ] Idea sources: YouTube Data API reads (charts and competitors' uploads; search is capped at 100
+      (You asked me to pick from market research: rare phenomena of Earth and space, D-057.)
+- [x] Idea sources: YouTube Data API reads (charts and competitors' uploads; search is capped at 100
       calls a day), Google Trends' trending feed, Wikipedia page views and your own ideas, in a scored
       backlog on the Work panel.
-- [ ] Research briefs with sources; outlines and scripts for long-form and shorts; hook and title
+- [x] Research briefs with sources; outlines and scripts for long-form and shorts; hook and title
       options; shot lists; and Lens's fact-check, style check and sameness check against our own
       earlier scripts.
 
 **Done when:** one long-form script and two shorts scripts, each with sources, a shot list, titles and
 thumbnail ideas, are approved at the Owner's Desk.
 
+**Built (2026-11-06, D-057):** the channel `rare-scientific-phenomena`. Waiting for your approval at
+the Owner's Desk: the Venus short (S-0001) and the long-form on fast radio bursts (S-0004, 991
+words). The YouTube Data API reads start once `YOUTUBE_API_KEY` is set.
+
 ### Stage 16: Edit Bay (1–2 sessions)
 
 **Goal:** an approved script becomes finished videos with one click.
 
-- [ ] The §7.1 pipeline as code, as the factories were (D-029): voice, timings, shots, assets,
+- [x] The §7.1 pipeline as code, as the factories were (D-029): voice, timings, shots, assets,
       timeline, renders, captions, chapters, thumbnails and the package, with every step in the
       event log.
-- [ ] The waterfall: three to five shorts cut from each long-form, with new hooks.
-- [ ] Screening: FFmpeg's black, freeze and silence detectors, loudness, caption sync, vision QA on
-      sampled frames at phone size, the IP and policy screens, and the AI-disclosure decision.
-- [ ] The Owner's Desk plays the video, and a send-back note starts a re-edit.
+- [x] The waterfall: three to five shorts cut from each long-form, with new hooks.
+- [~] Screening: FFmpeg's black, freeze and silence detectors, loudness, caption sync, vision QA on
+      sampled frames at phone size, the IP and policy screens, and the AI-disclosure decision. (Built:
+      the detectors, loudness, the IP screen and the disclosure decision. Not yet: vision QA on
+      sampled frames and a caption-sync check.)
+- [x] The Owner's Desk plays the video, and a send-back note starts a re-edit.
 
 **Done when:** one 8 to 10 minute long-form and three shorts you'd genuinely publish were made end to
 end, in the live lane only.
+
+**Built (2026-11-06, D-058):** `editbay.ts`, `screening.ts`, `thumbnail.ts`, the Desk player and
+11 tests. Real runs in the live lane: the Venus short (approved, V-0006), and the fast radio burst
+long-form, re-made as V-0008 with its three shorts after a restart cut V-0005 off. Its script is
+991 words, so it runs about 7 minutes, short of 8 to 10. Frame reviews led to fixes: shorter,
+literal stock queries, a relevance check on stock results, and stats that fit the frame.
 
 ### Stage 17: Uplink (1 session)
 
 **Goal:** an approved video reaches all three platforms through their official APIs.
 
-- [ ] Publishers behind the approval and outbox pattern (D-033): a dry run unless `PUBLISH_MODE=live`,
+- [x] Publishers behind the approval and outbox pattern (D-033): a dry run unless `PUBLISH_MODE=live`,
       once per approval, the kill switch, and daily caps per platform.
-- [ ] YouTube: `npm run auth:youtube` (OAuth for a desktop app), resumable upload, scheduled
+- [x] YouTube: `npm run auth:youtube` (OAuth for a desktop app), resumable upload, scheduled
       publishing, thumbnail, captions file, playlists, `containsSyntheticMedia`, and quota tracking
       (100 uploads and 10,000 units a day).
-- [ ] Instagram: Reels through the Instagram API (a resumable upload of the local file), the caption,
+- [x] Instagram: Reels through the Instagram API (a resumable upload of the local file), the caption,
       the 100-posts-a-day cap and token refresh.
-- [~] TikTok: upload to your inbox as a draft, with a phone notice to post it. Direct Post with
+- [x] TikTok: upload to your inbox as a draft, with a phone notice to post it. Direct Post with
       `is_aigc` switches on by config once the audit passes. (Built early for TikTok's app review,
-      D-054: sign-in, token refresh and inbox uploads from the Uplink panel. The Owner's Desk flow
-      and the phone notice come with the rest of this stage.)
-- [ ] An upload kit (file, caption, hashtags, thumbnail) for any platform that isn't connected yet.
+      D-054; the Owner's Desk flow and the phone notice came with the rest of this stage.)
+- [x] An upload kit (file, caption, hashtags, thumbnail) for any platform that isn't connected yet.
 
 **Done when:** a long-form and a short are scheduled on YouTube, the short is on Instagram and in your
 TikTok inbox, all through approval clicks, and the kill switch has been tested.
 
 **You provide:** the Stage 12 accounts, and the first sign-in to each platform in your browser.
 
+**Built (2026-11-06, D-059):** `uplink/youtube.ts`, `uplink/instagram.ts`, `uplink/publisher.ts`,
+`config/uplink.yaml`, the routes under `/api/uplink`, the Uplink panel (accounts, mode, kill
+switch, posts, kits) and `npm run uplink`. Tested against fake platforms: post plans, dry runs,
+live posting once each, the first-upload check, scheduling, the kill switch and resume, guards,
+kits and both sign-ins (10 tests). Posting is a dry run until you add the YouTube and Instagram
+keys to `.env`, sign in from the Uplink panel and set `PUBLISH_MODE=live`.
+
 ### Stage 18: GPU lane (1 session)
 
 **Goal:** AI video clips without paying, where the shot list asks for them.
 
-- [ ] A benchmark on the RTX 3050 (6 GB): Wan2GP with LTX-2 distilled and Wan 2.2 (TI2V-5B and 1.3B),
-      against ComfyUI's API. The faster one becomes a worker with a job queue.
-- [ ] The queue runs in quiet hours (23:00 to 07:00) and whenever the GPU is idle. Shots that aren't
+- [~] A benchmark on the RTX 3050 (6 GB): Wan2GP with LTX-2 distilled and Wan 2.2 (TI2V-5B and 1.3B),
+      against ComfyUI's API. The faster one becomes a worker with a job queue. (`npm run gpu --
+      bench` and the ComfyUI worker are built; the run waits for the model download. Wan2GP has no
+      stable API, so it is timed by hand.)
+- [x] The queue runs in quiet hours (23:00 to 07:00) and whenever the GPU is idle. Shots that aren't
       done by their deadline fall back to stock or a camera move.
-- [ ] Modal as the burst lane (LTX-2 or Wan 2.2 on a cloud GPU), hard-capped below the $30 of free
-      credit a month, and Kaggle's free GPU hours as an optional batch lane.
-- [ ] Paid providers wired but off (Muapi, fal, kie.ai and the Higgsfield API, for Kling, Seedance and
-      Veo), so turning one on later is a config change.
-- [ ] Licences: LTX-2 is free for commercial use under $10M a year in revenue; Wan 2.2 is Apache-2.0;
+- [~] Modal as the burst lane (LTX-2 or Wan 2.2 on a cloud GPU), hard-capped below the $30 of free
+      credit a month, and Kaggle's free GPU hours as an optional batch lane. (Modal is built and
+      capped at $25; Kaggle isn't, since the free hours need a notebook run by hand.)
+- [~] Paid providers wired but off (Muapi, fal, kie.ai and the Higgsfield API, for Kling, Seedance and
+      Veo), so turning one on later is a config change. (fal is wired, covering Kling, Seedance and
+      Veo; the other three need adapters.)
+- [x] Licences: LTX-2 is free for commercial use under $10M a year in revenue; Wan 2.2 is Apache-2.0;
       Hunyuan-based models stay out of the live lane, because their licence excludes the EU, the UK and
       South Korea.
 
@@ -889,32 +912,56 @@ the queue falls behind.
 **You provide:** your OK for the model downloads (about 15 to 25 GB; disk is the limit, §10) and,
 optionally, a Modal account.
 
+**Built (2026-11-06, D-060):** `studio/gpu.ts` (the queue, the window, deadlines, ComfyUI, Modal
+and fal), the `ai-video` shot kind, waiting cuts in the Edit Bay, `config/gpu.yaml`, a Wan 2.2
+workflow, `infra/modal/video.py`, `infra/gpu/README.md` and `npm run gpu`. Tested with fake
+generators (10 tests, plus the Edit Bay's wait and fallback). The second half of "done when" is
+covered by the deadline fallback; the overnight run needs the model, so it waits for your OK
+(about 18 GB with 55 GB free).
+
 ### Stage 19: Analytics and the learning loop (1 session)
 
 **Goal:** the studio learns what its audience watches.
 
-- [ ] Stats: YouTube Analytics (views, watch time, average view duration and percentage, subscribers,
-      traffic sources), Instagram Insights, and TikTok's video stats.
-- [ ] The Vault per video and per format: costs (ElevenLabs credits, GPU time, Modal) and shadow cost,
+- [x] Stats: YouTube Analytics (views, watch time, average view duration and percentage, subscribers,
+      traffic sources), Instagram Insights, and TikTok's video stats. (TikTok's are typed in until
+      its API grants the stats scopes, which takes another app review.)
+- [x] The Vault per video and per format: costs (ElevenLabs credits, GPU time, Modal) and shadow cost,
       and progress toward the Partner Program and TikTok's Creator Rewards thresholds.
-- [ ] WARDEN's standup and weekly retro on real numbers (Stage 10's loop): idea-score weights, lessons
+- [x] WARDEN's standup and weekly retro on real numbers (Stage 10's loop): idea-score weights, lessons
       on hooks, titles and thumbnails, and changes to formats and cadence, clamped and approved by you.
 
 **Done when:** a week of real stats visibly changes the next week's slate.
+
+**Built (2026-11-06, D-061):** `studio/analytics.ts`, `config/analytics.yaml`, routes under
+`/api/studio/analytics` and `/api/studio/stats`, learned weights and lessons in the Writers' Room,
+and the studio's line in WARDEN's standup. Tested with fake platforms (6 tests): collecting, costs,
+thresholds, the clamped retro, approval, the Sunday timer and re-ranking the backlog. "Done when"
+needs a week of real posts. Two things the research turned up: TikTok's Creator Rewards pay only
+for videos over a minute, and YouTube's bar for new Partner Program applicants doubles in 2027.
 
 ### Stage 20: Studio makeover and a 7-day run (1 session)
 
 **Goal:** the station runs the channel, and you only approve.
 
-- [ ] The rooms renamed in the map data (§5), a small Uplink room by the Owner's Desk, and studio
-      screens that show real frames and render progress.
-- [ ] A Studio panel: each video's board (idea → script → voice → visuals → render → screening →
+- [~] The rooms renamed in the map data (§5), a small Uplink room by the Owner's Desk, and studio
+      screens that show real frames and render progress. (Renamed. The Uplink shares the Server
+      Room by the Owner's Desk, since a new room needs new floor space. The Edit Bay's screen shows
+      render progress live; real frames play in the Studio panel, because wall screens are 7 px
+      tall.)
+- [x] A Studio panel: each video's board (idea → script → voice → visuals → render → screening →
       approval → posted), a preview player, the budgets left (credits, images, GPU queue, Modal) and
       platform status.
-- [ ] Always-on: the weekly production schedule, overnight GPU work, disk clean-up after posting, and
+- [x] Always-on: the weekly production schedule, overnight GPU work, disk clean-up after posting, and
       backups that include the finished videos.
 
 **Done when:** for 7 days, ideas become posted videos while you only approve, from your phone.
+
+**Built (2026-11-06, D-062):** `studio/schedule.ts` (the daily schedule and the clean-up),
+`studio/board.ts`, `config/studio.yaml`, the Studio panel, the `studio.progress` event and the
+Edit Bay's screen, the room renames, and backups without render working files. Tested (8 tests).
+The 7-day run needs you: the YouTube and Instagram keys and sign-ins, `PUBLISH_MODE=live`, and
+three approvals per video (script, cut, post plan), from the Desk or Telegram.
 
 ---
 
@@ -1281,3 +1328,28 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
   - Stage 16 (not wired in or tested yet): `editbay.ts` (script to video, shot fallbacks, the
     waterfall into shorts, the package and Desk item), `screening.ts`, `thumbnail.ts`.
   - **Next:** wire the Edit Bay into the server and the Desk player, test it, then Stage 17.
+- **2026-11-06 (evening):** Stages 16 to 20 built (D-057 to D-062).
+  - Stage 16: the Edit Bay wired in, with the Desk player (range requests) and re-edits from a
+    send-back note. Real runs in the live lane: the Venus short (V-0006, which you approved) and
+    the fast radio burst long-form, re-made as V-0008 after a restart. Frame reviews fixed
+    off-topic stock (literal queries and a relevance check) and stats too wide for the frame. The
+    laptop slept mid-render once, so two real videos fell back to Kokoro on "fetch failed":
+    ElevenLabs now retries on network errors, and the Desk says when the fallback voice was used.
+  - Stage 17: the Uplink. Post plans at the Owner's Desk, a dry run unless `PUBLISH_MODE=live`,
+    once-only posting through the outbox, the kill switch (which takes scheduled YouTube uploads
+    back to private), daily caps, the schedule, upload kits, YouTube (desktop OAuth with PKCE,
+    resumable upload, publish time, thumbnail, captions, playlist, quota) and Instagram (Reels
+    through Instagram Login, `is_ai_generated`). 10 tests.
+  - Stage 18: the GPU lane. The `ai-video` shot kind, a job queue with quiet hours, idle detection
+    and deadlines, ComfyUI (a Wan 2.2 workflow), Modal (capped at $25) and fal (off), and
+    `npm run gpu`. The model download (about 18 GB) waits for your OK. 10 tests and 1 Edit Bay test.
+  - Stage 19: stats, costs, thresholds and the weekly retro that tunes idea weights, lessons and
+    cadence after your approval. Research turned up two things: TikTok's Creator Rewards pay only
+    for videos over a minute, and YouTube's bar for new applicants doubles in 2027. 6 tests.
+  - Stage 20: the daily production schedule, the clean-up, backups without working files, the
+    Studio panel, the renamed rooms and the Edit Bay's live screen. 8 tests.
+  - A YAML quoting bug in `config/media.yaml` would have stopped the station at startup; the
+    studio tests caught it.
+  - **Waiting for you:** YouTube and Instagram keys and sign-ins, then `PUBLISH_MODE=live`;
+    approving V-0008 and its shorts when they reach the Desk; your OK for the GPU model download;
+    TikTok's app review (the demo recording); and pushing the branch.

@@ -54,6 +54,10 @@ const providerSchema = z
   })
   .refine((p) => !p.lanes.includes("live") || p.production === "allowed", {
     message: "a provider in the live lane needs production: allowed (D-050)",
+  })
+  // Hunyuan's licence excludes the EU, the UK and South Korea, so its models never go live (D-060).
+  .refine((p) => !p.lanes.includes("live") || !/hunyuan/i.test(`${p.name} ${p.licence}`), {
+    message: "Hunyuan-based models may not serve the live lane (D-060)",
   });
 
 export const mediaConfigSchema = z.object({ providers: z.record(z.string(), providerSchema) });

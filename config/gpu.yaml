@@ -1,0 +1,50 @@
+# The GPU lane (Stage 18, D-060): AI video clips for "ai-video" shots. Nothing runs until a
+# generator is ready (infra/gpu/README.md); until then those shots fall back to footage or a still
+# with a camera move, at their deadline, so no video waits forever.
+
+# The local GPU may always work in these local hours [from, to); outside them only when idle.
+quietHours: [23, 7]
+idle:
+  minutes: 10
+  belowPercent: 15
+
+# An approved script waits this long for its AI clips, then the cut starts without the late ones.
+deadlineHours: 12
+# Modal (the burst lane) takes a job when its deadline is this close and the local GPU can't.
+burstWithinHours: 3
+
+perScript:
+  short: 2
+  long: 6
+
+clip:
+  seconds: 5
+  fps: 24
+  # 480p keeps a 5-second clip within reach of the RTX 3050's 6 GB.
+  portrait: [480, 832]
+  landscape: [832, 480]
+
+# Tried in this order. Each must also be in config/media.yaml for the lane.
+order: [comfyui-video, modal-video, fal-video]
+
+comfyui:
+  url: http://127.0.0.1:8188
+  # Exported from ComfyUI with "Export (API)", with {{prompt}}, {{negative}}, {{width}},
+  # {{height}}, {{frames}}, {{fps}}, {{seed}} and {{job}} where the values go.
+  workflow: config/gpu/wan22-ti2v-5b.api.json
+  timeoutMinutes: 45
+
+modal:
+  # The web endpoint of infra/modal/video.py, plus a proxy token (MODAL_KEY, MODAL_SECRET).
+  urlEnv: MODAL_VIDEO_URL
+  # Hard cap, below the $30 of free credit a month.
+  monthlyCapUsd: 25
+  # L40S per GPU-second (modal.com/pricing, 2026-11-06).
+  costPerSecond: 0.000542
+  estimateSeconds: 240
+
+fal:
+  # Paid, and off until config/media.yaml sets fal-video's enabled: true and this cap above 0.
+  model: fal-ai/kling-video/v2.1/standard/text-to-video
+  costPerClip: 0.25
+  monthlyCapUsd: 0

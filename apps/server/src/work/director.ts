@@ -95,6 +95,7 @@ export class WorkDirector {
   private readonly started = new Map<string, number>();
   private readonly nudged = new Set<string>();
   private readonly decisionHooks: ((approval: Approval) => void | Promise<void>)[] = [];
+  private readonly standupSources: (() => string)[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
   private inFlight = 0;
   private readonly log: (m: string) => void;
@@ -253,6 +254,13 @@ export class WorkDirector {
       `Objectives: ${objectives.map((o) => `${o.id} ${o.status}: ${o.text}`).join("; ") || "none"}`,
       `Tasks: ${tasks.map((t) => `${t.id} ${t.status} (${t.assignee}): ${t.title}`).join("; ") || "none"}`,
       `Waiting at the Owner's Desk: ${this.deps.store.approvals("pending").length}`,
+      ...this.standupSources.map((source) => {
+        try {
+          return source();
+        } catch (err) {
+          return `(a standup source failed: ${String(err).slice(0, 120)})`;
+        }
+      }),
     ].join("\n");
     const warden = this.overseer();
     if (!warden) return null;
@@ -914,6 +922,11 @@ Markdown. Do not invent facts that are not in the crew's work.`,
   /** Run `hook` after every owner decision (factories react to their own Desk items). */
   onDecision(hook: (approval: Approval) => void | Promise<void>): void {
     this.decisionHooks.push(hook);
+  }
+
+  /** Adds a line of facts to the daily standup (the studio's real numbers, Stage 19). */
+  standupSource(source: () => string): void {
+    this.standupSources.push(source);
   }
 
   private newApproval(

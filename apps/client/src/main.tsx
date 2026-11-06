@@ -54,15 +54,21 @@ if (params.get("view") === "sprites") {
     link.start();
   }
   const ui = new UiStore();
-  // Back from TikTok's sign-in (?panel=uplink&tiktok=connected|denied): reopen the Uplink.
+  // Back from a platform sign-in (?panel=uplink&youtube=connected|denied): reopen the Uplink.
   if (params.get("panel") === "uplink") {
     ui.set({ panel: "uplink" });
-    const outcome = params.get("tiktok");
-    if (outcome === "connected") ui.toast("TikTok is connected.");
-    if (outcome === "denied") ui.toast("TikTok sign-in was cancelled.");
     const clean = new URL(window.location.href);
     clean.searchParams.delete("panel");
-    clean.searchParams.delete("tiktok");
+    for (const [key, name] of [
+      ["tiktok", "TikTok"],
+      ["youtube", "YouTube"],
+      ["instagram", "Instagram"],
+    ] as const) {
+      const outcome = params.get(key);
+      if (outcome === "connected") ui.toast(`${name} is connected.`);
+      if (outcome === "denied") ui.toast(`${name} sign-in was cancelled.`);
+      clean.searchParams.delete(key);
+    }
     window.history.replaceState(null, "", clean);
   }
   const zoom = Number(params.get("zoom") ?? 0);

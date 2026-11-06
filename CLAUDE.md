@@ -22,6 +22,8 @@ tools, licences, free allowances and platform rules, with sources.
 | `npm run models -- nvidia [filter]` | Lists a provider's model IDs. |
 | `npm run printify -- shops` | Browses Printify with your token (shops, blueprints, providers, variants). Read-only. |
 | `npm run studio -- smoke` | Renders the 20-second test short with Kokoro and ElevenLabs (`--voice kokoro` is free) into `data/artifacts/studio/smoke/`. |
+| `npm run uplink -- status` | The Uplink's accounts, posting mode and recent posts, from the running station. `npm run auth:youtube` prints YouTube's sign-in link (`-- connect instagram` or `tiktok` for the others). |
+| `npm run gpu -- status` | The GPU, free disk, ComfyUI and the workflows in `config/gpu/`. `-- bench` times one AI clip per workflow (needs ComfyUI and a model; infra/gpu/README.md). |
 | `npm run station` | Keeps the station server running (restarts, health checks, daily logs). See docs/OPERATIONS.md. |
 | `npm run backup` | Backs up the database and new artifact files now. |
 | `npm run pool:up` | Starts the FreeLLMAPI pool of free model tiers in Docker (`pool:down`, `pool:logs`). See infra/freellmapi/README.md. |
@@ -52,12 +54,21 @@ tools, licences, free allowances and platform rules, with sources.
   - `src/thumbs/studio.ts`: Factory 2, the Thumbnail Studio (concepts, layout, readability, ZIP
     delivery, revisions, gig kit). `src/forge/forge.ts`: Factory 3, the Asset Forge (sheets, cutting
     out items, pack palette, review, package, butler dry run).
-  - `src/studio/`: the faceless studio (D-050 to D-055): `media.ts` (media providers, lanes,
+  - `src/studio/`: the faceless studio (D-050 to D-061): `media.ts` (media providers, lanes,
     budgets, `media_calls`), `voice.ts` (ElevenLabs, Kokoro), `captions.ts`, `timeline.ts` and
     `compose.ts` (timeline to HyperFrames HTML), `render.ts`, `ffmpeg.ts`, `library.ts` and `stock.ts`
-    (the clip library; Pixabay, NASA, Openverse). Providers live in `config/media.yaml`.
-  - `src/uplink/tiktok.ts`: the studio's TikTok connection (sign-in, token refresh, draft uploads to
-    the owner's inbox); routes in `src/http/uplink.ts`. Tokens live in `data/secrets/`.
+    (the clip library; Pixabay, NASA, Openverse), `stills.ts`, `sound.ts`, `channel.ts` (channel bibles in
+    `config/channels/`), `signals.ts`, `writers.ts` (the Writers' Room), `editbay.ts` (script to video),
+    `screening.ts`, `thumbnail.ts`, `gpu.ts` (the GPU lane: AI clips from ComfyUI, Modal or fal,
+    `config/gpu.yaml`), `analytics.ts` (platform stats, costs, thresholds and the weekly retro
+    that tunes the Writers' Room, `config/analytics.yaml`), `schedule.ts` (the daily production
+    schedule and disk clean-up, `config/studio.yaml`) and `board.ts` (the Studio panel's view);
+    routes in `src/http/studio.ts`. Providers live in `config/media.yaml`. The Edit Bay's
+    progress reaches the station as `studio.progress` events.
+  - `src/uplink/`: the Uplink (D-059). `publisher.ts` (post plans at the Owner's Desk, the
+    schedule and caps in `config/uplink.yaml`, the kill switch, the outbox, upload kits), and the
+    connections `youtube.ts`, `instagram.ts` and `tiktok.ts` (sign-in, token refresh, uploads);
+    routes in `src/http/uplink.ts`. Tokens live in `data/secrets/`.
 - `site/`: the studio's public website (privacy policy, terms, data deletion, TikTok's sign-in
   callback page), published to GitHub Pages from `main` by `.github/workflows/pages.yml`.
 - `apps/client`: Vite + Phaser 4 + a React overlay (Tailwind).
@@ -90,7 +101,7 @@ tools, licences, free allowances and platform rules, with sources.
 3. **External side effects need the owner's approval** (from Stage 4 on): publishing, messaging
    customers, spending money. Publishing is a dry run unless `PRINTIFY_MODE=live`, and the kill
    switch (`POST /api/kill`) stops it all. Channel posts go through the platforms' official APIs
-   only, never browser automation (D-051).
+   only, never browser automation (D-051), and are a dry run unless `PUBLISH_MODE=live` (D-059).
 4. **Secrets** live only in `.env`, which is git-ignored. Never print, log or commit keys.
 5. **Free tiers are scarce.** Every model call goes through a `ProviderGate` and is logged to
    `llm_calls`. Tests use fakes (`apps/server/test/helpers.ts`).

@@ -1,8 +1,9 @@
-# Channel bible (ROADMAP §7.3): a DRAFT built on the suggested niche (§11, item 9), so the studio
+# Channel bible (ROADMAP §7.3): the first DRAFT (space explainers), paused on 2026-11-06 when the
+# owner had the studio pick rare-scientific-phenomena instead (D-057). It was built so the studio
 # can make test videos tonight. It stays a draft, and nothing is posted, until the owner picks a
 # niche at the Owner's Desk (the niche study). Edit freely; the studio reads it on each job.
 id: space-explainers
-status: draft
+status: paused
 name: Orbital Foundry Studio
 handle: "@orbitalfoundry"
 niche: Space and science explainers about the universe, missions and how we know what we know

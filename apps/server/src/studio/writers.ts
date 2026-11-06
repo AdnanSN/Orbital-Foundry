@@ -29,6 +29,7 @@ export const SHOT_KINDS = [
   "stock-video",
   "stock-image",
   "ai-still",
+  "ai-video",
   "title",
   "list",
   "quote",
@@ -156,6 +157,8 @@ export interface Idea {
   format: "short" | "long" | "both";
   hook: string;
   score: number;
+  /** The 1-10 ratings behind the score, for the learning loop (Stage 19). */
+  scores?: { demand: number; originality: number; fit: number; risk: number };
   why: string;
   wikipedia: string[];
   status: "backlog" | "scripted" | "rejected";
@@ -211,6 +214,13 @@ export interface WritersDeps {
   /** Where script and niche reports are written (data/artifacts/studio/scripts). */
   dir: string;
   channelsDir?: string;
+  /** Waits between retries (tests pass a fast one). */
+  sleep?: (ms: number) => Promise<void>;
+  /** What the weekly retro learned and the owner approved (Stage 19): weights and lessons. */
+  learning?: {
+    weights(channelId: string): IdeaWeights;
+    lessons(channelId: string): string[];
+  };
   /** A speech bubble for a crew role ("researcher", "operator", "reviewer"). */
   say?: (role: string, text: string) => void;
   log?: (message: string) => void;
@@ -246,6 +256,7 @@ const VISUAL_GUIDE = `Each beat is 1 to 3 sentences of narration and one visual:
 - "stock-video" with "query": 2 to 4 concrete, filmable words (e.g. "rocket launch night", "ocean waves aerial"). Real footage of real things.
 - "stock-image" with "query": a photo search, same style. Prefer for specific named objects (planets, telescopes, places).
 - "ai-still" with "prompt": an illustration of something no camera can film (inside a star, the far future). Never realistic people or real events.
+- "ai-video" with "prompt": 5 seconds of AI-made motion for the hook or a key moment no footage shows (a glowing sphere drifting down a dark corridor). Describe one simple scene with slow motion. At most 2 in a short and 6 in a long-form. Never realistic people or real events.
 - "title" with "text" (and optional "detail"): a short heading card.
 - "list" with "value" (the number), "text" (the item) and optional "detail".
 - "quote" with "text" and "by": only quotes that appear in the facts.
@@ -256,9 +267,11 @@ Optional "move" for stills: push-in, pull-out, pan-left, pan-right, tilt-up, til
 export class WritersRoom {
   private readonly now: () => number;
   private readonly running = new Set<string>();
+  private learning: WritersDeps["learning"];
 
   constructor(private readonly deps: WritersDeps) {
     this.now = deps.now ?? Date.now;
+    this.learning = deps.learning;
     fs.mkdirSync(deps.dir, { recursive: true });
     deps.director?.onDecision((a) => this.onDecision(a));
     // Scripts cut off by a restart are marked failed rather than left "writing" forever.
@@ -285,17 +298,31 @@ export class WritersRoom {
     prompt: string,
     schema: z.ZodType<T>,
   ): Promise<T> {
-    const res = await this.deps.router.generate({
-      tier,
-      lane: this.deps.lane,
-      system,
-      prompt,
-      schema,
-      temperature: tier === "creative" ? 0.8 : 0.3,
-    });
-    if (res.data === undefined)
-      throw new Error(`The ${tier} model's reply didn't fit the expected shape.`);
-    return res.data;
+    // Free tiers cap tokens per minute: when every model is only rate-limited, wait and go again
+    // (up to four more times, 20 s, 40 s, 60 s, 80 s) rather than failing the whole script.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const res = await this.deps.router.generate({
+          tier,
+          lane: this.deps.lane,
+          system,
+          prompt,
+          schema,
+          temperature: tier === "creative" ? 0.8 : 0.3,
+        });
+        if (res.data === undefined)
+          throw new Error(`The ${tier} model's reply didn't fit the expected shape.`);
+        return res.data;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const limited = /rate-limited|429|tokens per minute/i.test(message);
+        if (!limited || attempt >= 4) throw err;
+        this.log(`rate-limited; trying again in ${20 * (attempt + 1)} s`);
+        await (this.deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms))))(
+          20_000 * (attempt + 1),
+        );
+      }
+    }
   }
 
   private say(role: string, text: string): void {
@@ -383,6 +410,39 @@ export class WritersRoom {
     this.say("researcher", `Our niche: ${niche.name}. The channel bible is written.`);
   }
 
+  // ---------------------------------------------------------------- learning
+
+  /** The learning loop (Stage 19) plugs in after the station builds it. */
+  setLearning(learning: NonNullable<WritersDeps["learning"]>): void {
+    this.learning = learning;
+  }
+
+  /** Lessons the owner approved, for every prompt. */
+  private lessons(channelId: string): string[] {
+    try {
+      return this.learning?.lessons(channelId) ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Re-scores the backlog with the current weights, so an approved retro reorders the slate. */
+  rescore(channelId: string): number {
+    const w = this.learning?.weights(channelId);
+    let n = 0;
+    for (const idea of this.ideas(channelId, "backlog")) {
+      if (!idea.scores) continue;
+      const score = scoreIdea(idea.scores, w);
+      if (score === idea.score) continue;
+      idea.score = score;
+      this.deps.db
+        .prepare("UPDATE ideas SET score = ?, data = ? WHERE id = ?")
+        .run(score, JSON.stringify(idea), idea.id);
+      n += 1;
+    }
+    return n;
+  }
+
   // ---------------------------------------------------------------- ideas
 
   async proposeIdeas(channelId: string, count = 8): Promise<Idea[]> {
@@ -403,7 +463,7 @@ export class WritersRoom {
       const batch = Math.min(4, count - proposed.length);
       const result = await this.ask(
         "reasoning",
-        channelSystem(channel),
+        channelSystem(channel, this.lessons(channel.id)),
         `Propose ${batch} video ideas for this channel. Keep every field short. Each needs an original angle (what this video adds that others don't), a format (short = 30-60 s, long = 8-12 min, both), a first-line hook, scores 1-10 for demand, originality, fit with the channel and policy risk (10 = risky), and 1 to 3 English Wikipedia article titles to research. Evergreen ideas are welcome; tie to a signal only when it truly fits the niche.\n\nAvoid repeating these earlier ideas:\n${recent || "(none yet)"}\n\nSignals (searches, page views, videos):\n${formatSignals(signals, 25)}\n\nSeed topics: ${channel.sources.wikipediaSeeds.join(", ") || "(none)"}`,
         ideasSchema,
       );
@@ -419,9 +479,8 @@ export class WritersRoom {
         angle: x.angle,
         format: x.format,
         hook: x.hook,
-        score:
-          Math.round((0.35 * x.demand + 0.25 * x.originality + 0.25 * x.fit - 0.15 * x.risk) * 10) /
-          10,
+        score: scoreIdea(x, this.learning?.weights(channelId)),
+        scores: { demand: x.demand, originality: x.originality, fit: x.fit, risk: x.risk },
         why: x.why,
         wikipedia: x.wikipedia,
         status: "backlog",
@@ -462,7 +521,7 @@ export class WritersRoom {
   // ---------------------------------------------------------------- research
 
   async research(
-    channel: Channel,
+    _channel: Channel,
     idea: Pick<Idea, "title" | "angle" | "wikipedia">,
   ): Promise<Brief> {
     this.say("researcher", `Researching: ${idea.title.slice(0, 40)}…`);
@@ -570,7 +629,9 @@ export class WritersRoom {
     }
     this.saveScript(doc);
     this.running.add(doc.id);
-    void this.write(channel, doc, idea as Idea)
+    // One script at a time: parallel scripts only fight over the same per-minute token budget.
+    this.queue = this.queue
+      .then(() => this.write(channel, doc, idea as Idea))
       .catch((err: unknown) => {
         doc.status = "failed";
         doc.error = err instanceof Error ? err.message : String(err);
@@ -581,6 +642,8 @@ export class WritersRoom {
       .finally(() => this.running.delete(doc.id));
     return doc;
   }
+
+  private queue: Promise<void> = Promise.resolve();
 
   /** Waits for a background script (tests and scripts). */
   async settled(id: string, timeoutMs = 20 * 60_000): Promise<ScriptDoc | null> {
@@ -606,7 +669,7 @@ export class WritersRoom {
     if (doc.format === "short") {
       const draft = await this.ask(
         "creative",
-        channelSystem(channel),
+        channelSystem(channel, this.lessons(channel.id)),
         `Write a ${words.minWords}-${words.maxWords} word vertical short (30-60 seconds) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nUse only these facts:\n${facts}\n\nThe first beat is the hook: the single most surprising true fact, in the first sentence. End on the idea itself, no call to action. Give 2-3 titles under 70 characters, 2-3 alternative hooks, a description (2-3 sentences, then "Narration: AI voice."), up to 12 tags and 1-3 thumbnail ideas (text of 5 words or fewer).\n\n${VISUAL_GUIDE}${revision}`,
         shortDraftSchema,
       );
@@ -621,7 +684,7 @@ export class WritersRoom {
     } else {
       const outline = await this.ask(
         "creative",
-        channelSystem(channel),
+        channelSystem(channel, this.lessons(channel.id)),
         `Outline an 8-12 minute YouTube video (${words.minWords}-${words.maxWords} words in all) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nFacts available:\n${facts}\n\nGive 5 to 8 sections (the first is the hook and promise, the last pays it off), each with points and a word budget. Also 2-3 titles under 70 characters, 2-3 alternative opening hooks, a description (3-4 sentences, then "Narration: AI voice."), up to 15 tags and 2-3 thumbnail ideas (text of 5 words or fewer).${revision}`,
         outlineSchema,
       );
@@ -636,7 +699,7 @@ export class WritersRoom {
       for (const [i, section] of outline.sections.entries()) {
         const part = await this.ask(
           "creative",
-          channelSystem(channel),
+          channelSystem(channel, this.lessons(channel.id)),
           `Write section ${i + 1} of ${outline.sections.length} ("${section.heading}") of a video titled "${outline.titles[0]}". About ${section.words} words of narration in beats.\nCover: ${section.points.join("; ")}\n${i === 0 ? "Open with the hook: the most surprising true fact first." : `It follows: "${doc.beats.at(-1)?.narration.slice(-200) ?? ""}"`}\n${i === outline.sections.length - 1 ? "End on the idea itself; no call to action." : ""}\nUse only these facts:\n${facts}\n\n${VISUAL_GUIDE}`,
           sectionSchema,
         );
@@ -703,7 +766,7 @@ export class WritersRoom {
       this.say("operator", "Fixing the lines Lens flagged…");
       const fixed = await this.ask(
         "creative",
-        channelSystem(channel),
+        channelSystem(channel, this.lessons(channel.id)),
         `Rewrite these beats so that every claim is supported by the facts (cut or soften what isn't), and remove these banned phrases: ${checks.banned.join(", ") || "(none)"}. Keep each beat's visual unless it no longer fits. Return the rewritten beats in the same order.\n\nFlagged:\n${checks.unsupported.map((u) => `B${u.beat}: "${u.claim}" (${u.why})`).join("\n") || "(only banned phrases)"}\n\nBeats to rewrite:\n${(targets.length > 0 ? targets : doc.beats.map((_b, i) => i)).map((i) => `B${i}: ${JSON.stringify(doc.beats[i])}`).join("\n")}\n\nFacts:\n${facts}`,
         sectionSchema,
       ).catch(() => null);
@@ -800,7 +863,7 @@ export class WritersRoom {
   }
 }
 
-function channelSystem(channel: Channel): string {
+function channelSystem(channel: Channel, lessons: string[] = []): string {
   return `You write for "${channel.name}", a faceless ${channel.niche} channel.
 Audience: ${channel.audience}
 Narrator: ${channel.persona}
@@ -808,7 +871,33 @@ Tone: ${channel.style.tone}
 Rules:
 ${channel.style.rules.map((r) => `- ${r}`).join("\n")}
 Avoid these topics: ${channel.avoid.join("; ")}.
-Never use: ${[...channel.style.bannedPhrases].join(", ") || "clichés"}, "delve", "in today's video", "let's dive in", "buckle up", "mind-blowing", "smash that like".`;
+Never use: ${[...channel.style.bannedPhrases].join(", ") || "clichés"}, "delve", "in today's video", "let's dive in", "buckle up", "mind-blowing", "smash that like".${lessons.length ? `\nLessons from our own numbers (approved by the owner):\n${lessons.map((l) => `- ${l}`).join("\n")}` : ""}`;
+}
+
+/** How much each of an idea's scores counts. The weekly retro moves these (D-061). */
+export interface IdeaWeights {
+  demand: number;
+  originality: number;
+  fit: number;
+  risk: number;
+}
+export const DEFAULT_IDEA_WEIGHTS: IdeaWeights = {
+  demand: 0.35,
+  originality: 0.25,
+  fit: 0.25,
+  risk: 0.15,
+};
+
+/** An idea's score: a weighted sum of its 1-10 ratings, minus its policy risk. */
+export function scoreIdea(
+  s: { demand: number; originality: number; fit: number; risk: number },
+  w: IdeaWeights = DEFAULT_IDEA_WEIGHTS,
+): number {
+  return (
+    Math.round(
+      (w.demand * s.demand + w.originality * s.originality + w.fit * s.fit - w.risk * s.risk) * 10,
+    ) / 10
+  );
 }
 
 function formatSignals(signals: Signal[], limit: number): string {
@@ -829,7 +918,7 @@ export function renderScript(channel: Channel, doc: ScriptDoc): string {
     "",
     `**Idea:** ${doc.idea.title}. ${doc.idea.angle}`,
     "",
-    "**Other titles:** " + doc.titles.slice(1).join(" · "),
+    `**Other titles:** ${doc.titles.slice(1).join(" · ")}`,
     "",
     "**Alternative hooks:**",
     ...doc.hooks.map((h) => `- ${h}`),

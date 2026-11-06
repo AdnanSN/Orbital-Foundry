@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Connecting Instagram · Orbital Foundry Studio</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Connecting Instagram…</h1>
+      <p>
+        Instagram sent you back here. This page passes the sign-in on to the Orbital Foundry Studio
+        app running on your computer.
+      </p>
+      <p>
+        If nothing happens in a few seconds, <a id="go" href="index.html">continue to the station</a>.
+      </p>
+      <p class="muted">
+        The sign-in code only works together with the app's secret key, which never leaves your
+        computer.
+      </p>
+    </main>
+    <script>
+      // Instagram redirects here (an https page it accepts) with ?code=…&state=…; the station's
+      // state starts with its local port, e.g. "8787.<random>".
+      (() => {
+        const query = new URLSearchParams(window.location.search);
+        const match = /^(\d{4,5})\./.exec(query.get("state") ?? "");
+        const port = match && Number(match[1]) >= 1024 && Number(match[1]) <= 65535 ? match[1] : "8787";
+        const target = `http://127.0.0.1:${port}/api/uplink/instagram/callback${window.location.search}`;
+        const link = document.getElementById("go");
+        if (link) link.setAttribute("href", target);
+        if (query.has("code") || query.has("error")) window.location.replace(target);
+      })();
+    </script>
+  </body>
+</html>

@@ -211,6 +211,42 @@ const MIGRATIONS: string[] = [
      updated_at TEXT NOT NULL
    );
    CREATE INDEX idx_videos_channel ON videos (channel, status, created_at);`,
+  // Stage 17: the Uplink's posts, one per video and platform (D-059).
+  `CREATE TABLE posts (
+     id TEXT PRIMARY KEY,
+     video_id TEXT NOT NULL,
+     platform TEXT NOT NULL,
+     status TEXT NOT NULL,
+     at TEXT NOT NULL,
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX idx_posts_video ON posts (video_id, platform);
+   CREATE INDEX idx_posts_status ON posts (status, at);`,
+  // Stage 18: the GPU lane's AI clip jobs (D-060).
+  `CREATE TABLE gpu_jobs (
+     id TEXT PRIMARY KEY,
+     script_id TEXT NOT NULL,
+     status TEXT NOT NULL,
+     deadline TEXT NOT NULL,
+     data TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     updated_at TEXT NOT NULL
+   );
+   CREATE INDEX idx_gpu_jobs_script ON gpu_jobs (script_id);
+   CREATE INDEX idx_gpu_jobs_status ON gpu_jobs (status, deadline);`,
+  // Stage 19: daily stats per post, lifetime totals as of that day (D-061).
+  `CREATE TABLE video_stats (
+     post_id TEXT NOT NULL,
+     video_id TEXT NOT NULL,
+     platform TEXT NOT NULL,
+     day TEXT NOT NULL,
+     data TEXT NOT NULL,
+     fetched_at TEXT NOT NULL,
+     PRIMARY KEY (post_id, day)
+   );
+   CREATE INDEX idx_video_stats_video ON video_stats (video_id, day);`,
 ];
 
 export function openDb(file: string = DB_PATH): Database.Database {

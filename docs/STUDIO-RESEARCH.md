@@ -207,11 +207,19 @@ words, or 8,500 characters; a 45-second short is about 110 words, or 650 charact
 | Local GPU | overnight | about 6 AI clips (hooks, key moments) | about 1 | roughly 25 to 30 clips a night (estimate, Stage 18 measures it) |
 | Modal | $30 a month | bursts only | — | hard-capped below $30 |
 
+- **Monetisation thresholds (checked 2026-11-06).** YouTube: 500 subscribers with 3,000
+  long-form watch hours (12 months) or 3M Shorts views (90 days) for fan funding; 1,000 subscribers
+  with 4,000 hours or 10M Shorts views for ad revenue. YouTube announced on 2026-08-10 that new
+  applicants in 2027 will need 8,000 hours or 20M Shorts views, and that Shorts revenue sharing pauses
+  below 10M Shorts views. TikTok Creator Rewards: 10,000 followers, 100,000 views in 30 days, and only
+  original videos over one minute earn.
+
 ## 8. Open questions for the stages
 
 - Do YouTube's docs and the lifted lock agree? The first upload goes out unlisted as a check
   (Stage 17).
-- Which Instagram API field sets the AI label (Stage 17)?
+- ~~Which Instagram API field sets the AI label (Stage 17)?~~ `is_ai_generated` on the media
+  container, in both Instagram APIs since 2026-06-22 (Meta changelog). It can't be added later.
 - How long do TikTok's app review and audit take for a one-creator app (Stage 12 onward)?
 - The real speed of LTX-2 and Wan 2.2 on the RTX 3050 (Stage 18).
 - Whether Cloudflare's speech models pass the census for the live lane (Stage 13).
@@ -234,6 +242,11 @@ words, or 8,500 characters; a 45-second short is about 110 words, or 650 charact
 - AI-label fields across platforms (third-party, upload-post): https://docs.upload-post.com/guides/ai-content-labeling/
 - Instagram content publishing (Meta): https://developers.facebook.com/documentation/instagram-platform/content-publishing
 - Instagram Reels resumable upload (third-party, Postproxy): https://postproxy.dev/blog/post-to-instagram-via-api/
+- YouTube Partner Program: https://www.youtube.com/creators/earn/youtube-partner-program/ ; the 2027
+  changes: https://blog.youtube/news-and-events/youtube-partner-program-updates-2027-new-opportunities-earn/
+- TikTok Creator Rewards: https://support.tiktok.com/en/business-and-creator/creator-rewards-program
+- Instagram's AI info label, `is_ai_generated` (Meta changelog, 2026-06-22):
+  https://developers.facebook.com/documentation/instagram-platform/changelog
 
 **Tools and models:**
 
