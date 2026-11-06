@@ -81,6 +81,60 @@ const outlineSchema = z.object({
     .max(9),
 });
 const sectionSchema = z.object({ beats: z.array(beatSchema).min(2).max(14) });
+
+/** The hook pass: five openings, the strongest one, and the first beat rewritten around it. */
+const hookSchema = z.object({
+  hooks: z
+    .array(
+      z.object({
+        line: z.string().min(5).max(200),
+        screen: z.string().min(2).max(40),
+      }),
+    )
+    .min(3)
+    .max(6),
+  best: z.number().int().min(0).max(5),
+  opening: z.string().min(10).max(900),
+});
+
+/**
+ * What makes a first line hold a scroller, given to every hook pass. The examples are shapes from
+ * other topics; only the video's own facts may be used.
+ */
+export function hookRules(maxWords: number): string {
+  return `Hook rules. The first line decides whether a viewer stays, so:
+- At most ${maxWords} words, spoken in under five seconds.
+- Lead with the most surprising true thing in the facts: a contradiction, an impossible-sounding number, a vivid concrete image, or a question the viewer can't answer yet.
+- Open a loop: the line raises a question the video answers later.
+- Never open with a definition ("X is a…", "X are…"), a greeting, "In this video", "Today", "Have you ever wondered", "Did you know", "Imagine", or the channel's name.
+- Only claims the facts support; specific beats vague.
+Shapes from other topics: "There is a lake in Tanzania that turns animals to stone." "Somewhere above Venezuela, lightning strikes the same spot almost every night." "This frog freezes solid all winter, and its heart stops. Then it thaws."
+"screen" is 2 to 5 punchy words shown big while the hook is spoken, never just the title (e.g. "TURNS ANIMALS TO STONE").`;
+}
+
+/** Openings that lose a scroller before the point (Lens flags them). */
+export function weakOpening(narration: string, format: "short" | "long"): string | null {
+  const first = narration.trim().split(/(?<=[.!?])\s+/)[0] ?? "";
+  const n = first.split(/\s+/).filter(Boolean).length;
+  if (
+    /^(in this video|in today's|today\b|welcome|hi\b|hello|hey\b|have you ever|did you know|imagine\b|let's\b|so,?\s)/i.test(
+      first,
+    )
+  ) {
+    return `The video opens with "${first.split(/\s+/).slice(0, 3).join(" ")}…"; open on the surprise instead.`;
+  }
+  if (
+    /^[\p{L}\p{N}\s,()'’-]{1,60}\b(is|are|was|were)\s+(a|an|the|one|brief|short|small|large|huge|tiny|rare|bright)\b/iu.test(
+      first,
+    )
+  ) {
+    return "The first line is a definition; open on the most surprising fact instead.";
+  }
+  if (n > (format === "short" ? 20 : 28)) {
+    return `The first line runs ${n} words; a hook lands in about 15.`;
+  }
+  return null;
+}
 const factsSchema = z.object({
   facts: z
     .array(z.object({ fact: z.string().max(320), source: z.number().int().min(0) }))
@@ -190,6 +244,8 @@ export interface ScriptDoc {
   idea: { title: string; angle: string };
   titles: string[];
   hooks: string[];
+  /** The opening chosen by the hook pass: the spoken first line and the words on screen. */
+  hook?: { line: string; text: string };
   beats: Beat[];
   description: string;
   tags: string[];
@@ -666,7 +722,14 @@ export class WritersRoom {
   /** Starts a script in the background; returns its record at once. */
   start(
     channelId: string,
-    opts: { format: "short" | "long"; ideaId?: string; note?: string; from?: ScriptDoc },
+    opts: {
+      format: "short" | "long";
+      ideaId?: string;
+      note?: string;
+      from?: ScriptDoc;
+      /** Corrected facts for a rewrite, replacing the earlier brief's (sources stay). */
+      facts?: Brief["facts"];
+    },
   ): ScriptDoc {
     const channel = this.channel(channelId);
     const at = new Date(this.now()).toISOString();
@@ -688,7 +751,9 @@ export class WritersRoom {
       description: "",
       tags: [],
       thumbnails: [],
-      brief: opts.from?.brief ?? { sources: [], facts: [] },
+      brief: opts.from
+        ? { sources: opts.from.brief.sources, facts: opts.facts ?? opts.from.brief.facts }
+        : { sources: [], facts: [] },
       checks: { words: 0, unsupported: [], banned: [], sameness: 0, problems: [] },
       ...(opts.note ? { note: opts.note } : {}),
       createdAt: at,
@@ -743,7 +808,7 @@ export class WritersRoom {
       const draft = await this.ask(
         "creative",
         channelSystem(channel, this.lessons(channel.id)),
-        `Write a ${words.minWords}-${words.maxWords} word vertical short (30-60 seconds) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nUse only these facts:\n${facts}\n\nThe first beat is the hook: the single most surprising true fact, in the first sentence. End on the idea itself, no call to action. Give 2-3 titles under 70 characters, 2-3 alternative hooks, a description (2-3 sentences, then "Narration: AI voice."), up to 12 tags and 1-3 thumbnail ideas (text of 5 words or fewer).\n\n${VISUAL_GUIDE}${revision}`,
+        `Write a ${words.minWords}-${words.maxWords} word vertical short (30-60 seconds) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nUse only these facts:\n${facts}\n\nThe first beat opens with the hook: at most 15 words, the most surprising true thing in the facts, never a definition. End on the idea itself, no call to action. Give 2-3 titles under 70 characters, 2-3 alternative hooks, a description (2-3 sentences, then "Narration: AI voice."), up to 12 tags and 1-3 thumbnail ideas (text of 5 words or fewer).\n\n${VISUAL_GUIDE}${revision}`,
         shortDraftSchema,
       );
       Object.assign(doc, {
@@ -773,7 +838,7 @@ export class WritersRoom {
         const part = await this.ask(
           "creative",
           channelSystem(channel, this.lessons(channel.id)),
-          `Write section ${i + 1} of ${outline.sections.length} ("${section.heading}") of a video titled "${outline.titles[0]}". About ${section.words} words of narration in beats.\nCover: ${section.points.join("; ")}\n${i === 0 ? "Open with the hook: the most surprising true fact first." : `It follows: "${doc.beats.at(-1)?.narration.slice(-200) ?? ""}"`}\n${i === outline.sections.length - 1 ? "End on the idea itself; no call to action." : ""}\nUse only these facts:\n${facts}\n\n${VISUAL_GUIDE}`,
+          `Write section ${i + 1} of ${outline.sections.length} ("${section.heading}") of a video titled "${outline.titles[0]}". About ${section.words} words of narration in beats.\nCover: ${section.points.join("; ")}\n${i === 0 ? "Open with the hook (at most 22 words: the most surprising true thing, never a definition), then one sentence promising what the video will reveal." : `It follows: "${doc.beats.at(-1)?.narration.slice(-200) ?? ""}"`}\n${i === outline.sections.length - 1 ? "End on the idea itself; no call to action." : ""}\nUse only these facts:\n${facts}\n\n${VISUAL_GUIDE}`,
           sectionSchema,
         );
         doc.beats.push(...part.beats);
@@ -781,11 +846,47 @@ export class WritersRoom {
         this.saveScript(doc);
       }
     }
+    await this.sharpenHook(channel, doc, facts);
     await this.check(channel, doc, true);
     doc.status = "review";
     this.saveScript(doc);
     if (doc.ideaId) this.setIdeaStatus(doc.ideaId, "scripted");
     this.submit(channel, doc);
+  }
+
+  /**
+   * The hook pass: the opening decides whether anyone stays. Five candidates against the hook
+   * rules, the strongest one chosen, and the first beat rewritten to start with it, plus a few
+   * words for the screen. A failed pass leaves the draft as it was.
+   */
+  private async sharpenHook(channel: Channel, doc: ScriptDoc, facts: string): Promise<void> {
+    const first = doc.beats[0];
+    if (!first) return;
+    const max = doc.format === "short" ? 15 : 22;
+    this.say("operator", "Sharpening the opening line…");
+    try {
+      const res = await this.ask(
+        "creative",
+        channelSystem(channel, this.lessons(channel.id)),
+        `${hookRules(max)}\n\nVideo: "${doc.titles[0] ?? doc.idea.title}", ${doc.format === "short" ? "a vertical short" : "an 8-12 minute video"}.\nIts opening beat now:\n"${first.narration}"\nHook ideas so far: ${doc.hooks.join(" | ") || "(none)"}\n\nUse only these facts:\n${facts}\n\nWrite 5 hooks (each a spoken line and its screen words), then give the index of the one a scroller can't skip as "best". "opening" is the first beat rewritten to start with that hook line and flow on without repeating it${doc.format === "long" ? ", ending with one sentence that promises what the video will reveal" : ""}.`,
+        hookSchema,
+      );
+      const best = res.hooks[res.best] ?? res.hooks[0];
+      if (!best) return;
+      const line = best.line.trim();
+      if (line.split(/\s+/).length > max + 6 || weakOpening(line, doc.format)) return;
+      const opening = res.opening.trim();
+      first.narration = opening.toLowerCase().startsWith(line.slice(0, 24).toLowerCase())
+        ? opening
+        : `${line} ${opening}`;
+      doc.hook = { line, text: best.screen.trim().toUpperCase() };
+      doc.hooks = [line, ...res.hooks.map((h) => h.line.trim()).filter((h) => h !== line)].slice(
+        0,
+        5,
+      );
+    } catch (err) {
+      this.log(`hook pass for ${doc.id} failed: ${String(err)}`);
+    }
   }
 
   /** Lens's checks; with `revise`, one rewrite of the beats that failed. */
@@ -843,6 +944,8 @@ export class WritersRoom {
         why: "no fact or line gives that number",
       });
     }
+    const weak = doc.beats[0] ? weakOpening(doc.beats[0].narration, doc.format) : null;
+    if (weak) checks.problems.push(weak);
     const repeats = repeatedBeats(doc.beats);
     if (repeats.length > 0) {
       checks.problems.push(
@@ -1012,8 +1115,11 @@ export function renderScript(channel: Channel, doc: ScriptDoc): string {
     "",
     `**Other titles:** ${doc.titles.slice(1).join(" · ")}`,
     "",
-    "**Alternative hooks:**",
-    ...doc.hooks.map((h) => `- ${h}`),
+    ...(doc.hook
+      ? [`**Opening hook:** "${doc.hook.line}" (on screen: **${doc.hook.text}**)`, ""]
+      : []),
+    doc.hook ? "**Other hooks it beat:**" : "**Alternative hooks:**",
+    ...doc.hooks.filter((h) => h !== doc.hook?.line).map((h) => `- ${h}`),
     "",
     "## Script and shots",
     "",

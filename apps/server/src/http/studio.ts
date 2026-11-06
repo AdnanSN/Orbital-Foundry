@@ -64,6 +64,13 @@ const scriptSchema = z.object({
   channel: z.string().min(1),
   format: z.enum(["short", "long"]),
   ideaId: z.string().max(20).optional(),
+  /** A rewrite: the script it replaces, the note to follow and, optionally, corrected facts. */
+  from: z.string().max(20).optional(),
+  note: z.string().max(2000).optional(),
+  facts: z
+    .array(z.object({ fact: z.string().min(5).max(400), source: z.number().int().min(0) }))
+    .max(60)
+    .optional(),
 });
 const listSchema = z.object({
   channel: z.string().max(40).optional(),
@@ -97,10 +104,15 @@ export function registerStudioRoutes(app: FastifyInstance, api: StudioApi): void
   });
   app.post("/api/studio/scripts", async (req, reply) => {
     const body = scriptSchema.parse(req.body);
+    const from = body.from ? writers.script(body.from) : null;
+    if (body.from && !from) return reply.code(404).send({ error: `No script ${body.from}.` });
     return reply.code(202).send(
       writers.start(body.channel, {
         format: body.format,
         ...(body.ideaId ? { ideaId: body.ideaId } : {}),
+        ...(from ? { from } : {}),
+        ...(body.note ? { note: body.note } : {}),
+        ...(body.facts ? { facts: body.facts } : {}),
       }),
     );
   });

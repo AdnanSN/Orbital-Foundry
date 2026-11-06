@@ -128,6 +128,10 @@ export const timelineSchema = z.object({
     .optional(),
   progressBar: z.boolean().default(false),
   watermark: z.string().max(40).optional(),
+  /** The opening's words, big on screen from 0 s while the hook line is spoken. */
+  hook: z
+    .object({ text: z.string().min(1).max(60), duration: z.number().positive().max(10) })
+    .optional(),
 });
 export type Timeline = z.infer<typeof timelineSchema>;
 export type TimelineInput = z.input<typeof timelineSchema>;

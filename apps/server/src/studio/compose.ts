@@ -105,6 +105,19 @@ export function composeTimeline(t: Timeline): Built {
     });
   }
 
+  // The hook's words pop in on the first frame, drift a little while the line is spoken, then go.
+  if (t.hook) {
+    const d = t.hook.duration;
+    body.push(
+      `<div id="hook" class="clip hook" data-start="0" data-duration="${n(d)}"><div class="hook-t">${esc(t.hook.text)}</div></div>`,
+    );
+    js.push(
+      `tl.fromTo("#hook .hook-t", { scale: 1.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.28, ease: "back.out(2.2)" }, 0.05);`,
+      `tl.to("#hook .hook-t", { scale: 1.06, duration: ${n(Math.max(0.3, d - 0.6))}, ease: "none" }, 0.33);`,
+      `tl.to("#hook .hook-t", { opacity: 0, y: -${Math.round(base * 0.03)}, duration: 0.22, ease: "power2.in" }, ${n(Math.max(0.4, d - 0.22))});`,
+    );
+  }
+
   if (t.progressBar) {
     body.push(
       `<div id="progress" class="clip prog" data-start="0" data-duration="${n(t.duration)}"><div class="prog-bar"></div></div>`,
@@ -171,6 +184,8 @@ html, body { width: ${W}px; height: ${H}px; overflow: hidden; background: ${th.b
 .prog { z-index: 600; height: ${Math.max(6, Math.round(base * 0.008))}px; inset: 0 0 auto 0; background: rgba(255,255,255,0.15); }
 .prog-bar { width: 100%; height: 100%; background: ${th.accent}; transform-origin: left center; }
 .wm { z-index: 600; inset: auto auto ${Math.round(H * 0.025)}px ${Math.round(W * 0.03)}px; font-size: ${Math.round(base * 0.02)}px; font-weight: 700; opacity: 0.55; letter-spacing: 0.06em; }
+.hook { z-index: 450; pointer-events: none; display: flex; justify-content: center; align-items: ${short ? "flex-start" : "center"}; ${short ? `padding-top: ${Math.round(H * 0.24)}px;` : ""} }
+.hook-t { max-width: ${Math.round(W * 0.88)}px; text-align: center; font-family: "${th.display}", sans-serif; font-weight: 900; text-transform: uppercase; line-height: 1.02; letter-spacing: -0.01em; font-size: ${Math.round(base * (short ? 0.11 : 0.09))}px; color: ${th.accent}; text-shadow: 0 0 ${Math.round(base * 0.02)}px rgba(0,0,0,0.9), 0 ${Math.round(base * 0.01)}px ${Math.round(base * 0.04)}px rgba(0,0,0,0.8); -webkit-text-stroke: ${Math.max(3, Math.round(base * 0.007))}px rgba(0,0,0,0.85); paint-order: stroke fill; will-change: transform; }
 `;
 
   const html = `<!doctype html>

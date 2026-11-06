@@ -424,6 +424,8 @@ export class EditBay {
     channel: Channel,
     beats: Beat[],
     fresh: boolean,
+    /** The hook: its spoken line and the words on screen (a cut-down brings its own). */
+    opening?: { line: string; text: string },
   ): Promise<void> {
     const lane = this.deps.lane as MediaLane;
     const out = path.join(this.deps.dir, v.id);
@@ -447,6 +449,10 @@ export class EditBay {
     };
     const duration = Math.ceil((voice.duration + (v.format === "short" ? 0.6 : 1.5)) * 10) / 10;
     const times = beatTimes(beats, voice.words, duration, pronounce);
+    // The opening holds or loses the viewer: the hook's words on screen while it is spoken, a hit
+    // on the first frame, and quicker cuts until the first beat ends.
+    const hook = opening ?? script.hook;
+    const hookEnd = hook ? hookEndTime(hook.line, voice.words, pronounce) : 0;
     this.stage(v, "shots", 10);
 
     const used: Asset[] = [];
@@ -458,18 +464,23 @@ export class EditBay {
       const span = Math.max(0.6, t.end - t.start);
       const vis = beat.visual;
       const graphic = ["title", "list", "quote", "stat"].includes(vis.kind);
-      // Motion graphics hold a beat up to 8 s; past that, footage takes over to keep it moving.
+      // The first beat cuts quickly (the hook); later shots may run up to 7 s.
+      const opener = i === 0;
+      const cut = opener ? (v.format === "short" ? 2.5 : 4) : 7;
+      // Motion graphics hold a beat up to 8 s (2.5 s while the hook plays); then footage takes over.
       const pieces: { start: number; dur: number; kind: string }[] = [];
       if (graphic) {
-        const g = span > 8 ? 5 : span;
+        const g = opener ? Math.min(span, 2.5) : span > 8 ? 5 : span;
         pieces.push({ start: t.start, dur: g, kind: vis.kind });
-        if (span > 8) pieces.push(...this.split(t.start + g, span - g, "stock-image"));
+        if (span - g > 0.5 && (opener || span > 8)) {
+          pieces.push(...this.split(t.start + g, span - g, "stock-image", cut));
+        }
       } else if (vis.kind === "ai-video") {
         // The clip covers the first piece; the rest of a long beat falls back to footage.
         pieces.push(
           ...this.split(t.start, span, vis.kind, this.deps.gpu?.config.clip.seconds ?? 5),
         );
-      } else pieces.push(...this.split(t.start, span, vis.kind));
+      } else pieces.push(...this.split(t.start, span, vis.kind, cut));
       for (const [k, piece] of pieces.entries()) {
         let visual: Scene["visual"];
         const record: ShotRecord = {
@@ -573,6 +584,17 @@ export class EditBay {
 
     const music = this.deps.kit.music(duration, channel.music.mood);
     used.push(music.asset);
+    if (hook) {
+      const hit = this.deps.kit.sfx("hit");
+      sfx.unshift({ src: hit.file, duration: hit.duration, start: 0, volume: 0.7 });
+      const out = this.deps.kit.sfx("whoosh");
+      sfx.push({
+        src: out.file,
+        duration: out.duration,
+        start: Math.max(0, hookEnd - 0.2),
+        volume: 0.3,
+      });
+    }
     const timeline: Timeline = timelineSchema.parse({
       format: v.format,
       duration,
@@ -586,6 +608,7 @@ export class EditBay {
         : {}),
       progressBar: v.format === "short",
       ...(channel.handle ? { watermark: channel.handle } : {}),
+      ...(hook?.text ? { hook: { text: hook.text.slice(0, 60), duration: hookEnd } } : {}),
     });
     this.stage(v, "render", 50);
     this.deps.say?.("operator", "Rendering…");
@@ -607,10 +630,12 @@ export class EditBay {
     this.stage(v, "screening", 92);
     this.deps.say?.("reviewer", "Screening the cut…");
     const frame = path.join(out, "frame.png");
-    const hookEnd = times[0]?.end ?? 2;
+    // The thumbnail frame comes from inside the first beat, after the hook's words have gone.
+    const openerEnd = times[0]?.end ?? 2;
+    const at = Math.max(hookEnd + 0.3, Math.max(1, openerEnd * 0.6));
     await (this.deps.frame ?? frameAt)(
       result.file,
-      Math.min(Math.max(1, hookEnd * 0.6), Math.max(0, result.duration - 0.5)),
+      Math.min(at, Math.max(0, result.duration - 0.5)),
       frame,
     );
     v.thumbnail = path.join(out, `${v.id}-thumb.png`);
@@ -799,14 +824,21 @@ export class EditBay {
       .filter((c) => c.from <= c.to && c.to < script.beats.length)
       .slice(0, count);
     for (const cut of cuts) {
+      const slice = script.beats.slice(cut.from, cut.to + 1);
+      // The hook opens on the stretch's first real shot, with its words on screen, not a title card.
+      const lead = slice.find((b) =>
+        ["stock-video", "stock-image", "ai-still", "ai-video"].includes(b.visual.kind),
+      )?.visual;
       const beats: Beat[] = [
-        { narration: cut.hook, visual: { kind: "title", text: cut.title } },
-        ...script.beats.slice(cut.from, cut.to + 1),
+        { narration: cut.hook, visual: lead ?? { kind: "stock-video", query: keyTerms(cut.hook) } },
+        ...slice,
       ];
+      const opening = { line: cut.hook, text: screenWords(cut.title) };
       const short: ScriptDoc = {
         ...script,
         format: "short",
         titles: [cut.title, ...script.titles.slice(0, 1)],
+        hook: opening,
         beats,
       };
       const v = this.newVideo(short, channel, {
@@ -817,7 +849,7 @@ export class EditBay {
         titles: [cut.title],
         description: `${cut.hook} From our full video: ${parent.title}.`,
       });
-      await this.run(v, short, channel, beats, true).catch((err: unknown) => {
+      await this.run(v, short, channel, beats, true, opening).catch((err: unknown) => {
         v.status = "failed";
         v.error = err instanceof Error ? err.message : String(err);
         this.save(v);
@@ -925,6 +957,28 @@ export class EditBay {
       }
     }
   }
+}
+
+/** When the hook line has been spoken: the end of its last word, between 1.5 and 4.5 s. */
+export function hookEndTime(
+  line: string,
+  words: WordTiming[],
+  pronounce: Record<string, string>,
+): number {
+  const n = splitWords(applyPronunciation(line, pronounce)).length;
+  const end = words[Math.max(0, Math.min(words.length, n) - 1)]?.end ?? 2.5;
+  return Math.round(Math.min(4.5, Math.max(1.5, end + 0.25)) * 100) / 100;
+}
+
+/** At most five words for the screen, in capitals ("THE 15-MICROSECOND MYSTERY"). */
+export function screenWords(text: string): string {
+  return text
+    .replace(/[:;,.!?]+$/, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 5)
+    .join(" ")
+    .toUpperCase();
 }
 
 /**

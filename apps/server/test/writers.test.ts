@@ -146,6 +146,20 @@ function fakeRouter(opts: { unsupportedFirst?: boolean } = {}) {
       data = {
         beats: [beat("Their age is still debated.", "ai-still", { prompt: "icy ring particles" })],
       };
+    } else if (p.includes("Hook rules.")) {
+      data = {
+        hooks: [
+          {
+            line: "Saturn's rings are thinner than a house is tall.",
+            screen: "Thinner than a house",
+          },
+          { line: "Rings wider than Earth, yet barely there.", screen: "BARELY THERE" },
+          { line: "In this video we look at rings.", screen: "RINGS" },
+        ],
+        best: 0,
+        opening:
+          "Saturn's rings are thinner than a house is tall: mostly water ice, about ten metres thick in places, which is a mind-blowing thing.",
+      };
     } else if (p.includes("vertical short")) {
       data = SHORT;
     } else if (p.includes("Outline an 8-12 minute")) {
@@ -276,9 +290,17 @@ describe("writers' room", () => {
     expect(doc?.checks.unsupported).toEqual([]);
     expect(doc?.checks.banned).toContain("mind-blowing");
     expect(doc?.brief.sources[0]?.url).toContain("wikipedia.org");
+    // The hook pass: the strongest opening leads the first beat, with its words for the screen.
+    expect(doc?.hook).toEqual({
+      line: "Saturn's rings are thinner than a house is tall.",
+      text: "THINNER THAN A HOUSE",
+    });
+    expect(doc?.beats[0]?.narration).toMatch(/^Saturn's rings are thinner than a house is tall/);
+    expect(doc?.hooks[0]).toBe(doc?.hook?.line);
     expect(desk[0]?.title).toMatch(/^\[Draft channel\] Script ready: Saturn's rings/);
     const art = store.artifact(doc?.artifactId ?? "");
     expect(art?.content).toContain("## Lens's checks");
+    expect(art?.content).toContain("**Opening hook:**");
     expect(writers.ideas("space-explainers", "scripted")).toHaveLength(1);
   });
 
@@ -368,5 +390,26 @@ describe("Lens's number and repetition checks", () => {
       line(`${repeat} This makes them a fascinating area of study.`),
     ];
     expect(repeatedBeats(beats)).toEqual([[0, 2]]);
+  });
+});
+
+describe("hooks", () => {
+  it("flags openings that lose a scroller", async () => {
+    const { weakOpening, hookRules } = await import("../src/studio/writers");
+    expect(
+      weakOpening(
+        "Fast Radio Bursts, or FRBs, are brief, lasting only a few milliseconds. This short duration is what makes them fascinating.",
+        "long",
+      ),
+    ).toMatch(/definition/);
+    expect(weakOpening("In this video we look at Venus.", "short")).toMatch(/opens with/);
+    expect(weakOpening("Have you ever wondered why Venus spins backwards?", "short")).toMatch(
+      /opens with/,
+    );
+    expect(
+      weakOpening("Venus spins so slowly that a day there lasts longer than its year.", "short"),
+    ).toBeNull();
+    expect(weakOpening(`${"word ".repeat(24)}end.`, "short")).toMatch(/runs 25 words/);
+    expect(hookRules(15)).toContain("At most 15 words");
   });
 });

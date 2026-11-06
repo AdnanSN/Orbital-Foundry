@@ -14,7 +14,9 @@ import {
   drawStarfield,
   EditBay,
   type EditBayDeps,
+  hookEndTime,
   keyTerms,
+  screenWords,
 } from "../src/studio/editbay";
 import { writeWav } from "../src/studio/ffmpeg";
 import { type GpuJob, gpuConfigSchema } from "../src/studio/gpu";
@@ -318,7 +320,14 @@ describe("edit bay", { timeout: 30_000 }, () => {
       orientation: "portrait",
       prefer: ["nasa", "pixabay", "openverse"],
     });
-    expect(v?.shots.map((s) => s.got)).toEqual(["stock-image", "stat", "ai-still", "code"]);
+    // The opening beat (the hook) is cut in two quick shots; the rest follow the shot list.
+    expect(v?.shots.map((s) => s.got)).toEqual([
+      "stock-image",
+      "stock-image",
+      "stat",
+      "ai-still",
+      "code",
+    ]);
     expect(renders[0]).toContain('class="clip cap"');
     expect(renders[0]).toContain('id="progress"');
     expect(v?.disclosure.syntheticMedia).toBe(true);
@@ -352,8 +361,26 @@ describe("edit bay", { timeout: 30_000 }, () => {
       title: "The singing aurora",
       status: "review",
     });
-    // Titles are set word by word.
-    expect(renders[1]).toContain(">singing</span>");
+    // The cut-down opens on a real shot with its hook's words on screen, not on a title card.
+    expect(cut?.shots[0]?.want).not.toBe("title");
+    expect(renders[1]).toContain('<div class="hook-t">THE SINGING AURORA</div>');
+  });
+
+  it("opens on the hook: its words on screen, a hit, and quick first cuts", async () => {
+    const doc = script("short");
+    doc.hook = {
+      line: "Ball lightning is a glowing sphere that drifts through the air.",
+      text: "IT FLOATS",
+    };
+    const { bay, renders } = setup(doc);
+    const v = await bay.settled(bay.produce("S-1").id);
+    expect(v?.status).toBe("review");
+    expect(renders[0]).toContain('id="hook"');
+    expect(renders[0]).toContain('<div class="hook-t">IT FLOATS</div>');
+    expect(renders[0]).toMatch(/<audio id="fx0"[^>]*data-start="0"/);
+    // The first beat's footage is cut into pieces of at most 2.5 s.
+    const opening = (v?.shots ?? []).filter((s) => s.beat === 0);
+    expect(opening.every((s) => s.duration <= 2.5 + 1e-6)).toBe(true);
   });
 
   it("approves a real video for posting, but never a test render", async () => {
@@ -441,6 +468,19 @@ describe("shot queries and stats", () => {
     // A month is not what a shot is about.
     expect(keyTerms("As of January 2021, 31 confirmed magnetars have been found.")).toBe(
       "confirmed magnetars found",
+    );
+  });
+
+  it("times the hook from its words and keeps its screen words short", () => {
+    const words = distributeWords("NASA saw it twice. Then nothing for years.", 0, 4);
+    // "NASA" is spoken as four words, so the hook "NASA saw it twice." ends on its seventh word.
+    expect(hookEndTime("NASA saw it twice.", words, { NASA: "N A S A" })).toBeCloseTo(
+      (words[6]?.end ?? 0) + 0.25,
+      2,
+    );
+    expect(hookEndTime("Hi.", [], {})).toBe(2.75);
+    expect(screenWords("The 15-microsecond mystery of fast radio bursts!")).toBe(
+      "THE 15-MICROSECOND MYSTERY OF FAST",
     );
   });
 
