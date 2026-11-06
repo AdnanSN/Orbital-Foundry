@@ -438,6 +438,10 @@ describe("shot queries and stats", () => {
     expect(keyTerms("Its orbit around the Sun lasts 224.7 Earth days, almost twice as long.")).toBe(
       "Sun Earth around",
     );
+    // A month is not what a shot is about.
+    expect(keyTerms("As of January 2021, 31 confirmed magnetars have been found.")).toBe(
+      "confirmed magnetars found",
+    );
   });
 
   it("shrinks long stats to fit and spaces their units", async () => {

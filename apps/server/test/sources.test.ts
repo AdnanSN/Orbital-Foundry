@@ -404,4 +404,33 @@ describe("relevance", () => {
     );
     expect(relevant({ tags: ["rocket", "launch"], title: "" }, "rocket launch night")).toBe(true);
   });
+
+  it("needs two shared words when the query has no name, and ignores month names", async () => {
+    const { relevant } = await import("../src/studio/stock");
+    const telescope = "CHIME radio telescope";
+    // From the first long-form's frame review: each of these matched on one word.
+    expect(relevant({ tags: ["japanese", "wind", "chime"], title: "" }, telescope)).toBe(false);
+    expect(relevant({ tags: ["radio", "vintage", "speaker"], title: "" }, telescope)).toBe(false);
+    expect(relevant({ tags: ["moon", "clouds", "telescope"], title: "" }, telescope)).toBe(false);
+    expect(
+      relevant({ tags: ["effelsberg", "radio telescope"], title: "Radio telescope" }, telescope),
+    ).toBe(true);
+    expect(
+      relevant(
+        { tags: ["cassettes", "magnetic tape", "audio"], title: "" },
+        "magnetic field lines",
+      ),
+    ).toBe(false);
+    expect(
+      relevant(
+        { tags: ["snow", "christmas", "january"], title: "" },
+        "January magnetars identified",
+      ),
+    ).toBe(false);
+    // Plurals meet singulars, and one word is enough for a one-word query.
+    expect(relevant({ tags: ["magnetar", "neutron star"], title: "" }, "magnetars")).toBe(true);
+    expect(relevant({ tags: ["magnetar", "neutron star"], title: "" }, "magnetars neutron")).toBe(
+      true,
+    );
+  });
 });

@@ -1062,3 +1062,8 @@ icon-pack plan was accepted to close its objective. The Forge stays parked.
   nearly the same thing").
 - **Known gaps (backlog):** a wrong brief still passes, because Lens checks against the brief, not
   the source text. Units aren't compared either.
+- **Stock relevance, from the same review:** a query without a proper noun now needs two of its
+  words in a hit's tags or title when it has two or more. One shared word let in a wind chime for
+  "CHIME radio telescope", cassettes for "magnetic field lines" and sunglasses for "polarized".
+  Month and day names no longer count as proper nouns ("As of January 2021" fetched snowfall), and
+  plurals meet singulars.

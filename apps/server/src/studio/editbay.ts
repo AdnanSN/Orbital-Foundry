@@ -18,7 +18,7 @@ import type { MediaLane } from "./media";
 import { type RenderOptions, type RenderResult, renderProject } from "./render";
 import { type ScreenInput, type ScreeningReport, screen } from "./screening";
 import type { SoundKit } from "./sound";
-import { mediaStartFor, type StockRequest } from "./stock";
+import { CALENDAR_WORDS, mediaStartFor, type StockRequest } from "./stock";
 import { makeThumbnail } from "./thumbnail";
 import { type CameraMove, type Scene, type Timeline, timelineSchema } from "./timeline";
 import { applyPronunciation, type VoiceRequest, type VoiceResult } from "./voice";
@@ -937,8 +937,12 @@ export function keyTerms(text: string, max = 3): string {
     (w, i) =>
       i > 0 &&
       /^[A-Z][a-z]{2,}/.test(w) &&
-      !/^(The|This|That|These|Its|It|And|But|For|When|Then|Some|Each)$/.test(w),
+      !/^(The|This|That|These|Its|It|And|But|For|When|Then|Some|Each)$/.test(w) &&
+      // "As of January 2021" made "January" the search, and snowfall clips came back.
+      !CALENDAR_WORDS.has(w.toLowerCase()),
   );
-  const rest = terms(text).sort((a, b) => b.length - a.length);
+  const rest = terms(text)
+    .filter((w) => !CALENDAR_WORDS.has(w))
+    .sort((a, b) => b.length - a.length);
   return [...new Set([...proper, ...rest])].slice(0, max).join(" ");
 }

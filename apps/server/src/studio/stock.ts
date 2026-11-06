@@ -395,14 +395,71 @@ export function minClipFor(source: string, need: number): number {
   return source === "nasa" ? need + 8 : need + 1;
 }
 
+/** Month and day names look like proper nouns ("January") but say nothing about a shot. */
+export const CALENDAR_WORDS = new Set([
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+]);
+/** Words too general to tie a picture to a line. */
+const FILLER = new Set([
+  "about",
+  "around",
+  "after",
+  "before",
+  "other",
+  "their",
+  "there",
+  "these",
+  "those",
+  "which",
+  "while",
+  "where",
+  "known",
+  "called",
+  "roughly",
+  "extremely",
+]);
+
+/** Lowercase, with a plural "s" dropped, so "magnetars" meets "magnetar". */
+function stem(w: string): string {
+  return w.length > 4 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w;
+}
+
 /**
- * Whether a hit is about the query: it must share one of the query's proper nouns ("Venus"), or,
- * when there are none, one of its longer words. Stock search alone returns off-topic art.
+ * Whether a hit is about the query. A query with a proper noun ("Venus") needs that name. Without
+ * one, two of its words must match when it has two or more: one shared word let a wind chime in
+ * for "CHIME radio telescope", cassettes for "magnetic field lines" and sunglasses for "polarized".
  */
 export function relevant(hit: Pick<StockHit, "tags" | "title">, query: string): boolean {
-  const have = new Set([...hit.tags.flatMap((t) => terms(t)), ...terms(hit.title)]);
-  const proper = [...query.matchAll(/\b[A-Z][a-z]{2,}\b/g)].map((m) => m[0].toLowerCase());
-  if (proper.length > 0) return proper.some((p) => have.has(p));
-  const want = terms(query).filter((w) => w.length >= 4);
-  return want.length === 0 || want.some((w) => have.has(w));
+  const have = new Set([...hit.tags.flatMap((t) => terms(t)), ...terms(hit.title)].map(stem));
+  const proper = [...query.matchAll(/\b[A-Z][a-z]{2,}\b/g)]
+    .map((m) => m[0].toLowerCase())
+    .filter((p) => !CALENDAR_WORDS.has(p));
+  if (proper.length > 0) return proper.some((p) => have.has(stem(p)));
+  const want = [
+    ...new Set(
+      terms(query)
+        .filter((w) => w.length >= 4 && !CALENDAR_WORDS.has(w) && !FILLER.has(w))
+        .map(stem),
+    ),
+  ];
+  if (want.length === 0) return true;
+  return want.filter((w) => have.has(w)).length >= Math.min(2, want.length);
 }
