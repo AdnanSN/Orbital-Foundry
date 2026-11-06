@@ -881,8 +881,10 @@ export class UplinkPublisher {
     if (has("instagram"))
       parts.push(`## Instagram caption\n\n\`\`\`\n${t.instagram.caption}\n\`\`\``);
     if (has("tiktok")) {
+      // Creator Rewards pay only for videos over a minute (STUDIO-RESEARCH, checked 2026-11-06).
+      const short = (v.duration ?? 0) > 0 && (v.duration ?? 0) <= 60;
       parts.push(
-        `## TikTok caption\n\n\`\`\`\n${t.tiktok.caption}\n\`\`\`${t.tiktok.aigc ? "\n\nTurn on TikTok's AI-generated content label when you post." : ""}`,
+        `## TikTok caption\n\n\`\`\`\n${t.tiktok.caption}\n\`\`\`${t.tiktok.aigc ? "\n\nTurn on TikTok's AI-generated content label when you post." : ""}${short ? `\n\nAt ${Math.round(v.duration ?? 0)} s it is under a minute, so TikTok's Creator Rewards won't pay for it (reach still counts).` : ""}`,
       );
     }
     parts.push(

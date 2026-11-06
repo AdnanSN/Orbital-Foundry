@@ -285,6 +285,8 @@ describe("uplink publisher", () => {
     expect(plan?.content).toContain("<!-- video:V-0001 -->");
     expect(plan?.content).toContain("| TikTok | Draft in your TikTok inbox |");
     expect(plan?.content).toContain("Narration: AI voice.");
+    // The 40-second short earns nothing from TikTok's Creator Rewards, and the plan says so.
+    expect(plan?.content).toContain("At 40 s it is under a minute");
     const planned = t.byPlatform();
     expect(Object.keys(planned).sort()).toEqual(["instagram", "tiktok", "youtube"]);
     for (const p of Object.values(planned)) expect(new Date(p.at)).toEqual(at(5, 17));
