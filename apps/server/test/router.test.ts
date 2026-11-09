@@ -124,6 +124,25 @@ describe("ModelRouter fallbacks", () => {
     expect(transport.callsTo("alpha:a1")).toBe(1);
   });
 
+  it("benches only the model that hit a daily cap; the provider's others stay in play", async () => {
+    const transport = new FakeTransport({
+      "alpha:a1": fails(429, "tokens per day (TPD)", 1_371_000),
+      "alpha:a2": () => reply("from a2"),
+    });
+    const { router, gates } = makeRouter({
+      providers,
+      transport,
+      tiers: tiersWith({ fast: { sandbox: ["alpha:a1", "alpha:a2"] } }),
+    });
+    const first = await router.generate({ tier: "fast", lane: "sandbox", prompt: "hi" });
+    expect(first.ref).toBe("alpha:a2");
+    expect(gates.get("alpha")?.stats().cooldownMs ?? 0).toBeLessThan(1000);
+    // The capped model is skipped from then on.
+    const second = await router.generate({ tier: "fast", lane: "sandbox", prompt: "hi" });
+    expect(second.ref).toBe("alpha:a2");
+    expect(transport.callsTo("alpha:a1")).toBe(1);
+  });
+
   it("prefers a less busy provider over waiting in a long queue", async () => {
     const transport = new FakeTransport({
       "alpha:a1": () => reply("from alpha"),

@@ -253,7 +253,7 @@ export class ModelRouter {
   /** True when some provider in these attempts was rate-limited with a short cooldown left. */
   private briefRateLimit(round: Attempt[]): boolean {
     return round.some((a) => {
-      if (a.outcome !== "rate-limited") return false;
+      if (a.outcome !== "rate-limited" || this.breaker.isOpen(a.ref)) return false;
       const gate = this.deps.gates.get(parseModelRef(a.ref).provider);
       return gate !== undefined && gate.stats().cooldownMs <= MAX_RATE_WAIT_MS;
     });
@@ -425,9 +425,15 @@ export class ModelRouter {
 
   private penalize(ref: string, provider: string, info: FailureInfo, gate: ProviderGate): void {
     switch (info.kind) {
-      case "rate-limited":
-        gate.cooldown(info.retryAfterMs ?? this.deps.defaultCooldownMs ?? DEFAULT_COOLDOWN_MS);
+      case "rate-limited": {
+        const ms = info.retryAfterMs ?? this.deps.defaultCooldownMs ?? DEFAULT_COOLDOWN_MS;
+        // A long wait is a daily cap, and Groq counts those per model: bench only this model, so
+        // the provider's others stay in play. (gpt-oss-120b's daily cap once cooled all of Groq
+        // for 23 minutes while gpt-oss-20b had quota left.) Short waits cool the whole provider.
+        if (ms > MAX_RATE_WAIT_MS) this.breaker.trip(ref, ms);
+        else gate.cooldown(ms);
         break;
+      }
       case "auth":
         this.disabled.set(provider, `API key rejected (${truncate(info.message, 120)})`);
         break;
