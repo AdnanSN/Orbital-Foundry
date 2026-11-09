@@ -399,6 +399,10 @@ describe("writers' room", () => {
       `The owner's note on the previous version: "Make the hook about Cassini"`,
     );
     expect(hookPass).toContain(`Its hook was "Saturn's rings are thinner than a house is tall."`);
+    // A revision keeps its earlier version's phrasing; that isn't one video copying another.
+    const revised = writers.script(second?.id ?? "");
+    expect(revised?.checks.sameness).toBe(0);
+    expect(revised?.checks.problems.join(" ")).not.toMatch(/repeats an earlier script/);
     await decide(desk[1] as Approval, "approved");
     expect(writers.script(second?.id ?? "")?.status).toBe("approved");
   });

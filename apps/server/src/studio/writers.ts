@@ -1208,7 +1208,11 @@ export class WritersRoom {
       return { unsupported: [] };
     });
     const text = doc.beats.map((b) => b.narration).join(" ");
-    const others = this.scripts(channel.id).filter((s) => s.id !== doc.id && s.beats.length > 0);
+    // Other videos, not this one's earlier versions (a revision rightly keeps their phrasing).
+    const others = this.scripts(channel.id).filter(
+      (s) =>
+        s.id !== doc.id && s.beats.length > 0 && !(doc.ideaId !== null && s.ideaId === doc.ideaId),
+    );
     const same = others.reduce(
       (m, s) => Math.max(m, sameness(text, s.beats.map((b) => b.narration).join(" "))),
       0,
