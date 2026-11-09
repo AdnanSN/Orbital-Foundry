@@ -1364,3 +1364,28 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
   - **Waiting for you:** YouTube and Instagram keys and sign-ins, then `PUBLISH_MODE=live`;
     approving V-0008 and its shorts when they reach the Desk; your OK for the GPU model download;
     TikTok's app review (the demo recording); and pushing the branch.
+- **2026-11-09:** Hooks, and scripts that don't repeat themselves (D-063, D-064).
+  - You found the first real short good but missing a hook. The Writers' Room now runs a hook
+    pass (five candidates against written rules; the best leads the first beat, with 2 to 5 words
+    for the screen, and the pass writes the titles and thumbnail words too). The Edit Bay opens on
+    those words with a hit on the first frame, quick cuts while the hook plays and a whoosh as it
+    ends.
+  - Rewriting the Venus short and the fast radio burst long-form showed what else to fix, each
+    now tested: a first beat that swallowed the script; beats repeating each other in other words
+    or with the same figure; long-form sections written blind (2,119 words, one fact five times);
+    Lens's fact fix dropping the hook; titles like "Why So Slow"; narration about "the AI voice";
+    rewrites that never saw the version they replaced; and Lens comparing a script with its own
+    earlier versions.
+  - The Edit Bay: an opening beat waiting for an AI clip no longer holds a still for 5 s, quick
+    cuts cover the hook and then settle, and stock relevance ignores words like "time-lapse" (a
+    Venus test render had opened on a mountain and a train).
+  - Free model capacity: Groq's 1,500-token cap cut off long-form outlines, and a rewrite looped
+    for 10 minutes; big Writers' Room calls now ask for up to 4,500 tokens, trimmed to fit 8,000 a
+    minute. The day's rewrites then spent Cloudflare's free neurons and gpt-oss-120b's 200,000
+    tokens, and a daily cap on one Groq model had cooled all of Groq; now it benches only that
+    model. 336 tests pass.
+  - **At the Desk:** S-0014, the Venus short (hook "A single day on Venus is longer than its
+    entire year.", Lens clear), and its free test render. The fast radio burst long-form waits for
+    Groq's daily budget. Older versions to reject without a note: S-0005, S-0006, S-0007, S-0009,
+    S-0011, V-0008 to V-0011 and the test renders V-0012 and V-0014. V-0006, approved earlier, has
+    the wrong Venus day and the Kokoro voice, so it shouldn't be posted.
