@@ -170,10 +170,14 @@ export class ModelRouter {
           continue;
         }
         let messages = buildMessages(opts);
-        // A provider may cap the output tokens a request asks for (config: limits.maxTokens).
-        const cap = this.deps.providers[provider]?.limits.maxTokens;
+        // A provider may cap the output tokens a request asks for (config: limits.maxTokens), let
+        // callers that need more ask for up to limits.largeTokens, and count both input and output
+        // against a per-minute budget (limits.tpm), so the request is trimmed to fit beside its input.
+        const limits = this.deps.providers[provider]?.limits;
+        const ceiling = fitTokens(limits?.largeTokens ?? limits?.maxTokens, limits?.tpm, messages);
+        const cap = fitTokens(limits?.maxTokens, limits?.tpm, messages);
         let maxTokens =
-          cap && opts.maxTokens ? Math.min(opts.maxTokens, cap) : (opts.maxTokens ?? cap);
+          ceiling && opts.maxTokens ? Math.min(opts.maxTokens, ceiling) : (opts.maxTokens ?? cap);
         let boosted = false;
         let repairs = 0;
         // At most: the first call, one retry with a bigger token budget, and the JSON repair rounds.
@@ -188,7 +192,11 @@ export class ModelRouter {
           );
           if (!call) break;
           const { result } = call;
-          if (result.finishReason === "length" && !boosted && !(cap && (maxTokens ?? 0) >= cap)) {
+          if (
+            result.finishReason === "length" &&
+            !boosted &&
+            !(ceiling && (maxTokens ?? 0) >= ceiling)
+          ) {
             // Some models finish the JSON and then keep writing until the limit: if what arrived
             // already matches the schema, use it instead of paying for a longer call.
             if (opts.schema) {
@@ -198,7 +206,9 @@ export class ModelRouter {
             }
             // Reasoning models can spend the whole budget thinking. Retry once with more room.
             boosted = true;
-            maxTokens = cap ? Math.min(boostTokens(maxTokens), cap) : boostTokens(maxTokens);
+            maxTokens = ceiling
+              ? Math.min(boostTokens(maxTokens), ceiling)
+              : boostTokens(maxTokens);
             attempts.push({
               ref,
               outcome: "truncated",
@@ -227,6 +237,8 @@ export class ModelRouter {
               content: `That reply did not match the required JSON schema:\n${parsed.error}\nReply again with ONLY the corrected JSON.`,
             },
           ];
+          // The repair carries the bad reply, so less output fits a per-minute token budget.
+          maxTokens = fitTokens(maxTokens, limits?.tpm, messages);
         }
       }
       // Free tiers often answer "try again in 2 s" (tokens a minute). When a provider this round was
@@ -539,6 +551,25 @@ export function censusProblems(
 /** A bigger budget for the retry after a model hit its token limit (often while reasoning). */
 function boostTokens(current: number | undefined): number {
   return Math.min(Math.max((current ?? 1024) * 4, 2048), 8192);
+}
+
+/**
+ * An output budget that fits a per-minute token limit beside the request's input (about 3.5
+ * characters a token, with a margin), never below 512. Without a limit, the budget as given.
+ */
+export function fitTokens(
+  budget: number | undefined,
+  tpm: number | undefined,
+  messages: ChatMessage[],
+): number | undefined {
+  if (!budget || !tpm) return budget;
+  const chars = messages.reduce(
+    (n, m) =>
+      n + (typeof m.content === "string" ? m.content.length : JSON.stringify(m.content).length),
+    0,
+  );
+  const room = tpm - Math.ceil(chars / 3.5) - 300;
+  return Math.max(512, Math.min(budget, room));
 }
 
 function hasImages(messages: ChatMessage[] | undefined): boolean {

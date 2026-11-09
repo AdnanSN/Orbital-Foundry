@@ -555,6 +555,9 @@ export class WritersRoom {
           prompt,
           schema,
           temperature: tier === "creative" ? 0.8 : 0.3,
+          // Outlines, sections and Lens's fixes run long once a reasoning model has thought; a
+          // reply cut off at a small cap is a wasted call. Each provider trims this to what it allows.
+          maxTokens: 4500,
         });
         if (res.data === undefined)
           throw new Error(`The ${tier} model's reply didn't fit the expected shape.`);

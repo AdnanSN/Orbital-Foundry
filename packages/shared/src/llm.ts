@@ -43,6 +43,16 @@ export const providerLimitsSchema = z.object({
    * tokens-per-minute limit (Groq's free tier) reject large requests early otherwise.
    */
   maxTokens: z.number().int().positive().optional(),
+  /**
+   * A caller that needs a longer reply (a long-form outline) may ask for up to this many output
+   * tokens; others get `maxTokens`. Defaults to `maxTokens`.
+   */
+  largeTokens: z.number().int().positive().optional(),
+  /**
+   * Tokens a minute the provider counts, input plus the output asked for. A request asks for no
+   * more output than fits beside its input, since one that passes the limit alone always fails.
+   */
+  tpm: z.number().int().positive().optional(),
 });
 export type ProviderLimits = z.infer<typeof providerLimitsSchema>;
 

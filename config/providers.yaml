@@ -48,8 +48,10 @@ providers:
     production: allowed
     termsChecked: 2026-11-05
     # Free plan (checked 2026-11-05): per model 30 rpm, 1K requests and 200K tokens a day, 8K
-    # tokens a minute. The token cap keeps bursts under the per-minute limit.
-    limits: { rpm: 25, rpd: 2500, concurrency: 2, maxTokens: 1500 }
+    # tokens a minute, counting the output a request asks for ("Requested" = input + max_tokens).
+    # Calls get 1,500 output tokens unless they ask for more (a long-form outline needs about
+    # 2,500 once gpt-oss has reasoned), and every request is trimmed to fit 8K beside its input.
+    limits: { rpm: 25, rpd: 2500, concurrency: 2, maxTokens: 1500, largeTokens: 4500, tpm: 8000 }
     terms: >-
       Groq Services Agreement (updated 2026-06-22, checked 2026-11-05): it covers fee-free use; the
       customer keeps all rights in inputs and outputs; Groq may not train on them; each hosted

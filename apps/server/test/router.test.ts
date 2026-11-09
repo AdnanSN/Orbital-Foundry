@@ -2,7 +2,7 @@ import type { CensusFile } from "@orbital/shared";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { NoCandidateError, ProviderHttpError, RouterError } from "../src/llm/errors";
-import { mergeSystemIntoUser } from "../src/llm/router";
+import { fitTokens, mergeSystemIntoUser } from "../src/llm/router";
 import { FakeTransport, makeRouter, provider, reply, tiersWith } from "./helpers";
 
 const providers = {
@@ -294,6 +294,41 @@ describe("ModelRouter token budget and empty replies", () => {
     });
     await router.generate({ tier: "fast", lane: "sandbox", prompt: "hi", maxTokens: 4000 });
     expect(transport.calls.map((c) => c.req.maxTokens)).toEqual([1500]);
+  });
+
+  it("lets a caller ask for a longer reply (limits.largeTokens), trimmed to the minute's budget", async () => {
+    const groqLike = provider("alpha", ["sandbox"], {
+      limits: { rpm: 1000, concurrency: 8, maxTokens: 1500, largeTokens: 4500, tpm: 8000 },
+    });
+    const transport = new FakeTransport({ "alpha:a1": () => reply("ok") });
+    const { router } = makeRouter({
+      providers: { alpha: groqLike },
+      transport,
+      tiers: tiersWith({ fast: { sandbox: ["alpha:a1"] } }),
+    });
+    // A plain call keeps the default cap; a call that asks for more gets up to largeTokens.
+    await router.generate({ tier: "fast", lane: "sandbox", prompt: "hi" });
+    await router.generate({ tier: "fast", lane: "sandbox", prompt: "hi", maxTokens: 6000 });
+    // About 4,000 tokens of input leave room for about 3,700 of output under 8,000 a minute.
+    await router.generate({
+      tier: "fast",
+      lane: "sandbox",
+      prompt: "x".repeat(14_000),
+      maxTokens: 4500,
+    });
+    const asked = transport.calls.map((c) => c.req.maxTokens ?? 0);
+    expect(asked.slice(0, 2)).toEqual([1500, 4500]);
+    expect(asked[2]).toBeGreaterThan(3500);
+    expect(asked[2]).toBeLessThan(3800);
+  });
+
+  it("asks for less when a request's input would fill the minute's budget (limits.tpm)", () => {
+    const msgs = [{ role: "user" as const, content: "y".repeat(35_000) }];
+    // 10,000 tokens of input already pass 8,000: the floor of 512 (the provider will say no).
+    expect(fitTokens(1500, 8000, msgs)).toBe(512);
+    expect(fitTokens(4500, undefined, msgs)).toBe(4500);
+    expect(fitTokens(undefined, 8000, msgs)).toBeUndefined();
+    expect(fitTokens(4500, 8000, [{ role: "user", content: "hi" }])).toBe(4500);
   });
 
   it("retries with a bigger token budget when a model runs out mid-thought", async () => {
