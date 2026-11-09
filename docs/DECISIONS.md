@@ -1090,15 +1090,28 @@ icon-pack plan was accepted to close its objective. The Forge stays parked.
   (4 s in a long-form); a title or stat opener lasts at most 2.5 s; and the thumbnail frame comes
   after the hook. Shorts cut from a long-form open on footage, with their own hook. An opening
   beat that wants an AI clip cuts at the same pace until the clip exists (a test render held one
-  still for its first 4.4 s).
+  still for its first 4.4 s). The quick cuts cover the hook (at least 5 s in a short, 8 s in a
+  long-form), then the rest of the first beat settles to the usual pace: a 12.7 s first beat cut
+  every 2.1 s asked the stock search for six clips and got a train and flowers.
+- **Stock relevance ignores how a clip is shot:** "time-lapse", "aerial", "slow motion",
+  "footage", "close-up" and the like no longer count as matching words ("planet rotation
+  time-lapse" matched every timelapse on Pixabay).
 - **Long-forms, section by section:** the outline gives each fact to one section. Each section is
   written from its own facts, sees the beats already written, and gets a word budget scaled so the
   whole script lands inside the channel's range. The first section also sees the payoff, to tease
   it. Before this, each section was written from the whole brief without seeing the others, so each
   one restated the brief's best facts.
-- **The repeat pass:** a beat that says an earlier beat again (half the phrasing, or 60% of its
-  content words once the topic's own words are set aside) is rewritten to move the video on, and a
+- **The repeat pass:** a beat that says an earlier beat again (half the phrasing, 60% of its content
+  words once the topic's own words are set aside, or the same figure with two words in common;
+  catalogue names like "FRB 200428" aren't figures) is rewritten to move the video on, and a
   word-for-word copy is cut. Lens lists whatever is left at the Desk.
+- **Rewrites revise:** a script sent back with a note now shows the writer the version it replaces
+  (every beat of a short, each beat's first sentence of a long-form) with "keep what the note
+  doesn't fault", and its hook pass hears the note and the old hook. Before, a rewrite saw only the
+  note, so "keep the beats, fix the hook" produced a fresh draft. Fresh research still starts over.
+- **Narration never talks about itself:** the persona's "the narration is an AI voice" came out
+  as "The AI voice adds that…". The writer is told the narration speaks about the subject only,
+  and "the AI voice" and "the narrator" are banned phrases, so Lens rewrites a beat that slips.
 - **Research and rewrites:** long-forms read up to three Wikipedia articles (9,000 characters each,
   with one facts call per article), instead of a single 8-fact brief. A rewrite can carry corrected
   facts, a corrected angle or fresh research (the Venus short had its day wrong in the brief).
