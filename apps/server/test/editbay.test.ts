@@ -511,4 +511,29 @@ describe("shot queries and stats", () => {
     expect(size * 0.62 * "116.8 days".length).toBeLessThanOrEqual(1080 * 0.86 + 1);
     expect(html).toContain("</span> days</div>");
   });
+
+  it("writes big stats the way people say them", async () => {
+    const { composeTimeline, statText } = await import("../src/studio/compose");
+    const { timelineSchema } = await import("../src/studio/timeline");
+    expect(statText(1_500_000, 0)).toBe("1.5 million");
+    expect(statText(2.3e9, 0)).toBe("2.3 billion");
+    expect(statText(30_000, 0)).toBe("30,000");
+    expect(statText(2020, 0)).toBeNull();
+    const html = composeTimeline(
+      timelineSchema.parse({
+        format: "short",
+        duration: 3,
+        scenes: [
+          {
+            start: 0,
+            duration: 3,
+            visual: { type: "stat", value: 1_500_000, suffix: "Jy ms", label: "fluence" },
+          },
+        ],
+      }),
+    ).html;
+    expect(html).toContain('<span id="s0-n">1.5 million</span> Jy ms');
+    // A written-out number pops in rather than counting up.
+    expect(html).not.toContain("textContent: 1500000");
+  });
 });

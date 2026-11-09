@@ -221,6 +221,20 @@ interface SceneCtx {
   dur: number;
 }
 
+/**
+ * A big stat as people say it: "1.5 million", "2.3 billion", or "30,000" with separators. Null
+ * for numbers under 10,000, which count up on the card instead.
+ */
+export function statText(value: number, decimals: number): string | null {
+  const a = Math.abs(value);
+  const short = (x: number) => String(Math.round(x * 10) / 10);
+  if (a >= 1e12) return `${short(value / 1e12)} trillion`;
+  if (a >= 1e9) return `${short(value / 1e9)} billion`;
+  if (a >= 1e6) return `${short(value / 1e6)} million`;
+  if (a >= 1e4) return value.toLocaleString("en-US", { maximumFractionDigits: decimals });
+  return null;
+}
+
 function sceneHtml(
   scene: Scene,
   id: string,
@@ -241,13 +255,16 @@ function sceneHtml(
     case "quote":
       return `<div class="center"><div class="qmark">“</div><div class="qtext">${esc(v.text)}</div>${v.by ? `<div class="qby">— ${esc(v.by)}</div>` : ""}</div>`;
     case "stat": {
-      // Units read as words ("116.8 days"), and long numbers shrink to fit the frame.
+      // Units read as words ("116.8 days"), big numbers as people say them ("1.5 million"), and
+      // long numbers shrink to fit the frame.
       const suffix = v.suffix ? `${/^[A-Za-z]/.test(v.suffix) ? " " : ""}${v.suffix}` : "";
-      const chars = (v.prefix ?? "").length + v.value.toFixed(v.decimals).length + suffix.length;
+      const big = statText(v.value, v.decimals);
+      const shown = big ?? v.value.toFixed(v.decimals);
+      const chars = (v.prefix ?? "").length + shown.length + suffix.length;
       const size = Math.floor(
         Math.min(ctx.base * 0.2, (ctx.width * 0.86) / Math.max(1, chars * 0.62)),
       );
-      return `<div class="center"><div class="stat" style="font-size:${size}px">${esc(v.prefix ?? "")}<span id="${id}-n">0</span>${esc(suffix)}</div><div class="slabel">${esc(v.label)}</div></div>`;
+      return `<div class="center"><div class="stat" style="font-size:${size}px">${esc(v.prefix ?? "")}<span id="${id}-n">${big ? esc(big) : "0"}</span>${esc(suffix)}</div><div class="slabel">${esc(v.label)}</div></div>`;
     }
     case "still":
       return `<img class="media" src="${asset(v.src)}" alt="" /><div class="shade"></div>${v.label ? `<div class="label">${esc(v.label)}</div>` : ""}${v.credit ? `<div class="credit">${esc(v.credit)}</div>` : ""}`;
@@ -316,7 +333,11 @@ function sceneJs(
     case "stat":
       return [
         `tl.from(${sel(".stat")}, { scale: 0.6, opacity: 0, duration: 0.45, ease: "back.out(1.8)" }, ${n(at)});`,
-        `tl.fromTo("#${id}-n", { textContent: 0 }, { textContent: ${v.value}, duration: ${n(Math.min(1.6, ctx.dur * 0.6))}, ease: "power2.out", snap: { textContent: ${v.decimals === 0 ? 1 : 1 / 10 ** v.decimals} } }, ${n(at + 0.1)});`,
+        // Small numbers count up; big ones ("1.5 million") pop in already written out.
+        ...when(
+          statText(v.value, v.decimals) === null,
+          `tl.fromTo("#${id}-n", { textContent: 0 }, { textContent: ${v.value}, duration: ${n(Math.min(1.6, ctx.dur * 0.6))}, ease: "power2.out", snap: { textContent: ${v.decimals === 0 ? 1 : 1 / 10 ** v.decimals} } }, ${n(at + 0.1)});`,
+        ),
         `tl.from(${sel(".slabel")}, { opacity: 0, y: 20, duration: 0.4 }, ${n(at + 0.5)});`,
       ];
     case "still": {
