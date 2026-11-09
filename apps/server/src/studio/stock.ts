@@ -435,6 +435,32 @@ const FILLER = new Set([
   "called",
   "roughly",
   "extremely",
+  // How a clip is shot, not what is in it: "planet rotation time-lapse" took a train, flowers and
+  // a mountain, since "time" and "lapse" match every timelapse.
+  "time",
+  "lapse",
+  "timelapse",
+  "slow",
+  "motion",
+  "aerial",
+  "drone",
+  "footage",
+  "video",
+  "clip",
+  "closeup",
+  "close",
+  "view",
+  "shot",
+  "cinematic",
+  "background",
+  "loop",
+  "animation",
+  "animated",
+  "render",
+  "illustration",
+  "photo",
+  "image",
+  "picture",
 ]);
 
 /** Lowercase, with a plural "s" dropped, so "magnetars" meets "magnetar". */

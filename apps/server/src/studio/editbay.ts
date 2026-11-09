@@ -464,25 +464,31 @@ export class EditBay {
       const span = Math.max(0.6, t.end - t.start);
       const vis = beat.visual;
       const graphic = ["title", "list", "quote", "stat"].includes(vis.kind);
-      // The first beat cuts quickly (the hook); later shots may run up to 7 s.
+      // The first beat cuts quickly while the hook plays; later shots may run up to 7 s.
       const opener = i === 0;
       const cut = opener ? (v.format === "short" ? 2.5 : 4) : 7;
+      const quick = opener ? Math.max(hookEnd + 1, cut * 2) : Number.POSITIVE_INFINITY;
+      const paced = (from: number, dur: number, kind: string, len: number) =>
+        pacedSpan(from, dur, len, quick - (from - t.start)).map((p) => ({ ...p, kind }));
       // Motion graphics hold a beat up to 8 s (2.5 s while the hook plays); then footage takes over.
       const pieces: { start: number; dur: number; kind: string }[] = [];
       if (graphic) {
         const g = opener ? Math.min(span, 2.5) : span > 8 ? 5 : span;
         pieces.push({ start: t.start, dur: g, kind: vis.kind });
         if (span - g > 0.5 && (opener || span > 8)) {
-          pieces.push(...this.split(t.start + g, span - g, "stock-image", cut));
+          pieces.push(...paced(t.start + g, span - g, "stock-image", cut));
         }
       } else if (vis.kind === "ai-video") {
         // The clip covers the first piece; the rest of a long beat falls back to footage. With no
         // clip made yet the beat cuts at its usual pace: a still held for a clip's 5 s opened one
         // test render.
         const ready = Boolean(this.deps.gpu?.clip(script.id, vis.prompt ?? beat.narration));
-        const len = ready ? (this.deps.gpu?.config.clip.seconds ?? 5) : Math.min(cut, 5);
-        pieces.push(...this.split(t.start, span, vis.kind, len));
-      } else pieces.push(...this.split(t.start, span, vis.kind, cut));
+        if (ready) {
+          pieces.push(
+            ...this.split(t.start, span, vis.kind, this.deps.gpu?.config.clip.seconds ?? 5),
+          );
+        } else pieces.push(...paced(t.start, span, vis.kind, Math.min(cut, 5)));
+      } else pieces.push(...paced(t.start, span, vis.kind, cut));
       for (const [k, piece] of pieces.entries()) {
         let visual: Scene["visual"];
         const record: ShotRecord = {
@@ -720,12 +726,7 @@ export class EditBay {
     kind: string,
     max = 7,
   ): { start: number; dur: number; kind: string }[] {
-    const n = Math.max(1, Math.ceil(dur / max));
-    return Array.from({ length: n }, (_x, i) => ({
-      start: start + (dur / n) * i,
-      dur: dur / n,
-      kind,
-    }));
+    return splitSpan(start, dur, max).map((p) => ({ ...p, kind }));
   }
 
   private starfield(dir: string, seed: number, format: "short" | "long", channel: Channel): string {
@@ -970,6 +971,31 @@ export function hookEndTime(
   const n = splitWords(applyPronunciation(line, pronounce)).length;
   const end = words[Math.max(0, Math.min(words.length, n) - 1)]?.end ?? 2.5;
   return Math.round(Math.min(4.5, Math.max(1.5, end + 0.25)) * 100) / 100;
+}
+
+/** Pieces of `dur` seconds from `start`, all the same length and none longer than `max`. */
+export function splitSpan(
+  start: number,
+  dur: number,
+  max: number,
+): { start: number; dur: number }[] {
+  const n = Math.max(1, Math.ceil(dur / max));
+  return Array.from({ length: n }, (_x, i) => ({ start: start + (dur / n) * i, dur: dur / n }));
+}
+
+/**
+ * A beat's cuts: one every `len` seconds for its first `quick` seconds, then up to 7 s. The hook
+ * plays over quick cuts; one test render's 12.7 s opening beat cut every 2.1 s throughout and
+ * needed six clips, more than the stock search had on topic.
+ */
+export function pacedSpan(
+  start: number,
+  dur: number,
+  len: number,
+  quick: number,
+): { start: number; dur: number }[] {
+  if (dur - quick <= 0.5) return splitSpan(start, dur, len);
+  return [...splitSpan(start, quick, len), ...splitSpan(start + quick, dur - quick, 7)];
 }
 
 /** At most five words for the screen, in capitals ("THE 15-MICROSECOND MYSTERY"). */

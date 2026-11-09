@@ -16,6 +16,7 @@ import {
   type EditBayDeps,
   hookEndTime,
   keyTerms,
+  pacedSpan,
   screenWords,
 } from "../src/studio/editbay";
 import { writeWav } from "../src/studio/ffmpeg";
@@ -488,6 +489,16 @@ describe("shot queries and stats", () => {
     expect(screenWords("The 15-microsecond mystery of fast radio bursts!")).toBe(
       "THE 15-MICROSECOND MYSTERY OF FAST",
     );
+  });
+
+  it("cuts quickly while the hook plays, then settles", () => {
+    // A 12.7 s opening beat: 2.5 s cuts for the first 5 s, then two of 3.85 s (not six of 2.1 s).
+    const cuts = pacedSpan(0, 12.7, 2.5, 5).map((p) => Math.round(p.dur * 100) / 100);
+    expect(cuts).toEqual([2.5, 2.5, 3.85, 3.85]);
+    // A beat that ends with the hook is cut quickly throughout.
+    expect(pacedSpan(0, 5.3, 2.5, 5)).toHaveLength(3);
+    // Later beats are never in a hurry.
+    expect(pacedSpan(20, 12, 7, Number.POSITIVE_INFINITY)).toHaveLength(2);
   });
 
   it("shrinks long stats to fit and spaces their units", async () => {

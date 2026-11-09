@@ -432,5 +432,11 @@ describe("relevance", () => {
     expect(relevant({ tags: ["magnetar", "neutron star"], title: "" }, "magnetars neutron")).toBe(
       true,
     );
+    // How a clip is shot doesn't count: "time" and "lapse" once let in a train for a planet.
+    const spin = "planet rotation time-lapse";
+    const train = ["train", "rail", "railroad", "time lapse", "timelapse"];
+    expect(relevant({ tags: train, title: "" }, spin)).toBe(false);
+    expect(relevant({ tags: ["planet", "rotation", "space"], title: "" }, spin)).toBe(true);
+    expect(relevant({ tags: ["ocean", "waves"], title: "" }, "ocean waves aerial")).toBe(true);
   });
 });
