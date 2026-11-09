@@ -440,6 +440,8 @@ describe("edit bay", { timeout: 30_000 }, () => {
     expect(made?.status).toBe("review");
     expect(made?.shots[0]).toMatchObject({ want: "ai-video", got: "ai-video", assetId: "gen-G-1" });
     expect(made?.disclosure.syntheticMedia).toBe(true);
+    // The clip's motion carries the whole 3 s opening beat.
+    expect(made?.shots.filter((s) => s.beat === 0)).toHaveLength(1);
 
     // A late clip: the shot falls back to footage or a still with a camera move, on time.
     const b = withClip(false);
@@ -450,6 +452,10 @@ describe("edit bay", { timeout: 30_000 }, () => {
     expect(done?.status).toBe("review");
     expect(done?.shots[0]?.want).toBe("ai-video");
     expect(["stock-video", "ai-still", "stock-image"]).toContain(done?.shots[0]?.got);
+    // Without the clip, the opening cuts at the hook's pace (2.5 s at most), not the clip's 5 s.
+    const opener = done?.shots.filter((s) => s.beat === 0) ?? [];
+    expect(opener).toHaveLength(2);
+    for (const s of opener) expect(s.duration).toBeLessThanOrEqual(2.5);
 
     // Test renders never wait for the GPU.
     const c = withClip(true);

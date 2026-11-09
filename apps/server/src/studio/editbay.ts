@@ -476,10 +476,12 @@ export class EditBay {
           pieces.push(...this.split(t.start + g, span - g, "stock-image", cut));
         }
       } else if (vis.kind === "ai-video") {
-        // The clip covers the first piece; the rest of a long beat falls back to footage.
-        pieces.push(
-          ...this.split(t.start, span, vis.kind, this.deps.gpu?.config.clip.seconds ?? 5),
-        );
+        // The clip covers the first piece; the rest of a long beat falls back to footage. With no
+        // clip made yet the beat cuts at its usual pace: a still held for a clip's 5 s opened one
+        // test render.
+        const ready = Boolean(this.deps.gpu?.clip(script.id, vis.prompt ?? beat.narration));
+        const len = ready ? (this.deps.gpu?.config.clip.seconds ?? 5) : Math.min(cut, 5);
+        pieces.push(...this.split(t.start, span, vis.kind, len));
       } else pieces.push(...this.split(t.start, span, vis.kind, cut));
       for (const [k, piece] of pieces.entries()) {
         let visual: Scene["visual"];
