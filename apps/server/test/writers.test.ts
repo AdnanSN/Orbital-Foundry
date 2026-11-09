@@ -68,7 +68,7 @@ const SHORT = {
 };
 
 /** Answers by prompt, like the real models would; records every call. */
-function fakeRouter(opts: { unsupportedFirst?: boolean } = {}) {
+function fakeRouter(opts: { unsupportedFirst?: boolean; flagHook?: boolean } = {}) {
   const calls: GenerateOptions[] = [];
   let reviews = 0;
   let factCalls = 0;
@@ -145,7 +145,15 @@ function fakeRouter(opts: { unsupportedFirst?: boolean } = {}) {
         unsupported:
           opts.unsupportedFirst && reviews === 1
             ? [{ beat: 3, claim: "younger than the dinosaurs", why: "not in the facts" }]
-            : [],
+            : opts.flagHook && reviews === 1
+              ? [
+                  {
+                    beat: 0,
+                    claim: "thinner than a house is tall",
+                    why: "the facts say ten metres",
+                  },
+                ]
+              : [],
       };
     } else if (p.includes("Rewrite these beats")) {
       // One beat back per beat asked for, in the order the prompt lists them.
@@ -154,10 +162,20 @@ function fakeRouter(opts: { unsupportedFirst?: boolean } = {}) {
         beats: order.map((m) =>
           m[1] === "3"
             ? beat("Their age is still debated.", "ai-still", { prompt: "icy ring particles" })
-            : beat(
-                "Saturn's rings are thinner than a house is tall: mostly water ice, about ten metres thick in places.",
-              ),
+            : opts.flagHook
+              ? beat("In places they are only about ten metres thick, mostly water ice.")
+              : beat(
+                  "Saturn's rings are thinner than a house is tall: mostly water ice, about ten metres thick in places.",
+                ),
         ),
+        // Asked for when the opening beat is rewritten: the hook kept, or corrected.
+        ...(p.includes('Return it as "hook"')
+          ? {
+              hook: opts.flagHook
+                ? { line: "Saturn's rings are only ten metres thick.", screen: "only ten metres" }
+                : { line: "Saturn's rings are thinner than a house is tall.", screen: "THIN" },
+            }
+          : {}),
       };
     } else if (p.includes("Hook rules.")) {
       data = {
@@ -172,6 +190,16 @@ function fakeRouter(opts: { unsupportedFirst?: boolean } = {}) {
         best: 0,
         opening:
           "Saturn's rings are thinner than a house is tall: mostly water ice, about ten metres thick in places, which is a mind-blowing thing.",
+        titles: [
+          "Saturn's rings are thinner than a house is tall",
+          "Thin rings",
+          "The giant rings you could almost step over",
+        ],
+        thumbnails: [
+          { text: "THINNER THAN A HOUSE", idea: "Saturn edge-on" },
+          { text: "BARELY THERE", idea: "The rings vanishing edge-on" },
+          { text: "RINGS", idea: "One word is too few" },
+        ],
       };
     } else if (p.includes("vertical short")) {
       data = SHORT;
@@ -312,11 +340,38 @@ describe("writers' room", () => {
     });
     expect(doc?.beats[0]?.narration).toMatch(/^Saturn's rings are thinner than a house is tall/);
     expect(doc?.hooks[0]).toBe(doc?.hook?.line);
+    // The hook pass packages the video too: titles of 25-75 characters, 2-5 thumbnail words.
+    expect(doc?.titles).toEqual([
+      "Saturn's rings are thinner than a house is tall",
+      "The giant rings you could almost step over",
+    ]);
+    expect(doc?.thumbnails.map((t) => t.text)).toEqual(["THINNER THAN A HOUSE", "BARELY THERE"]);
     expect(desk[0]?.title).toMatch(/^\[Draft channel\] Script ready: Saturn's rings/);
     const art = store.artifact(doc?.artifactId ?? "");
     expect(art?.content).toContain("## Lens's checks");
     expect(art?.content).toContain("**Opening hook:**");
     expect(writers.ideas("space-explainers", "scripted")).toHaveLength(1);
+  });
+
+  it("keeps a hook through Lens's fixes, or takes the corrected one", async () => {
+    const fake = fakeRouter({ flagHook: true });
+    const { writers } = setup(fake.router);
+    await writers.proposeIdeas("space-explainers", 2);
+    const doc = await writers.settled(writers.start("space-explainers", { format: "short" }).id);
+    const fix = fake.calls.find((c) => c.prompt?.includes("Rewrite these beats"));
+    expect(fix?.prompt).toContain(
+      `B0 opens the video with the hook "Saturn's rings are thinner than a house is tall."`,
+    );
+    // The fact-checker flagged the hook, so the fix wrote a new one; it leads the beat again.
+    expect(doc?.hook).toEqual({
+      line: "Saturn's rings are only ten metres thick.",
+      text: "ONLY TEN METRES",
+    });
+    expect(doc?.beats[0]?.narration).toBe(
+      "Saturn's rings are only ten metres thick. In places they are only about ten metres thick, mostly water ice.",
+    );
+    expect(doc?.hooks[0]).toBe("Saturn's rings are only ten metres thick.");
+    expect(doc?.checks.unsupported).toEqual([]);
   });
 
   it("approves, or rewrites with the owner's note", async () => {

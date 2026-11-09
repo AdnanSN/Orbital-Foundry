@@ -1067,3 +1067,36 @@ icon-pack plan was accepted to close its objective. The Forge stays parked.
   "CHIME radio telescope", cassettes for "magnetic field lines" and sunglasses for "polarized".
   Month and day names no longer count as proper nouns ("As of January 2021" fetched snowfall), and
   plurals meet singulars.
+
+## D-064: Hooks, and scripts that don't repeat themselves (2026-11-09)
+
+- **Why:** you watched the first real short and found it good, but said it "lacks a good hook at
+  the start". The rewrites that followed showed two more faults: a first beat that swallowed the
+  script (about 120 words), and a long-form that said the same facts up to five times and ran 2,119
+  words against the channel's 1,100 to 1,700.
+- **The hook pass (Writers' Room):** after the draft, five candidate hooks against written rules (at
+  most 15 words in a short or 22 in a long-form, the most surprising true fact, a question the
+  video answers later, never a definition, greeting, "Did you know" or "Imagine"). The best one
+  leads the first beat, with 2 to 5 words for the screen. The opening stays one beat: one that runs
+  past the old beat plus the hook is dropped, and the hook line simply leads the old beat. A
+  long-form's opening ends by naming its payoff; Lens flags a vague promise ("reveal the mystery"),
+  as it does definitions, greetings and first lines over 20 words (28 in a long-form).
+- **The opening on screen (Edit Bay):** the hook's screen words pop in big over the first shot, with
+  a hit on the first frame and a whoosh as the hook ends; shots cut every 2.5 s while it is spoken
+  (4 s in a long-form); a title or stat opener lasts at most 2.5 s; and the thumbnail frame comes
+  after the hook. Shorts cut from a long-form open on footage, with their own hook.
+- **Long-forms, section by section:** the outline gives each fact to one section. Each section is
+  written from its own facts, sees the beats already written, and gets a word budget scaled so the
+  whole script lands inside the channel's range. The first section also sees the payoff, to tease
+  it. Before this, each section was written from the whole brief without seeing the others, so each
+  one restated the brief's best facts.
+- **The repeat pass:** a beat that says an earlier beat again (half the phrasing, or 60% of its
+  content words once the topic's own words are set aside) is rewritten to move the video on, and a
+  word-for-word copy is cut. Lens lists whatever is left at the Desk.
+- **Research and rewrites:** long-forms read up to three Wikipedia articles (9,000 characters each,
+  with one facts call per article), instead of a single 8-fact brief. A rewrite can carry corrected
+  facts, a corrected angle or fresh research (the Venus short had its day wrong in the brief).
+- **Packaging:** titles of 35 to 65 characters that make a viewer curious without lying ("Why a Day
+  on Venus Outlasts Its Year"), and thumbnail words that tease the hook, never just the topic. Stat
+  cards of 10,000 and up read as people say them ("30,000", "1.5 million") and pop in instead of
+  counting up.

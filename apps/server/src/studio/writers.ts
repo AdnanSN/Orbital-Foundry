@@ -108,6 +108,21 @@ const hookSchema = z.object({
     .max(6),
   best: z.number().int().min(0).max(5),
   opening: z.string().min(10).max(900),
+  /** Packaging built on the chosen hook: the draft's titles came out flat ("Why So Slow"). */
+  titles: z.array(z.string().min(5).max(100)).max(5).optional(),
+  thumbnails: z
+    .array(z.object({ text: z.string().max(40), idea: z.string().max(220) }))
+    .max(3)
+    .optional(),
+});
+const hookLineSchema = z.object({
+  line: z.string().min(5).max(200),
+  screen: z.string().min(2).max(40),
+});
+/** Lens's fix when it rewrites the opening beat: the hook comes back too, kept or corrected. */
+const reviseOpeningSchema = z.object({
+  beats: z.array(beatSchema).min(1).max(24),
+  hook: hookLineSchema,
 });
 
 /**
@@ -120,7 +135,7 @@ export function hookRules(maxWords: number): string {
 - Lead with the most surprising true thing in the facts: a contradiction, an impossible-sounding number, a vivid concrete image, or a question the viewer can't answer yet.
 - Open a loop: the line raises a question the video answers later.
 - Never open with a definition ("X is a…", "X are…"), a greeting, "In this video", "Today", "Have you ever wondered", "Did you know", "Imagine", or the channel's name.
-- Only claims the facts support; specific beats vague.
+- Only claims the facts support; specific beats vague. Keep each fact's exact meaning: say a technical fact plainly, but don't bend it (one rotation is not a sunrise-to-sunrise day).
 Shapes from other topics: "There is a lake in Tanzania that turns animals to stone." "Somewhere above Venezuela, lightning strikes the same spot almost every night." "This frog freezes solid all winter, and its heart stops. Then it thaws."
 "screen" is 2 to 5 punchy words shown big while the hook is spoken, never just the title (e.g. "TURNS ANIMALS TO STONE").`;
 }
@@ -1013,7 +1028,12 @@ export class WritersRoom {
     }
     await this.tighten(channel, doc, facts);
     await this.sharpenHook(channel, doc, facts);
-    await this.check(channel, doc, true);
+    await this.check(channel, doc, 2);
+    // Lens's fixes can say a beat again in other words; one more repeat pass, then the final word.
+    if (repeatedBeats(doc.beats).length > 0) {
+      await this.tighten(channel, doc, facts);
+      await this.check(channel, doc, 0);
+    }
     doc.status = "review";
     this.saveScript(doc);
     if (doc.ideaId) this.setIdeaStatus(doc.ideaId, "scripted");
@@ -1075,7 +1095,7 @@ export class WritersRoom {
           .map((b) => `- ${b.narration.slice(0, 160)}`)
           .join(
             "\n",
-          )}\nHook ideas so far: ${doc.hooks.join(" | ") || "(none)"}\n\nUse only these facts:\n${facts}\n\nWrite 5 hooks (each a spoken line and its screen words), then give the index of the one a scroller can't skip as "best". "opening" is only the first beat, about ${firstWords} words, rewritten to start with that hook line and flow on without repeating it or anything the later beats say${doc.format === "long" ? "; end it with one sentence promising the payoff the video builds to: name what the viewer will find out, never just 'this video will reveal the mystery'" : ""}. Never put the whole script into it.`,
+          )}\nHook ideas so far: ${doc.hooks.join(" | ") || "(none)"}\n\nUse only these facts:\n${facts}\n\nWrite 5 hooks (each a spoken line and its screen words), then give the index of the one a scroller can't skip as "best". "opening" is only the first beat, about ${firstWords} words, rewritten to start with that hook line and flow on without repeating it or anything the later beats say${doc.format === "long" ? "; end it with one sentence promising the payoff the video builds to: name what the viewer will find out, never just 'this video will reveal the mystery'" : ""}. Never put the whole script into it.\n\nThen package the video around that hook. "titles": 3 titles of 35 to 65 characters that make a viewer curious without lying, never just the topic (shapes from other topics: "The Lake That Turns Animals to Stone", "Why Lightning Keeps Striking One Spot in Venezuela"). "thumbnails": 2 or 3 thumbnail texts of 2 to 5 words that tease the hook (not the title again), each with a one-line picture idea.`,
         hookSchema,
       );
       const best = res.hooks[res.best] ?? res.hooks[0];
@@ -1101,13 +1121,26 @@ export class WritersRoom {
         0,
         5,
       );
+      // Titles a viewer would click (25 to 75 characters), ahead of the draft's; the draft's
+      // fill in only when fewer than two came back.
+      const titles = (res.titles ?? [])
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 25 && t.length <= 75);
+      if (titles.length > 0) {
+        doc.titles = [...new Set([...titles, ...doc.titles])].slice(0, Math.max(2, titles.length));
+      }
+      const thumbs = (res.thumbnails ?? []).filter((t) => {
+        const n = t.text.trim().split(/\s+/).filter(Boolean).length;
+        return n >= 2 && n <= 5;
+      });
+      if (thumbs.length > 0) doc.thumbnails = thumbs;
     } catch (err) {
       this.log(`hook pass for ${doc.id} failed: ${String(err)}`);
     }
   }
 
-  /** Lens's checks; with `revise`, one rewrite of the beats that failed. */
-  async check(channel: Channel, doc: ScriptDoc, revise: boolean): Promise<ScriptChecks> {
+  /** Lens's checks, then up to `rounds` rewrites of the beats that failed (checked again each time). */
+  async check(channel: Channel, doc: ScriptDoc, rounds: number): Promise<ScriptChecks> {
     this.say("reviewer", "Checking every claim against the brief…");
     const facts = doc.brief.facts.map((f, i) => `F${i}: ${f.fact}`).join("\n");
     const numbered = doc.beats.map((b, i) => `B${i}: ${b.narration}`).join("\n");
@@ -1182,25 +1215,53 @@ export class WritersRoom {
     ]
       .sort((a, b) => a - b)
       .slice(0, 24);
-    if (revise && targets.length > 0) {
+    if (rounds > 0 && targets.length > 0) {
       this.say("operator", "Fixing the lines Lens flagged…");
-      const fixed = await this.ask(
-        "creative",
-        channelSystem(channel, this.lessons(channel.id)),
-        `Rewrite these beats so that every claim is supported by the facts (cut or soften what isn't), and remove these banned phrases: ${checks.banned.join(", ") || "(none)"}. Keep each beat's visual unless it no longer fits; a stat card must show a number the facts give. Return exactly ${targets.length} beat(s), in this order: ${targets.map((i) => `B${i}`).join(", ")}.\n\nFlagged:\n${checks.unsupported.map((u) => `B${u.beat}: "${u.claim}" (${u.why})`).join("\n") || "(only banned phrases)"}\n\nBeats to rewrite:\n${targets.map((i) => `B${i}: ${JSON.stringify(doc.beats[i])}`).join("\n")}\n\nFacts:\n${facts}`,
-        rewriteSchema,
-      ).catch(() => null);
-      if (fixed) {
-        if (fixed.beats.length === targets.length) {
+      // A rewrite of the opening beat once dropped its hook (the fact-checker had flagged the hook's
+      // loose "day"), so the hook comes back with it: kept word for word, or corrected.
+      const max = doc.format === "short" ? 15 : 22;
+      const opening = targets[0] === 0 && doc.hook ? doc.hook : null;
+      const system = channelSystem(channel, this.lessons(channel.id));
+      const prompt = `Rewrite these beats so that every claim is supported by the facts (cut or soften what isn't), and remove these banned phrases: ${checks.banned.join(", ") || "(none)"}. Keep each beat's visual unless it no longer fits; a stat card must show a number the facts give. Return exactly ${targets.length} beat(s), in this order: ${targets.map((i) => `B${i}`).join(", ")}.${opening ? `\n\nB0 opens the video with the hook "${opening.line}". Return it as "hook" (with 2 to 5 words for the screen) and keep B0 starting with it, word for word, unless a flagged claim is in it. If one is, write a new hook of at most ${max} words that the facts support exactly, return that as "hook" and start B0 with it.` : ""}\n\nFlagged:\n${checks.unsupported.map((u) => `B${u.beat}: "${u.claim}" (${u.why})`).join("\n") || "(only banned phrases)"}\n\nBeats to rewrite:\n${targets.map((i) => `B${i}: ${JSON.stringify(doc.beats[i])}`).join("\n")}\n\nFacts:\n${facts}`;
+      let beats: Beat[] | null = null;
+      let hook: { line: string; screen: string } | null = null;
+      if (opening) {
+        const r = await this.ask("creative", system, prompt, reviseOpeningSchema).catch(() => null);
+        if (r) ({ beats, hook } = r);
+      } else {
+        const r = await this.ask("creative", system, prompt, rewriteSchema).catch(() => null);
+        if (r) beats = r.beats;
+      }
+      if (beats) {
+        if (beats.length === targets.length) {
+          const got = beats;
           targets.forEach((bi, k) => {
-            const b = fixed.beats[k];
+            const b = got[k];
             if (b) doc.beats[bi] = b;
           });
+          if (hook) this.keepHook(doc, hook, max);
         }
-        return this.check(channel, doc, false);
+        return this.check(channel, doc, rounds - 1);
       }
     }
     return checks;
+  }
+
+  /** After Lens rewrote the opening beat: the hook it kept or corrected leads that beat again. */
+  private keepHook(doc: ScriptDoc, given: { line: string; screen: string }, max: number): void {
+    const first = doc.beats[0];
+    if (!first || !doc.hook) return;
+    const line = given.line.trim();
+    // A kept hook keeps the hook pass's screen words; only a corrected one brings its own.
+    const changed = line.toLowerCase() !== doc.hook.line.toLowerCase();
+    if (changed && line.split(/\s+/).length <= max + 6 && !weakOpening(line, doc.format)) {
+      doc.hook = { line, text: given.screen.trim().toUpperCase() || doc.hook.text };
+    }
+    const lead = doc.hook.line;
+    if (!first.narration.toLowerCase().startsWith(lead.slice(0, 24).toLowerCase())) {
+      first.narration = `${lead} ${first.narration}`;
+    }
+    doc.hooks = [lead, ...doc.hooks.filter((h) => h !== lead)].slice(0, 5);
   }
 
   private submit(channel: Channel, doc: ScriptDoc): void {
