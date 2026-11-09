@@ -71,6 +71,10 @@ const scriptSchema = z.object({
     .array(z.object({ fact: z.string().min(5).max(400), source: z.number().int().min(0) }))
     .max(60)
     .optional(),
+  /** Fresh research from these Wikipedia articles, instead of the earlier brief. */
+  wikipedia: z.array(z.string().min(1).max(120)).min(1).max(4).optional(),
+  /** A corrected angle for the idea. */
+  angle: z.string().min(10).max(500).optional(),
 });
 const listSchema = z.object({
   channel: z.string().max(40).optional(),
@@ -113,6 +117,8 @@ export function registerStudioRoutes(app: FastifyInstance, api: StudioApi): void
         ...(from ? { from } : {}),
         ...(body.note ? { note: body.note } : {}),
         ...(body.facts ? { facts: body.facts } : {}),
+        ...(body.wikipedia ? { wikipedia: body.wikipedia } : {}),
+        ...(body.angle ? { angle: body.angle } : {}),
       }),
     );
   });

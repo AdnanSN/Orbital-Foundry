@@ -652,33 +652,64 @@ export class WritersRoom {
   async research(
     _channel: Channel,
     idea: Pick<Idea, "title" | "angle" | "wikipedia">,
+    format: "short" | "long" = "short",
   ): Promise<Brief> {
     this.say("researcher", `Researching: ${idea.title.slice(0, 40)}…`);
+    // A long-form needs far more than a short: eight facts stretched over eight minutes repeat.
+    const long = format === "long";
+    const chars = long ? 9000 : 4500;
+    const most = long ? 3 : 2;
     const sources: { title: string; url: string; text: string }[] = [];
-    for (const title of (idea.wikipedia ?? [idea.title]).slice(0, 3)) {
+    for (const title of (idea.wikipedia ?? [idea.title]).slice(0, 4)) {
       try {
-        let page = await this.deps.web.article(title, 4500);
+        let page = await this.deps.web.article(title, chars);
         if (!page.text) {
           const hit = (await this.deps.web.search(title, 1))[0];
-          if (hit) page = await this.deps.web.article(hit.title, 4500);
+          if (hit) page = await this.deps.web.article(hit.title, chars);
         }
         if (page.text && !sources.some((s) => s.url === page.url)) sources.push(page);
       } catch (err) {
         this.log(`research: ${title}: ${err instanceof Error ? err.message : String(err)}`);
       }
-      if (sources.length >= 2) break;
+      if (sources.length >= most) break;
     }
     if (sources.length === 0) throw new Error(`No sources found for "${idea.title}".`);
-    const result = await this.ask(
-      "reasoning",
-      "You are a careful research assistant. Extract only facts stated in the sources; never add outside knowledge.",
-      `Video idea: ${idea.title}\nAngle: ${idea.angle}\n\nList 8 to 25 facts from these sources that a script on this idea could use: numbers, dates, how we know, open questions. Each fact cites its source by index.\n\n${sources.map((s, i) => `[${i}] ${s.title} (${s.url})\n${s.text}`).join("\n\n")}`,
-      factsSchema,
-    );
-    return {
-      sources: sources.map((s) => ({ title: s.title, url: s.url })),
-      facts: result.facts.filter((f) => f.source < sources.length),
-    };
+    const system =
+      "You are a careful research assistant. Extract only facts stated in the sources; never add outside knowledge. Keep each fact's numbers and names exactly as the source states them.";
+    let facts: Brief["facts"] = [];
+    if (long) {
+      // One source per call keeps each reply under the free tiers' output cap.
+      for (const [i, s] of sources.entries()) {
+        const res = await this.ask(
+          "reasoning",
+          system,
+          `Video idea: ${idea.title}\nAngle: ${idea.angle}\n\nList 10 to 20 facts from this source that an 8-12 minute video on this idea could use: numbers, dates, how we know, surprises, open questions. Use source index 0 for each.\n\n[0] ${s.title} (${s.url})\n${s.text}`,
+          factsSchema,
+        ).catch((err: unknown) => {
+          this.log(`research: facts from ${s.title}: ${String(err)}`);
+          return { facts: [] };
+        });
+        facts.push(...res.facts.map((f) => ({ fact: f.fact, source: i })));
+      }
+      const seen = new Set<string>();
+      facts = facts.filter((f) => {
+        const key = f.fact.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (facts.length === 0)
+        throw new Error(`No facts came out of the sources for "${idea.title}".`);
+    } else {
+      const result = await this.ask(
+        "reasoning",
+        system,
+        `Video idea: ${idea.title}\nAngle: ${idea.angle}\n\nList 8 to 25 facts from these sources that a script on this idea could use: numbers, dates, how we know, open questions. Each fact cites its source by index.\n\n${sources.map((s, i) => `[${i}] ${s.title} (${s.url})\n${s.text}`).join("\n\n")}`,
+        factsSchema,
+      );
+      facts = result.facts.filter((f) => f.source < sources.length);
+    }
+    return { sources: sources.map((s) => ({ title: s.title, url: s.url })), facts };
   }
 
   // ---------------------------------------------------------------- scripts
@@ -729,14 +760,26 @@ export class WritersRoom {
       from?: ScriptDoc;
       /** Corrected facts for a rewrite, replacing the earlier brief's (sources stay). */
       facts?: Brief["facts"];
+      /** Fresh research for a rewrite, from these Wikipedia articles (the old brief is dropped). */
+      wikipedia?: string[];
+      /** A corrected angle for the idea. */
+      angle?: string;
     },
   ): ScriptDoc {
     const channel = this.channel(channelId);
     const at = new Date(this.now()).toISOString();
-    const idea =
+    const found =
       opts.from?.idea ??
       (opts.ideaId ? this.ideas(channelId).find((i) => i.id === opts.ideaId) : undefined) ??
       this.ideas(channelId, "backlog").find((i) => i.format === opts.format || i.format === "both");
+    const idea =
+      found && (opts.angle || opts.wikipedia)
+        ? {
+            ...found,
+            ...(opts.angle ? { angle: opts.angle } : {}),
+            ...(opts.wikipedia ? { wikipedia: opts.wikipedia } : {}),
+          }
+        : found;
     const doc: ScriptDoc = {
       id: this.deps.store.nextId("S"),
       channel: channel.id,
@@ -751,9 +794,10 @@ export class WritersRoom {
       description: "",
       tags: [],
       thumbnails: [],
-      brief: opts.from
-        ? { sources: opts.from.brief.sources, facts: opts.facts ?? opts.from.brief.facts }
-        : { sources: [], facts: [] },
+      brief:
+        opts.from && !opts.wikipedia
+          ? { sources: opts.from.brief.sources, facts: opts.facts ?? opts.from.brief.facts }
+          : { sources: [], facts: [] },
       checks: { words: 0, unsupported: [], banned: [], sameness: 0, problems: [] },
       ...(opts.note ? { note: opts.note } : {}),
       createdAt: at,
@@ -795,7 +839,7 @@ export class WritersRoom {
     doc: ScriptDoc,
     idea: Pick<Idea, "id" | "title" | "angle" | "wikipedia">,
   ): Promise<void> {
-    if (doc.brief.facts.length === 0) doc.brief = await this.research(channel, idea);
+    if (doc.brief.facts.length === 0) doc.brief = await this.research(channel, idea, doc.format);
     const facts = doc.brief.facts
       .map((f, i) => `F${i}: ${f.fact} [${doc.brief.sources[f.source]?.title ?? "?"}]`)
       .join("\n");

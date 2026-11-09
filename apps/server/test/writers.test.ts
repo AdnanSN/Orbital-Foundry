@@ -13,6 +13,7 @@ import {
   numbersIn,
   renderScript,
   repeatedBeats,
+  type ScriptDoc,
   type ShotKind,
   sameness,
   statMismatches,
@@ -70,6 +71,7 @@ const SHORT = {
 function fakeRouter(opts: { unsupportedFirst?: boolean } = {}) {
   const calls: GenerateOptions[] = [];
   let reviews = 0;
+  let factCalls = 0;
   const generate = async (o: GenerateOptions) => {
     calls.push(o);
     const p = `${o.system ?? ""}\n${o.prompt ?? ""}`;
@@ -132,8 +134,11 @@ function fakeRouter(opts: { unsupportedFirst?: boolean } = {}) {
           },
         ],
       };
-    } else if (p.includes("List 8 to 25 facts")) {
-      data = { facts: [0, 1, 2].map((i) => ({ fact: `Fact ${i} about rings`, source: 0 })) };
+    } else if (/List \d+ to \d+ facts/.test(p)) {
+      factCalls++;
+      data = {
+        facts: [0, 1, 2].map((i) => ({ fact: `Fact ${i} about rings (${factCalls})`, source: 0 })),
+      };
     } else if (p.includes("strict fact-checker")) {
       reviews++;
       data = {
@@ -329,6 +334,49 @@ describe("writers' room", () => {
     expect(
       renderScript(loadChannels().find((c) => c.id === "space-explainers") as never, doc as never),
     ).toContain("Long-form (8-12 min)");
+  });
+
+  it("rewrites with corrected facts, or with fresh research and a corrected angle", async () => {
+    const fake = fakeRouter();
+    const { writers } = setup(fake.router);
+    await writers.proposeIdeas("space-explainers", 2);
+    const first = (await writers.settled(
+      writers.start("space-explainers", { format: "long" }).id,
+    )) as ScriptDoc;
+    // Corrected facts replace the old brief's, and its sources stay.
+    const fixedFacts = [{ fact: "One rotation of Venus takes about 243 Earth days.", source: 0 }];
+    const fixed = writers.start("space-explainers", {
+      format: "long",
+      from: first,
+      facts: fixedFacts,
+    });
+    expect(fixed.brief).toEqual({ sources: first.brief.sources, facts: fixedFacts });
+    await writers.settled(fixed.id);
+    // Fresh research: one facts call per source for a long-form, merged into one brief.
+    const before = fake.calls.length;
+    const fresh = await writers.settled(
+      writers.start("space-explainers", {
+        format: "long",
+        from: first,
+        note: "Cut the repeats.",
+        wikipedia: ["Rings of Saturn", "Cassini–Huygens", "Saturn"],
+        angle: "How Cassini's last dives measured the rings' mass and age.",
+      }).id,
+    );
+    expect(fresh?.version).toBe(2);
+    expect(fresh?.idea.angle).toBe("How Cassini's last dives measured the rings' mass and age.");
+    expect(fresh?.brief.sources.map((s) => s.title)).toEqual([
+      "Rings of Saturn",
+      "Cassini–Huygens",
+      "Saturn",
+    ]);
+    const research = fake.calls
+      .slice(before)
+      .filter((c) => /List 10 to 20 facts/.test(c.prompt ?? ""));
+    expect(research).toHaveLength(3);
+    expect(research[0]?.prompt).toContain("Angle: How Cassini's last dives");
+    expect(fresh?.brief.facts).toHaveLength(9);
+    expect(new Set(fresh?.brief.facts.map((f) => f.source))).toEqual(new Set([0, 1, 2]));
   });
 
   it("fails cleanly without an idea for the format", async () => {
