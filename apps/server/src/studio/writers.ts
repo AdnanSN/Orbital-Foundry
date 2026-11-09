@@ -363,19 +363,81 @@ export function statMismatches(beats: Beat[], facts: string): { beat: number; va
   return out;
 }
 
-/** Pairs of beats that say nearly the same thing (a fact repeated as filler). */
+/** A beat's content words, roughly stemmed ("rises" and "rise" meet), without short words. */
+function contentWords(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const raw of text.toLowerCase().split(/[^\p{L}\p{N}.]+/u)) {
+    const w = raw.replace(/'s$/, "").replace(/\.$/, "");
+    if (w.length < 4 || STOP_WORDS.has(w)) continue;
+    out.add(w.length > 5 ? w.replace(/(ing|ed|es|s)$/, "") : w.replace(/s$/, ""));
+  }
+  return out;
+}
+const STOP_WORDS = new Set([
+  "that",
+  "this",
+  "with",
+  "from",
+  "into",
+  "than",
+  "then",
+  "they",
+  "their",
+  "there",
+  "these",
+  "those",
+  "which",
+  "while",
+  "where",
+  "when",
+  "what",
+  "about",
+  "after",
+  "before",
+  "also",
+  "only",
+  "just",
+  "more",
+  "most",
+  "very",
+  "even",
+  "been",
+  "have",
+  "were",
+  "will",
+  "would",
+  "could",
+  "because",
+]);
+
+/**
+ * Pairs of beats that say nearly the same thing (a fact repeated as filler): half their phrasing
+ * in common, or, for paraphrases ("the Sun rises in the west" / "the Sun to rise in the west"),
+ * 60% of their content words once the topic's own words (in most beats) are set aside.
+ */
 export function repeatedBeats(beats: Beat[], threshold = 0.5): [number, number][] {
   const grams = beats.map((b) => trigrams(b.narration));
+  const words = beats.map((b) => contentWords(b.narration));
+  const df = new Map<string, number>();
+  for (const ws of words) for (const w of ws) df.set(w, (df.get(w) ?? 0) + 1);
+  const topic = Math.max(3, Math.ceil(beats.length * 0.6));
+  const own = words.map((ws) => new Set([...ws].filter((w) => (df.get(w) ?? 0) < topic)));
   const out: [number, number][] = [];
   for (let i = 0; i < grams.length; i++) {
     for (let j = i + 1; j < grams.length; j++) {
       const a = grams[i] as Set<string>;
       const b = grams[j] as Set<string>;
       const small = Math.min(a.size, b.size);
-      if (small < 4) continue;
       let shared = 0;
       for (const t of a) if (b.has(t)) shared++;
-      if (shared / small >= threshold) out.push([i, j]);
+      const phrasing = small >= 4 && shared / small >= threshold;
+      const x = own[i] as Set<string>;
+      const y = own[j] as Set<string>;
+      const fewer = Math.min(x.size, y.size);
+      let common = 0;
+      for (const w of x) if (y.has(w)) common++;
+      const paraphrase = fewer >= 5 && common / fewer >= 0.6;
+      if (phrasing || paraphrase) out.push([i, j]);
     }
   }
   return out;
@@ -852,7 +914,7 @@ export class WritersRoom {
       const draft = await this.ask(
         "creative",
         channelSystem(channel, this.lessons(channel.id)),
-        `Write a ${words.minWords}-${words.maxWords} word vertical short (30-60 seconds) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nUse only these facts:\n${facts}\n\nThe first beat opens with the hook: at most 15 words, the most surprising true thing in the facts, never a definition. End on the idea itself, no call to action. Give 2-3 titles under 70 characters, 2-3 alternative hooks, a description (2-3 sentences, then "Narration: AI voice."), up to 12 tags and 1-3 thumbnail ideas (text of 5 words or fewer).\n\n${VISUAL_GUIDE}${revision}`,
+        `Write a ${words.minWords}-${words.maxWords} word vertical short (30-60 seconds) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nUse only these facts:\n${facts}\n\nUse 5 to 9 beats of 1 to 3 sentences each, every beat adding something new. The first beat opens with the hook: at most 15 words, the most surprising true thing in the facts, never a definition. End on the idea itself, no call to action. Give 2-3 titles of 35 to 65 characters that make a viewer curious without lying (e.g. "Why a Day on Venus Outlasts Its Year", never just the topic), 2-3 alternative hooks, a description (2-3 sentences, then "Narration: AI voice."), up to 12 tags and 1-3 thumbnail ideas (2 to 5 words that tease the hook, not just the topic).\n\n${VISUAL_GUIDE}${revision}`,
         shortDraftSchema,
       );
       Object.assign(doc, {
@@ -867,7 +929,7 @@ export class WritersRoom {
       const outline = await this.ask(
         "creative",
         channelSystem(channel, this.lessons(channel.id)),
-        `Outline an 8-12 minute YouTube video (${words.minWords}-${words.maxWords} words in all) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nFacts available:\n${facts}\n\nGive 5 to 8 sections (the first is the hook and promise, the last pays it off), each with points and a word budget. Also 2-3 titles under 70 characters, 2-3 alternative opening hooks, a description (3-4 sentences, then "Narration: AI voice."), up to 15 tags and 2-3 thumbnail ideas (text of 5 words or fewer).${revision}`,
+        `Outline an 8-12 minute YouTube video (${words.minWords}-${words.maxWords} words in all) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nFacts available:\n${facts}\n\nGive 5 to 8 sections (the first is the hook and promise, the last pays it off), each with points and a word budget. Also 2-3 titles of 35 to 65 characters that make a viewer curious without lying (never just the topic), 2-3 alternative opening hooks, a description (3-4 sentences, then "Narration: AI voice."), up to 15 tags and 2-3 thumbnail ideas (2 to 5 words that tease the hook, not just the topic).${revision}`,
         outlineSchema,
       );
       Object.assign(doc, {
@@ -907,12 +969,18 @@ export class WritersRoom {
     const first = doc.beats[0];
     if (!first) return;
     const max = doc.format === "short" ? 15 : 22;
+    const firstWords = first.narration.split(/\s+/).filter(Boolean).length;
     this.say("operator", "Sharpening the opening line…");
     try {
       const res = await this.ask(
         "creative",
         channelSystem(channel, this.lessons(channel.id)),
-        `${hookRules(max)}\n\nVideo: "${doc.titles[0] ?? doc.idea.title}", ${doc.format === "short" ? "a vertical short" : "an 8-12 minute video"}.\nIts opening beat now:\n"${first.narration}"\nHook ideas so far: ${doc.hooks.join(" | ") || "(none)"}\n\nUse only these facts:\n${facts}\n\nWrite 5 hooks (each a spoken line and its screen words), then give the index of the one a scroller can't skip as "best". "opening" is the first beat rewritten to start with that hook line and flow on without repeating it${doc.format === "long" ? ", ending with one sentence that promises what the video will reveal" : ""}.`,
+        `${hookRules(max)}\n\nVideo: "${doc.titles[0] ?? doc.idea.title}", ${doc.format === "short" ? "a vertical short" : "an 8-12 minute video"}.\nIts opening beat now (${firstWords} words):\n"${first.narration}"\nThe beats after it:\n${doc.beats
+          .slice(1, 4)
+          .map((b) => `- ${b.narration.slice(0, 160)}`)
+          .join(
+            "\n",
+          )}\nHook ideas so far: ${doc.hooks.join(" | ") || "(none)"}\n\nUse only these facts:\n${facts}\n\nWrite 5 hooks (each a spoken line and its screen words), then give the index of the one a scroller can't skip as "best". "opening" is only the first beat, about ${firstWords} words, rewritten to start with that hook line and flow on without repeating it or anything the later beats say${doc.format === "long" ? "; end it with one sentence that promises what the video will reveal" : ""}. Never put the whole script into it.`,
         hookSchema,
       );
       const best = res.hooks[res.best] ?? res.hooks[0];
@@ -920,9 +988,19 @@ export class WritersRoom {
       const line = best.line.trim();
       if (line.split(/\s+/).length > max + 6 || weakOpening(line, doc.format)) return;
       const opening = res.opening.trim();
-      first.narration = opening.toLowerCase().startsWith(line.slice(0, 24).toLowerCase())
-        ? opening
-        : `${line} ${opening}`;
+      // An opening that swallowed the script (it happened: 120 words in one beat) is dropped,
+      // and the hook line simply leads the beat that was there.
+      const room = Math.max(
+        firstWords + line.split(/\s+/).length + 10,
+        doc.format === "short" ? 30 : 45,
+      );
+      if (opening.split(/\s+/).length > room) {
+        first.narration = `${line} ${first.narration}`;
+      } else {
+        first.narration = opening.toLowerCase().startsWith(line.slice(0, 24).toLowerCase())
+          ? opening
+          : `${line} ${opening}`;
+      }
       doc.hook = { line, text: best.screen.trim().toUpperCase() };
       doc.hooks = [line, ...res.hooks.map((h) => h.line.trim()).filter((h) => h !== line)].slice(
         0,

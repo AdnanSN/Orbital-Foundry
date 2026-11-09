@@ -439,6 +439,20 @@ describe("Lens's number and repetition checks", () => {
     ];
     expect(repeatedBeats(beats)).toEqual([[0, 2]]);
   });
+
+  it("finds a beat that says an earlier one again in other words", () => {
+    const beats = [
+      line(
+        "A single day on Venus lasts longer than its whole year. Venus spins so slowly, and backwards, that one rotation takes about 243 Earth days, while it orbits the Sun in 224.7 days.",
+      ),
+      line("Because Venus spins backwards, the Sun rises in the west and sets in the east."),
+      line(
+        "On Venus, the planet rotates so slowly and in reverse that a full rotation lasts roughly 243 Earth days, longer than the 224.7 days its orbit takes.",
+      ),
+      line("No spacecraft has survived on its surface for more than about two hours."),
+    ];
+    expect(repeatedBeats(beats)).toEqual([[0, 2]]);
+  });
 });
 
 describe("hooks", () => {
