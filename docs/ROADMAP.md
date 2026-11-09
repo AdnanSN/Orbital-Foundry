@@ -1405,5 +1405,9 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
     VRAM; the station uses that workflow.
   - The Desk, as you asked: the superseded scripts, the old fast radio burst video and its shorts
     and the test renders were rejected without notes, and the Venus short (S-0014) was approved.
-    Its video, V-0016, waits for its AI opening clip (job G-0001), then cuts with the ElevenLabs
-    voice and comes to the Desk for review.
+    Its video, V-0016 (35 s, ElevenLabs voice), is at the Desk: the GPU made its AI opening clip
+    in 477 s once it had idled for 10 minutes, under "DAY > YEAR". The closing AI still fell back
+    to stock and a starfield (Cloudflare's allowance resets at 00:00 UTC).
+  - The fast radio burst long-form rewrite waits for Groq's free quota: a one-off job
+    (`data/jobs/frb-rewrite.mjs`, log in `data/logs/frb-rewrite.log`) starts it from S-0006 at
+    01:00 UTC on 2026-11-10, if the laptop is awake, and the script lands at the Desk.
