@@ -1130,3 +1130,24 @@ icon-pack plan was accepted to close its objective. The Forge stays parked.
 - **AI clips don't hold a video for nothing:** with no generator set up or reachable, a clip job
   gives up after 10 minutes and the shot uses footage or a still, instead of waiting out its
   12-hour deadline. A ready local GPU still waits for quiet hours or idle time.
+
+## D-065: The GPU lane goes live on the laptop, with fp8 weights (2026-11-09)
+
+- **What:** with your OK, ComfyUI v0.44.0 (portable, NVIDIA build; Python 3.13, PyTorch 2.14.1 with
+  CUDA 13.0) is installed in `C:\ComfyUI`, outside the repo, with Wan 2.2 TI2V-5B (Apache-2.0):
+  the 10.00 GB fp16 video model, the 6.74 GB fp8 text encoder and the 1.41 GB VAE, each checked
+  against Hugging Face's SHA-256. About 26 GB in all; 36 GB of the disk stays free.
+- **fp8 weights:** the station's workflow loads the fp16 file with `weight_dtype: fp8_e4m3fn`
+  (`config/gpu/wan22-ti2v-5b-fp8.api.json`), about 4.8 GB in memory. A 5-second 480x832 clip took
+  506 s (6 min 40 s of sampling at 20 s a step) and peaked at 5.9 GB of the card's 6 GB. The fp16
+  load wasn't tried: 10 GB can't fit the card, and Windows had under 1 GB of RAM free to hold the
+  rest. The first benchmark clip followed its prompt (a glowing sphere in a wet stone corridor).
+- **Capacity:** about seven clips an hour, so a night of quiet hours (23:00 to 07:00) covers well
+  over a week of shorts at two AI clips each; in the day, clips wait for the GPU to idle for 10
+  minutes. The 12-hour deadline still stands, and with ComfyUI down a clip gives up after 10
+  minutes (D-064).
+- **Running it:** `C:\ComfyUI\start-comfyui.ps1` starts ComfyUI with no window and logs to
+  `C:\ComfyUI\comfyui.err.log`. It isn't a Windows service, so it needs starting after a reboot
+  (or a Task Scheduler entry at log on, your call). A first start through `run_nvidia_gpu.bat` in
+  a new console window exited at once with nothing to read, so the script calls Python directly
+  and keeps a log.

@@ -31,7 +31,10 @@ comfyui:
   url: http://127.0.0.1:8188
   # Exported from ComfyUI with "Export (API)", with {{prompt}}, {{negative}}, {{width}},
   # {{height}}, {{frames}}, {{fps}}, {{seed}} and {{job}} where the values go.
-  workflow: config/gpu/wan22-ti2v-5b.api.json
+  # fp8 weights (2026-11-09 benchmark on the RTX 3050 6 GB): a 5-second 480x832 clip in 506 s,
+  # peak 5.9 GB of VRAM. The fp16 file wasn't run: at 10 GB it can't fit the card, and the laptop
+  # had under 1 GB of RAM to spare for it.
+  workflow: config/gpu/wan22-ti2v-5b-fp8.api.json
   timeoutMinutes: 45
 
 modal:

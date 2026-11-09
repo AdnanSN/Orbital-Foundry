@@ -1395,3 +1395,15 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
     note: S-0005, S-0006, S-0007, S-0009, S-0011, V-0008 to V-0011 and the test renders V-0012
     and V-0014. V-0006, approved earlier, has the wrong Venus day and the Kokoro voice, so it
     shouldn't be posted.
+- **2026-11-09 (afternoon):** The GPU lane is live on the laptop (D-065).
+  - The station was down: the desktop app had stopped the preview server it ran under. It now runs
+    under `npm run station` (the supervisor) with the client, each in its own minimized window, so
+    neither depends on a Claude session.
+  - With your OK: ComfyUI v0.44.0 in `C:\ComfyUI` and Wan 2.2 TI2V-5B (18.15 GB, checksums
+    verified). Hugging Face gave one connection about 0.4 MB/s, so the files came down over 12 at
+    once (about 11 MB/s). A benchmark clip took 506 s with fp8 weights and peaked at 5.9 GB of
+    VRAM; the station uses that workflow.
+  - The Desk, as you asked: the superseded scripts, the old fast radio burst video and its shorts
+    and the test renders were rejected without notes, and the Venus short (S-0014) was approved.
+    Its video, V-0016, waits for its AI opening clip (job G-0001), then cuts with the ElevenLabs
+    voice and comes to the Desk for review.

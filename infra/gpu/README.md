@@ -14,8 +14,21 @@ npm run gpu -- status
 
 ## 1. The local worker: ComfyUI on the RTX 3050
 
-**This needs your OK first: the downloads below are about 18 GB, and the disk has about 55 GB
-free.** Keep ComfyUI and its models outside the repo, on another drive if you have one.
+**Installed on 2026-11-09, with your OK:** ComfyUI v0.44.0 (Python 3.13, PyTorch 2.14.1 with CUDA
+13.0) in `C:\ComfyUI\ComfyUI_windows_portable`, with the three Wan 2.2 files below (18.15 GB,
+each checked against Hugging Face's SHA-256). Start it after a restart with
+
+```bash
+powershell -ExecutionPolicy Bypass -File C:\ComfyUI\start-comfyui.ps1
+```
+
+which runs it without a window and logs to `C:\ComfyUI\comfyui.err.log` (`run_nvidia_gpu.bat` in
+that folder works too, in a window of its own). The station uses it whenever it answers at
+http://127.0.0.1:8188. Hugging Face serves one connection slowly (about 0.4 MB/s here), so the
+files came down over 12 ranged connections at once.
+
+The steps, for a fresh machine. Keep ComfyUI and its models outside the repo, on another drive if
+you have one.
 
 1. Download ComfyUI's Windows portable build for NVIDIA from
    https://github.com/comfyanonymous/ComfyUI/releases and unpack it, for example to
@@ -27,7 +40,10 @@ free.** Keep ComfyUI and its models outside the repo, on another drive if you ha
    - `split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors` → `models/text_encoders/`
    - `split_files/vae/wan2.2_vae.safetensors` → `models/vae/`
 3. Start it with `run_nvidia_gpu.bat`. With 6 GB of VRAM, ComfyUI moves parts of the model to
-   system memory as it needs to; that is slower, and the benchmark shows how much.
+   system memory as it needs to; that is slower, and the benchmark shows how much. The 10 GB
+   fp16 model is bigger than the card, so `config/gpu/wan22-ti2v-5b-fp8.api.json` loads the same
+   file with fp8 weights (about 5 GB in memory, a small loss in quality); the benchmark compares
+   the two, and `comfyui.workflow` in `config/gpu.yaml` names the one the station uses.
 4. Check the workflow: open ComfyUI at http://127.0.0.1:8188, load Wan 2.2's 5B text-to-video
    template, and make one clip by hand. If our file `config/gpu/wan22-ti2v-5b.api.json` doesn't
    match your ComfyUI version, export the template with **Export (API)** and put
