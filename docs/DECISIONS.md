@@ -1124,4 +1124,9 @@ icon-pack plan was accepted to close its objective. The Forge stays parked.
   and its 1,500-token cap cut off long-form outlines once gpt-oss had reasoned. The Writers' Room
   now asks for up to 4,500 (`limits.largeTokens`), and the router trims every request to fit the
   minute's budget beside its input (`limits.tpm`). Cloudflare's 10,000 free neurons a day also ran
-  out during these rewrites, which left Groq alone in the live lane until midnight UTC.
+  out during these rewrites, which left Groq alone in the live lane until midnight UTC. A rate
+  limit with a long wait (a daily cap) benches only the model that hit it: Groq counts its daily
+  limits per model, and gpt-oss-120b's cap had cooled all of Groq while gpt-oss-20b had quota.
+- **AI clips don't hold a video for nothing:** with no generator set up or reachable, a clip job
+  gives up after 10 minutes and the shot uses footage or a still, instead of waiting out its
+  12-hour deadline. A ready local GPU still waits for quiet hours or idle time.

@@ -1377,15 +1377,21 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
     rewrites that never saw the version they replaced; and Lens comparing a script with its own
     earlier versions.
   - The Edit Bay: an opening beat waiting for an AI clip no longer holds a still for 5 s, quick
-    cuts cover the hook and then settle, and stock relevance ignores words like "time-lapse" (a
-    Venus test render had opened on a mountain and a train).
+    cuts cover the hook and then settle, stock relevance ignores words like "time-lapse" (a Venus
+    test render had opened on a mountain and a train), "Earth days" no longer fetches Earth, and
+    stat cards keep the fact's decimals. An AI clip with no generator reachable (ComfyUI waits for
+    the model download) now gives up after 10 minutes instead of holding an approved video for its
+    12-hour deadline.
   - Free model capacity: Groq's 1,500-token cap cut off long-form outlines, and a rewrite looped
     for 10 minutes; big Writers' Room calls now ask for up to 4,500 tokens, trimmed to fit 8,000 a
     minute. The day's rewrites then spent Cloudflare's free neurons and gpt-oss-120b's 200,000
-    tokens, and a daily cap on one Groq model had cooled all of Groq; now it benches only that
-    model. 336 tests pass.
+    tokens (all within one hour, so they come back from about 00:15 UTC on 2026-11-10), and a daily
+    cap on one Groq model had cooled all of Groq; now it benches only that model. Groq's paid
+    Developer tier would cost about $0.15 and $0.60 per million tokens in and out, a few cents a
+    long-form.
   - **At the Desk:** S-0014, the Venus short (hook "A single day on Venus is longer than its
-    entire year.", Lens clear), and its free test render. The fast radio burst long-form waits for
-    Groq's daily budget. Older versions to reject without a note: S-0005, S-0006, S-0007, S-0009,
-    S-0011, V-0008 to V-0011 and the test renders V-0012 and V-0014. V-0006, approved earlier, has
-    the wrong Venus day and the Kokoro voice, so it shouldn't be posted.
+    entire year.", on screen "DAY > YEAR", Lens clear), and its test render V-0015 (Kokoro). The
+    fast radio burst long-form waits for Groq's daily budget. Older versions to reject without a
+    note: S-0005, S-0006, S-0007, S-0009, S-0011, V-0008 to V-0011 and the test renders V-0012
+    and V-0014. V-0006, approved earlier, has the wrong Venus day and the Kokoro voice, so it
+    shouldn't be posted.
