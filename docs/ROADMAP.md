@@ -1026,6 +1026,10 @@ three approvals per video (script, cut, post plan), from the Desk or Telegram.
 - Vision QA on sampled frames (AI stills drew moons around Venus and, once, a person), and a
   caption-sync check, from Stage 16's screening list.
 - TikTok versions over one minute, since Creator Rewards pay nothing for shorter videos.
+- **More text-model room in the live lane.** On 2026-11-09 two rewrites used up Cloudflare's 10,000
+  free neurons for the day (shared with its FLUX stills), leaving Groq alone at 8,000 tokens a
+  minute per model. Candidates: another provider whose terms allow production use, or Groq's paid
+  Dev tier.
 - Dubbing into other languages (ElevenLabs Dubbing, Kokoro's other voices): more channels from the
   same scripts.
 - A second channel in another niche, from the same pipeline.
