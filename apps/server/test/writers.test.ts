@@ -11,6 +11,7 @@ import type { SignalService } from "../src/studio/signals";
 import {
   type Beat,
   numbersIn,
+  priorVersion,
   renderScript,
   repeatedBeats,
   type ScriptDoc,
@@ -385,6 +386,19 @@ describe("writers' room", () => {
     expect(second).toBeTruthy();
     await writers.settled(second?.id ?? "");
     expect(fake.calls.some((c) => c.prompt?.includes("Make the hook about Cassini"))).toBe(true);
+    // The rewrite works from the version sent back, and its hook pass hears the note too.
+    expect(second?.revises).toBe(first?.id);
+    const draft = fake.calls
+      .filter((c) => c.prompt?.includes("vertical short (30-60 seconds)"))
+      .at(-1)?.prompt;
+    expect(draft).toContain("The previous version: titles");
+    expect(draft).toContain("B2 [stock-video: spacecraft saturn]: Cassini dove between the rings");
+    expect(draft).toContain("keep what the note doesn't fault, change what it does");
+    const hookPass = fake.calls.filter((c) => c.prompt?.includes("Hook rules.")).at(-1)?.prompt;
+    expect(hookPass).toContain(
+      `The owner's note on the previous version: "Make the hook about Cassini"`,
+    );
+    expect(hookPass).toContain(`Its hook was "Saturn's rings are thinner than a house is tall."`);
     await decide(desk[1] as Approval, "approved");
     expect(writers.script(second?.id ?? "")?.status).toBe("approved");
   });
@@ -627,6 +641,40 @@ describe("Lens's number and repetition checks", () => {
       line("No spacecraft has survived on its surface for more than about two hours."),
     ];
     expect(repeatedBeats(beats)).toEqual([[0, 2]]);
+  });
+
+  it("finds the same figure stated twice, but not a year or a figure used once", () => {
+    const beats = [
+      line(
+        "One spin of Venus outlasts its whole year. Its sidereal day lasts about 243 Earth days, longer than its 224.7-day orbit.",
+      ),
+      line("One full spin on its axis takes about 243 Earth days."),
+      line("The Soviet Venera 7 landed in 1970, and Venera 9 sent photos home in 1975."),
+      line("In 1970 the first lander touched down, a record that held for years."),
+      line("A sunrise to sunrise there lasts about 116.75 Earth days."),
+    ];
+    expect(repeatedBeats(beats)).toEqual([[0, 1]]);
+  });
+
+  it("shows a rewrite the version it replaces: a short in full, a long-form in outline", () => {
+    const doc = {
+      format: "short",
+      titles: ["Why a Day on Venus Outlasts Its Year"],
+      hook: { line: "One spin of Venus outlasts its year.", text: "ONE SPIN > ONE YEAR" },
+      beats: [
+        line("One spin of Venus outlasts its year. It turns backwards, too."),
+        {
+          narration: "It takes 243 Earth days.",
+          visual: { kind: "stat", value: 243, suffix: " days" },
+        },
+      ],
+    } as unknown as ScriptDoc;
+    expect(priorVersion(doc)).toBe(
+      `The previous version: titles "Why a Day on Venus Outlasts Its Year"; hook "One spin of Venus outlasts its year." (on screen "ONE SPIN > ONE YEAR").\nB0 [code]: One spin of Venus outlasts its year. It turns backwards, too.\nB1 [stat: 243 days]: It takes 243 Earth days.`,
+    );
+    expect(priorVersion({ ...doc, format: "long" } as ScriptDoc).split("\n")[1]).toBe(
+      "B0: One spin of Venus outlasts its year.",
+    );
   });
 });
 

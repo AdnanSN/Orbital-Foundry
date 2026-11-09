@@ -89,6 +89,27 @@ const sectionSchema = z.object({ beats: z.array(beatSchema).min(2).max(14) });
 /** Lens's fixes and the repeat pass: the flagged beats back, rewritten, in the same order. */
 const rewriteSchema = z.object({ beats: z.array(beatSchema).min(1).max(24) });
 
+/**
+ * The version a rewrite starts from, as the writer sees it: every beat of a short, and each beat's
+ * first sentence for a long-form (the whole of one would crowd out the facts).
+ */
+export function priorVersion(doc: ScriptDoc): string {
+  const head = `The previous version: titles ${doc.titles.map((t) => `"${t}"`).join(", ")}${doc.hook ? `; hook "${doc.hook.line}" (on screen "${doc.hook.text}")` : ""}.`;
+  const beats = doc.beats.map((b, i) => {
+    if (doc.format === "long") {
+      return `B${i}: ${(b.narration.split(/(?<=[.!?])\s+/)[0] ?? "").slice(0, 100)}`;
+    }
+    const v = b.visual;
+    const what =
+      v.query ??
+      v.prompt?.slice(0, 80) ??
+      v.text ??
+      (v.value !== undefined ? `${v.value}${v.suffix ?? ""}` : "");
+    return `B${i} [${v.kind}${what ? `: ${what}` : ""}]: ${b.narration}`;
+  });
+  return `${head}\n${beats.join("\n")}`;
+}
+
 /** "F12", "12" or 12 as a fact's index into the brief (null when it isn't one). */
 function factIndex(x: number | string, count: number): number | null {
   const n = typeof x === "number" ? x : Number(String(x).replace(/^F/i, ""));
@@ -288,6 +309,8 @@ export interface ScriptDoc {
   brief: Brief;
   checks: ScriptChecks;
   note?: string;
+  /** The script this one rewrites: a note-driven rewrite revises it rather than starting over. */
+  revises?: string;
   artifactId?: string;
   error?: string;
   createdAt: string;
@@ -448,11 +471,22 @@ const STOP_WORDS = new Set([
 /**
  * Pairs of beats that say nearly the same thing (a fact repeated as filler): half their phrasing
  * in common, or, for paraphrases ("the Sun rises in the west" / "the Sun to rise in the west"),
- * 60% of their content words once the topic's own words (in most beats) are set aside.
+ * 60% of their content words once the topic's own words (in most beats) are set aside, or the same
+ * figure stated again with two of those words.
  */
 export function repeatedBeats(beats: Beat[], threshold = 0.5): [number, number][] {
   const grams = beats.map((b) => trigrams(b.narration));
   const words = beats.map((b) => contentWords(b.narration));
+  // The facts' figures (not years or small counts): a beat that states one again, with two words in
+  // common, says that fact twice ("about 243 Earth days" / "a spin takes 243 Earth days").
+  const nums = beats.map(
+    (b) =>
+      new Set(
+        numbersIn(b.narration).filter(
+          (n) => n >= 10 && !(Number.isInteger(n) && n >= 1900 && n <= 2100),
+        ),
+      ),
+  );
   const df = new Map<string, number>();
   for (const ws of words) for (const w of ws) df.set(w, (df.get(w) ?? 0) + 1);
   const topic = Math.max(3, Math.ceil(beats.length * 0.6));
@@ -472,7 +506,11 @@ export function repeatedBeats(beats: Beat[], threshold = 0.5): [number, number][
       let common = 0;
       for (const w of x) if (y.has(w)) common++;
       const paraphrase = fewer >= 5 && common / fewer >= 0.6;
-      if (phrasing || paraphrase) out.push([i, j]);
+      // The same figure with two words in common, topic words included ("243 Earth days").
+      const sameNumber = [...(nums[i] as Set<number>)].some((n) => (nums[j] as Set<number>).has(n));
+      let around = 0;
+      if (sameNumber) for (const w of words[i] as Set<string>) if (words[j]?.has(w)) around++;
+      if (phrasing || paraphrase || (sameNumber && around >= 2)) out.push([i, j]);
     }
   }
   return out;
@@ -921,6 +959,8 @@ export class WritersRoom {
           : { sources: [], facts: [] },
       checks: { words: 0, unsupported: [], banned: [], sameness: 0, problems: [] },
       ...(opts.note ? { note: opts.note } : {}),
+      // Fresh research starts over; otherwise the rewrite works from the earlier version.
+      ...(opts.from && !opts.wikipedia ? { revises: opts.from.id } : {}),
       createdAt: at,
       updatedAt: at,
     };
@@ -966,8 +1006,12 @@ export class WritersRoom {
     );
     const facts = lines.join("\n");
     const words = channel.formats[doc.format];
+    // A rewrite works from the version the owner sent back, so a note like "keep the beats, fix
+    // the hook" can be followed (without it, every rewrite was a fresh draft).
+    const before = doc.revises ? this.script(doc.revises) : null;
+    const previous = before && before.beats.length > 0 ? priorVersion(before) : "";
     const revision = doc.note
-      ? `\n\nThe owner sent the previous version back with this note; follow it:\n${doc.note}`
+      ? `\n\nThe owner sent the previous version back with this note; follow it:\n${doc.note}${previous ? `\n\n${previous}\nRevise that version as the note asks: keep what the note doesn't fault, change what it does.` : ""}`
       : "";
     this.say("operator", `Writing a ${doc.format}: ${doc.idea.title.slice(0, 36)}…`);
     if (doc.format === "short") {
@@ -1089,6 +1133,11 @@ export class WritersRoom {
     if (!first) return;
     const max = doc.format === "short" ? 15 : 22;
     const firstWords = first.narration.split(/\s+/).filter(Boolean).length;
+    // A rewrite's hook pass hears the owner's note and the hook it replaces.
+    const before = doc.revises ? this.script(doc.revises) : null;
+    const note = doc.note
+      ? `\nThe owner's note on the previous version: "${doc.note}"${before?.hook ? `\nIts hook was "${before.hook.line}" (on screen "${before.hook.text}").` : ""}`
+      : "";
     this.say("operator", "Sharpening the opening line…");
     try {
       const res = await this.ask(
@@ -1099,7 +1148,7 @@ export class WritersRoom {
           .map((b) => `- ${b.narration.slice(0, 160)}`)
           .join(
             "\n",
-          )}\nHook ideas so far: ${doc.hooks.join(" | ") || "(none)"}\n\nUse only these facts:\n${facts}\n\nWrite 5 hooks (each a spoken line and its screen words), then give the index of the one a scroller can't skip as "best". "opening" is only the first beat, about ${firstWords} words, rewritten to start with that hook line and flow on without repeating it or anything the later beats say${doc.format === "long" ? "; end it with one sentence promising the payoff the video builds to: name what the viewer will find out, never just 'this video will reveal the mystery'" : ""}. Never put the whole script into it.\n\nThen package the video around that hook. "titles": 3 titles of 35 to 65 characters that make a viewer curious without lying, never just the topic (shapes from other topics: "The Lake That Turns Animals to Stone", "Why Lightning Keeps Striking One Spot in Venezuela"). "thumbnails": 2 or 3 thumbnail texts of 2 to 5 words that tease the hook (not the title again), each with a one-line picture idea.`,
+          )}\nHook ideas so far: ${doc.hooks.join(" | ") || "(none)"}${note}\n\nUse only these facts:\n${facts}\n\nWrite 5 hooks (each a spoken line and its screen words), then give the index of the one a scroller can't skip as "best". "opening" is only the first beat, about ${firstWords} words, rewritten to start with that hook line and flow on without repeating it or anything the later beats say${doc.format === "long" ? "; end it with one sentence promising the payoff the video builds to: name what the viewer will find out, never just 'this video will reveal the mystery'" : ""}. Never put the whole script into it.\n\nThen package the video around that hook. "titles": 3 titles of 35 to 65 characters that make a viewer curious without lying, never just the topic (shapes from other topics: "The Lake That Turns Animals to Stone", "Why Lightning Keeps Striking One Spot in Venezuela"). "thumbnails": 2 or 3 thumbnail texts of 2 to 5 words that tease the hook (not the title again), each with a one-line picture idea.`,
         hookSchema,
       );
       const best = res.hooks[res.best] ?? res.hooks[0];
