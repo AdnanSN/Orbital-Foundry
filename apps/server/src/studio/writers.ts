@@ -135,9 +135,10 @@ export function hookRules(maxWords: number): string {
 - Lead with the most surprising true thing in the facts: a contradiction, an impossible-sounding number, a vivid concrete image, or a question the viewer can't answer yet.
 - Open a loop: the line raises a question the video answers later.
 - Never open with a definition ("X is a…", "X are…"), a greeting, "In this video", "Today", "Have you ever wondered", "Did you know", "Imagine", or the channel's name.
-- Only claims the facts support; specific beats vague. Keep each fact's exact meaning: say a technical fact plainly, but don't bend it (one rotation is not a sunrise-to-sunrise day).
+- Only claims the facts support; specific beats vague.
+- Exact but plain: keep each fact's meaning in everyday words. "One spin of Venus outlasts its whole year" beats both jargon ("A Venusian rotation lasts longer than its year") and a loose claim ("A day on Venus…", when the facts mean one rotation, not sunrise to sunrise).
 Shapes from other topics: "There is a lake in Tanzania that turns animals to stone." "Somewhere above Venezuela, lightning strikes the same spot almost every night." "This frog freezes solid all winter, and its heart stops. Then it thaws."
-"screen" is 2 to 5 punchy words shown big while the hook is spoken, never just the title (e.g. "TURNS ANIMALS TO STONE").`;
+"screen" is 2 to 5 punchy words shown big while the hook is spoken: the surprise itself, never just the topic or the title ("TURNS ANIMALS TO STONE", not "TANZANIA LAKE"; "ONE SPIN > ONE YEAR", not "VENUS ROTATION").`;
 }
 
 /** Openings that lose a scroller before the point (Lens flags them). */

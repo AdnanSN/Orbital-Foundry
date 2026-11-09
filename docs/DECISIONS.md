@@ -1081,10 +1081,16 @@ icon-pack plan was accepted to close its objective. The Forge stays parked.
   past the old beat plus the hook is dropped, and the hook line simply leads the old beat. A
   long-form's opening ends by naming its payoff; Lens flags a vague promise ("reveal the mystery"),
   as it does definitions, greetings and first lines over 20 words (28 in a long-form).
+- **Lens keeps the hook:** when its fix rewrites the opening beat, the hook comes back with it,
+  word for word or corrected, and leads the beat again. (The fact-checker flagged "its day lasts
+  longer than its year", since sunrise to sunrise on Venus is 117 days, and the fix had dropped the
+  hook.) Lens gets two fix rounds, and the repeat pass runs again if a fix said something twice.
 - **The opening on screen (Edit Bay):** the hook's screen words pop in big over the first shot, with
   a hit on the first frame and a whoosh as the hook ends; shots cut every 2.5 s while it is spoken
   (4 s in a long-form); a title or stat opener lasts at most 2.5 s; and the thumbnail frame comes
-  after the hook. Shorts cut from a long-form open on footage, with their own hook.
+  after the hook. Shorts cut from a long-form open on footage, with their own hook. An opening
+  beat that wants an AI clip cuts at the same pace until the clip exists (a test render held one
+  still for its first 4.4 s).
 - **Long-forms, section by section:** the outline gives each fact to one section. Each section is
   written from its own facts, sees the beats already written, and gets a word budget scaled so the
   whole script lands inside the channel's range. The first section also sees the payoff, to tease
@@ -1096,7 +1102,13 @@ icon-pack plan was accepted to close its objective. The Forge stays parked.
 - **Research and rewrites:** long-forms read up to three Wikipedia articles (9,000 characters each,
   with one facts call per article), instead of a single 8-fact brief. A rewrite can carry corrected
   facts, a corrected angle or fresh research (the Venus short had its day wrong in the brief).
-- **Packaging:** titles of 35 to 65 characters that make a viewer curious without lying ("Why a Day
-  on Venus Outlasts Its Year"), and thumbnail words that tease the hook, never just the topic. Stat
-  cards of 10,000 and up read as people say them ("30,000", "1.5 million") and pop in instead of
-  counting up.
+- **Packaging:** the hook pass also writes the titles (35 to 65 characters that make a viewer
+  curious without lying, like "Why a Day on Venus Outlasts Its Year"; 25 to 75 are kept) and the
+  thumbnail words (2 to 5 that tease the hook), because the draft's came out flat ("Why So Slow",
+  "Venus"). Stat cards of 10,000 and up read as people say them ("30,000", "1.5 million") and pop
+  in instead of counting up.
+- **Room to write:** Groq counts the output a request asks for against its 8,000 tokens a minute,
+  and its 1,500-token cap cut off long-form outlines once gpt-oss had reasoned. The Writers' Room
+  now asks for up to 4,500 (`limits.largeTokens`), and the router trims every request to fit the
+  minute's budget beside its input (`limits.tpm`). Cloudflare's 10,000 free neurons a day also ran
+  out during these rewrites, which left Groq alone in the live lane until midnight UTC.
