@@ -110,6 +110,10 @@ export const STOCK_AI_PHRASES = [
   "unlock the secrets",
   "you won't believe",
   "ever wondered",
+  // The narration talks about the subject, never about itself: a persona line saying the narration
+  // is an AI voice once came out as "The AI voice adds that…".
+  "the ai voice",
+  "the narrator",
 ];
 
 /** Banned phrases found in `text` (case-insensitive, whole phrases). */

@@ -479,10 +479,11 @@ export function repeatedBeats(beats: Beat[], threshold = 0.5): [number, number][
   const words = beats.map((b) => contentWords(b.narration));
   // The facts' figures (not years or small counts): a beat that states one again, with two words in
   // common, says that fact twice ("about 243 Earth days" / "a spin takes 243 Earth days").
+  // Catalogue names are names, not figures: "FRB 200428" can come up in several beats.
   const nums = beats.map(
     (b) =>
       new Set(
-        numbersIn(b.narration).filter(
+        numbersIn(b.narration.replace(/\b[A-Z]{2,}[\s-]?\d[\w+.-]*/g, " ")).filter(
           (n) => n >= 10 && !(Number.isInteger(n) && n >= 1900 && n <= 2100),
         ),
       ),
@@ -1400,6 +1401,7 @@ function channelSystem(channel: Channel, lessons: string[] = []): string {
   return `You write for "${channel.name}", a faceless ${channel.niche} channel.
 Audience: ${channel.audience}
 Narrator: ${channel.persona}
+The narration speaks about the subject only, never about itself: no "the AI voice adds", "the narrator", "in this video" or "this video will reveal".
 Tone: ${channel.style.tone}
 Rules:
 ${channel.style.rules.map((r) => `- ${r}`).join("\n")}

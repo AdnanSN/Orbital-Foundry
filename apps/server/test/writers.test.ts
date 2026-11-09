@@ -654,6 +654,21 @@ describe("Lens's number and repetition checks", () => {
       line("A sunrise to sunrise there lasts about 116.75 Earth days."),
     ];
     expect(repeatedBeats(beats)).toEqual([[0, 1]]);
+    // A catalogue name is not a figure: one burst can come up in several beats.
+    const burst = [
+      line("On 28 April 2020 the magnetar SGR 1935+2154 sent out the burst FRB 200428."),
+      line("FRB 200428 carried a fluence of more than 1.5 million Jy ms."),
+      line("Its source, SGR 1935+2154, sits about 30,000 light-years away in our galaxy."),
+    ];
+    expect(repeatedBeats(burst)).toEqual([]);
+  });
+
+  it("bans narration that talks about itself", () => {
+    const channel = channelSchema.parse(loadChannels().find((c) => c.id === "space-explainers"));
+    expect(bannedIn("The AI voice adds that the same year a link was found.", channel)).toEqual([
+      "the ai voice",
+    ]);
+    expect(bannedIn("A calm explainer. Narration: AI voice.", channel)).toEqual([]);
   });
 
   it("shows a rewrite the version it replaces: a short in full, a long-form in outline", () => {
