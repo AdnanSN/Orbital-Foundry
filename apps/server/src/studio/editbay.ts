@@ -638,15 +638,22 @@ export class EditBay {
 
     this.stage(v, "screening", 92);
     this.deps.say?.("reviewer", "Screening the cut…");
-    const frame = path.join(out, "frame.png");
-    // The thumbnail frame comes from inside the first beat, after the hook's words have gone.
+    let frame = path.join(out, "frame.png");
+    // The thumbnail frame comes from inside the first beat, after the hook's words have gone, and
+    // from that shot's own picture: a frame of the cut carries burned-in captions and the progress
+    // bar (the Venus short's thumbnail read "VENUS SPINS IN"). Graphics and starfields have no
+    // picture of their own, so the next shot with one stands in; failing that, the cut.
     const openerEnd = times[0]?.end ?? 2;
-    const at = Math.max(hookEnd + 0.3, Math.max(1, openerEnd * 0.6));
-    await (this.deps.frame ?? frameAt)(
-      result.file,
-      Math.min(at, Math.max(0, result.duration - 0.5)),
-      frame,
+    const at = Math.min(
+      Math.max(hookEnd + 0.3, Math.max(1, openerEnd * 0.6)),
+      Math.max(0, result.duration - 0.5),
     );
+    const source = thumbnailSource(scenes, v.shots, at);
+    const grab = this.deps.frame ?? frameAt;
+    if (source?.type === "still" && fs.existsSync(source.src)) frame = source.src;
+    else if (source?.type === "video" && fs.existsSync(source.src)) {
+      await grab(source.src, source.seconds, frame);
+    } else await grab(result.file, at, frame);
     v.thumbnail = path.join(out, `${v.id}-thumb.png`);
     await (this.deps.thumbnail ?? makeThumbnail)({
       frame,
@@ -972,6 +979,32 @@ export function hookEndTime(
   const n = splitWords(applyPronunciation(line, pronounce)).length;
   const end = words[Math.max(0, Math.min(words.length, n) - 1)]?.end ?? 2.5;
   return Math.round(Math.min(4.5, Math.max(1.5, end + 0.25)) * 100) / 100;
+}
+
+/**
+ * The picture behind a thumbnail: the shot on screen at `at`, or the next one after it, that shows
+ * footage or a photo of its own (not a title, stat card or starfield). A still gives its file; a
+ * clip, the moment in its source. Scenes and shot records are built side by side, so they pair by
+ * index. Null when no shot qualifies.
+ */
+export function thumbnailSource(
+  scenes: Scene[],
+  shots: ShotRecord[],
+  at: number,
+): { type: "still"; src: string } | { type: "video"; src: string; seconds: number } | null {
+  if (scenes.length !== shots.length) return null;
+  const plain = new Set(["code", "title", "stat", "list", "quote"]);
+  for (const [i, scene] of scenes.entries()) {
+    const shot = shots[i];
+    if (!shot || scene.start + scene.duration <= at || plain.has(shot.got)) continue;
+    const vis = scene.visual;
+    if (vis.type === "still") return { type: "still", src: vis.src };
+    if (vis.type === "video") {
+      const into = at > scene.start ? at - scene.start : Math.min(1, scene.duration / 2);
+      return { type: "video", src: vis.src, seconds: (vis.mediaStart ?? 0) + into };
+    }
+  }
+  return null;
 }
 
 /** Pieces of `dur` seconds from `start`, all the same length and none longer than `max`. */

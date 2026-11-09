@@ -1093,6 +1093,11 @@ icon-pack plan was accepted to close its objective. The Forge stays parked.
   still for its first 4.4 s). The quick cuts cover the hook (at least 5 s in a short, 8 s in a
   long-form), then the rest of the first beat settles to the usual pace: a 12.7 s first beat cut
   every 2.1 s asked the stock search for six clips and got a train and flowers.
+- **Thumbnails come from the shot's own picture:** the photo, or the moment in the source clip, on
+  screen just after the hook, never a frame of the finished cut, which carries burned-in captions,
+  the progress bar and the watermark (the Venus short's first thumbnail read "VENUS SPINS IN").
+  Title cards, stat cards and starfields have no picture of their own, so the next shot with one
+  stands in; with none, the cut's frame is still used.
 - **Stock relevance ignores how a clip is shot:** "time-lapse", "aerial", "slow motion",
   "footage", "close-up" and the like no longer count as matching words ("planet rotation
   time-lapse" matched every timelapse on Pixabay).

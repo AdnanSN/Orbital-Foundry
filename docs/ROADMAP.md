@@ -1408,6 +1408,9 @@ source, are in `docs/STUDIO-RESEARCH.md` §9.
     Its video, V-0016 (35 s, ElevenLabs voice), is at the Desk: the GPU made its AI opening clip
     in 477 s once it had idled for 10 minutes, under "DAY > YEAR". The closing AI still fell back
     to stock and a starfield (Cloudflare's allowance resets at 00:00 UTC).
+  - You approved V-0016 and its post plan: dry-run posts for Tue 10 Nov at 17:00 (YouTube and
+    Instagram upload kits, a TikTok draft). Its thumbnail had a burned-in caption, so thumbnails
+    now come from the shot's own picture, and V-0016's was remade; both kits carry the new one.
   - The fast radio burst long-form rewrite waits for Groq's free quota: a one-off job
     (`data/jobs/frb-rewrite.mjs`, log in `data/logs/frb-rewrite.log`) starts it from S-0006 at
     01:00 UTC on 2026-11-10, if the laptop is awake, and the script lands at the Desk.

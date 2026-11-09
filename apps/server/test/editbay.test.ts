@@ -18,6 +18,7 @@ import {
   keyTerms,
   pacedSpan,
   screenWords,
+  thumbnailSource,
 } from "../src/studio/editbay";
 import { writeWav } from "../src/studio/ffmpeg";
 import { type GpuJob, gpuConfigSchema } from "../src/studio/gpu";
@@ -491,6 +492,33 @@ describe("shot queries and stats", () => {
     expect(screenWords("The 15-microsecond mystery of fast radio bursts!")).toBe(
       "THE 15-MICROSECOND MYSTERY OF FAST",
     );
+  });
+
+  it("takes the thumbnail from a shot's own picture, never the captioned cut", () => {
+    const shot = (start: number, duration: number, got: string) =>
+      ({ beat: 0, start, duration, want: got, got }) as never;
+    const scenes = [
+      { start: 0, duration: 2, visual: { type: "title", title: "Venus" }, transition: "fade" },
+      { start: 2, duration: 3, visual: { type: "still", src: "venus.jpg", move: "push-in" } },
+      { start: 5, duration: 4, visual: { type: "video", src: "orbit.mp4", mediaStart: 3 } },
+      { start: 9, duration: 3, visual: { type: "still", src: "stars.png", move: "drift" } },
+    ] as never[];
+    const shots = [
+      shot(0, 2, "title"),
+      shot(2, 3, "stock-image"),
+      shot(5, 4, "stock-video"),
+      shot(9, 3, "code"),
+    ];
+    // On a title card: the next shot with a picture of its own stands in.
+    expect(thumbnailSource(scenes, shots, 1)).toEqual({ type: "still", src: "venus.jpg" });
+    // Inside a clip: the same moment in its source file.
+    expect(thumbnailSource(scenes, shots, 6)).toEqual({
+      type: "video",
+      src: "orbit.mp4",
+      seconds: 4,
+    });
+    // Only a starfield left: none (the cut's own frame is used).
+    expect(thumbnailSource(scenes, shots, 10)).toBeNull();
   });
 
   it("cuts quickly while the hook plays, then settles", () => {
