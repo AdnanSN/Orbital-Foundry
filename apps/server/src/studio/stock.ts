@@ -418,7 +418,7 @@ export const CALENDAR_WORDS = new Set([
   "sunday",
 ]);
 /** Words too general to tie a picture to a line. */
-const FILLER = new Set([
+export const FILLER = new Set([
   "about",
   "around",
   "after",

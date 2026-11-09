@@ -469,9 +469,11 @@ describe("edit bay", { timeout: 30_000 }, () => {
 
 describe("shot queries and stats", () => {
   it("builds searches from a line's proper nouns and longest words", () => {
+    // "Earth days" is a unit, not Earth (it once fetched a seedling), and filler words stay out.
     expect(keyTerms("Its orbit around the Sun lasts 224.7 Earth days, almost twice as long.")).toBe(
-      "Sun Earth around",
+      "Sun orbit lasts",
     );
+    expect(keyTerms("A solar day there lasts about 116.75 Earth days.")).not.toMatch(/Earth/);
     // A month is not what a shot is about.
     expect(keyTerms("As of January 2021, 31 confirmed magnetars have been found.")).toBe(
       "confirmed magnetars found",

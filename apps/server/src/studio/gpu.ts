@@ -153,6 +153,8 @@ export function fillTemplate(node: unknown, values: Record<string, string | numb
 }
 
 const VIDEO_FILE = /\.(mp4|webm|mov|mkv|gif)$/i;
+/** How long a clip waits for any generator to be reachable before the shot falls back. */
+const NO_GENERATOR_GRACE_MS = 10 * 60_000;
 
 /** ComfyUI's HTTP API on this laptop: queue the workflow, wait for its history, fetch the file. */
 export class ComfyUIGenerator implements VideoGenerator {
@@ -638,6 +640,17 @@ export class GpuQueue {
     return Number.POSITIVE_INFINITY;
   }
 
+  /** Whether any generator could take a job in this lane now, window or not. */
+  private async anyReady(lane: MediaLane): Promise<boolean> {
+    for (const g of this.deps.generators) {
+      if (!this.deps.hub.available(g.id, lane)) continue;
+      if (!(await g.ready().catch(() => false))) continue;
+      if (!g.local && this.spentUsd(g.id) >= this.capUsd(g.id)) continue;
+      return true;
+    }
+    return false;
+  }
+
   private async pick(job: GpuJob, req: VideoGenRequest): Promise<VideoGenerator | null> {
     const window = await this.windowOpen();
     const urgent =
@@ -684,7 +697,19 @@ export class GpuQueue {
       out: path.join(this.deps.dir, `${job.id}.mp4`),
     };
     const gen = await this.pick(job, req);
-    if (!gen) return;
+    if (!gen) {
+      // With no generator set up or reachable at all (ComfyUI not running, no paid lane on), an
+      // approved video would wait out the whole 12 h deadline for nothing; give it 10 minutes.
+      const age = this.now() - Date.parse(job.createdAt);
+      if (age >= NO_GENERATOR_GRACE_MS && !(await this.anyReady(job.lane))) {
+        this.mark(
+          job,
+          "expired",
+          "No AI video generator is set up or reachable; the shot uses footage or a still.",
+        );
+      }
+      return;
+    }
     job.attempts += 1;
     job.provider = gen.id;
     this.mark(job, "running", `Generating on ${gen.id}…`);

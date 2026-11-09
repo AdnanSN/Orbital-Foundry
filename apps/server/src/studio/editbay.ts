@@ -18,7 +18,7 @@ import type { MediaLane } from "./media";
 import { type RenderOptions, type RenderResult, renderProject } from "./render";
 import { type ScreenInput, type ScreeningReport, screen } from "./screening";
 import type { SoundKit } from "./sound";
-import { CALENDAR_WORDS, mediaStartFor, type StockRequest } from "./stock";
+import { CALENDAR_WORDS, FILLER, mediaStartFor, type StockRequest } from "./stock";
 import { makeThumbnail } from "./thumbnail";
 import { type CameraMove, type Scene, type Timeline, timelineSchema } from "./timeline";
 import { applyPronunciation, type VoiceRequest, type VoiceResult } from "./voice";
@@ -521,7 +521,8 @@ export class EditBay {
           visual = {
             type: "stat",
             value: vis.value,
-            decimals: Number.isInteger(vis.value) ? 0 : 1,
+            // The fact's own decimals, up to two: "116.75 days", not "116.8".
+            decimals: Math.min(2, (String(vis.value).split(".")[1] ?? "").length),
             label: vis.label ?? vis.text ?? "",
             ...(vis.prefix ? { prefix: vis.prefix } : {}),
             ...(vis.suffix ? { suffix: vis.suffix } : {}),
@@ -1014,7 +1015,12 @@ export function screenWords(text: string): string {
  * words, at most three. Better than the video's title for shots no query was written for.
  */
 export function keyTerms(text: string, max = 3): string {
-  const words = text.split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}'-]/gu, ""));
+  // "116.75 Earth days" is a unit, not Earth: it once fetched a seedling in cupped hands.
+  const plain = text.replace(
+    /\bEarth[\s-](days?|years?|hours?|weeks?|months?|masses?|radii)\b/g,
+    "$1",
+  );
+  const words = plain.split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}'-]/gu, ""));
   const proper = words.filter(
     (w, i) =>
       i > 0 &&
@@ -1023,8 +1029,8 @@ export function keyTerms(text: string, max = 3): string {
       // "As of January 2021" made "January" the search, and snowfall clips came back.
       !CALENDAR_WORDS.has(w.toLowerCase()),
   );
-  const rest = terms(text)
-    .filter((w) => !CALENDAR_WORDS.has(w))
+  const rest = terms(plain)
+    .filter((w) => !CALENDAR_WORDS.has(w) && !FILLER.has(w) && w !== "almost" && w !== "twice")
     .sort((a, b) => b.length - a.length);
   return [...new Set([...proper, ...rest])].slice(0, max).join(" ");
 }

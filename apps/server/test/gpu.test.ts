@@ -215,6 +215,21 @@ describe("GPU queue", () => {
     expect(t.settled).toEqual(["S-2"]);
   });
 
+  it("gives up after 10 minutes when no generator is set up or reachable", async () => {
+    const t = setup({ generators: [fakeGen("comfyui-video", true, { ready: false }).gen] });
+    t.queue.request("S-3", 0, t.shot);
+    await t.queue.tick();
+    t.setNow(at(14, 9));
+    await t.queue.tick();
+    expect(t.queue.jobs()[0]?.status).toBe("queued");
+    // Nothing came up in 10 minutes: the shot falls back and the waiting cut goes on.
+    t.setNow(at(14, 11));
+    await t.queue.tick();
+    expect(t.queue.jobs()[0]).toMatchObject({ status: "expired" });
+    expect(t.queue.jobs()[0]?.detail).toMatch(/No AI video generator/);
+    expect(t.settled).toEqual(["S-3"]);
+  });
+
   it("bursts to Modal near the deadline, within the monthly cap", async () => {
     const local = fakeGen("comfyui-video", true);
     const modal = fakeGen("modal-video", false, { cost: 0.12 });
