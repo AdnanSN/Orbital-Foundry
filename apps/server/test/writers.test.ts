@@ -148,8 +148,16 @@ function fakeRouter(opts: { unsupportedFirst?: boolean } = {}) {
             : [],
       };
     } else if (p.includes("Rewrite these beats")) {
+      // One beat back per beat asked for, in the order the prompt lists them.
+      const order = [...(p.match(/in this order: ([B\d, ]+)/)?.[1] ?? "B3").matchAll(/B(\d+)/g)];
       data = {
-        beats: [beat("Their age is still debated.", "ai-still", { prompt: "icy ring particles" })],
+        beats: order.map((m) =>
+          m[1] === "3"
+            ? beat("Their age is still debated.", "ai-still", { prompt: "icy ring particles" })
+            : beat(
+                "Saturn's rings are thinner than a house is tall: mostly water ice, about ten metres thick in places.",
+              ),
+        ),
       };
     } else if (p.includes("Hook rules.")) {
       data = {
@@ -293,7 +301,9 @@ describe("writers' room", () => {
     expect(doc?.status).toBe("review");
     expect(doc?.beats[3]?.narration).toBe("Their age is still debated.");
     expect(doc?.checks.unsupported).toEqual([]);
-    expect(doc?.checks.banned).toContain("mind-blowing");
+    // The banned phrase sat in the opening beat, so that beat was rewritten along with beat 3.
+    expect(doc?.checks.banned).toEqual([]);
+    expect(doc?.beats[0]?.narration).not.toContain("mind-blowing");
     expect(doc?.brief.sources[0]?.url).toContain("wikipedia.org");
     // The hook pass: the strongest opening leads the first beat, with its words for the screen.
     expect(doc?.hook).toEqual({
@@ -334,6 +344,116 @@ describe("writers' room", () => {
     expect(
       renderScript(loadChannels().find((c) => c.id === "space-explainers") as never, doc as never),
     ).toContain("Long-form (8-12 min)");
+  });
+
+  /** The fake router, answering some prompts differently. */
+  function overriding(over: (prompt: string) => unknown) {
+    const base = fakeRouter();
+    const inner = base.router as unknown as { generate: (o: GenerateOptions) => Promise<unknown> };
+    const generate = async (o: GenerateOptions) => {
+      const data = over(`${o.system ?? ""}\n${o.prompt ?? ""}`);
+      if (data === undefined) return inner.generate(o);
+      base.calls.push(o);
+      return { data, text: "", provider: "fake", model: "m", lane: o.lane } as never;
+    };
+    return { calls: base.calls, router: { generate } as unknown as ModelRouter };
+  }
+
+  it("gives each long-form section its own facts, the beats before it and a scaled budget", async () => {
+    const fake = overriding((p) =>
+      p.includes("Outline an 8-12 minute")
+        ? {
+            ...SHORT,
+            sections: [["F0"], [1], [], ["F2", 9]].map((facts, n) => ({
+              heading: `Part ${n + 1}`,
+              points: ["point"],
+              words: 120,
+              facts,
+            })),
+          }
+        : undefined,
+    );
+    const { writers } = setup(fake.router);
+    await writers.proposeIdeas("space-explainers", 2);
+    await writers.settled(writers.start("space-explainers", { format: "long" }).id);
+    const sections = fake.calls
+      .map((c) => c.prompt ?? "")
+      .filter((p) => p.includes("Write section"));
+    expect(sections).toHaveLength(4);
+    const [one, two, three, four] = sections as [string, string, string, string];
+    // 4 x 120 planned words is short of the channel's 1,100-1,700, so each section gets 350.
+    expect(one).toContain("About 350 words of narration (never more than 402)");
+    expect(one).toContain("F0: Fact 0");
+    expect(one).not.toContain("F1: ");
+    expect(one).toMatch(/The payoff the video builds to[\s\S]*F2: Fact 2/);
+    expect(one).not.toContain("Already said earlier");
+    expect(two).toContain("Already said earlier in the video");
+    expect(two).toContain("- A section line about rings.");
+    expect(two).toContain("F1: Fact 1");
+    expect(two).not.toContain("F0: ");
+    // A section the outline gave no facts gets the whole brief.
+    expect(three).toMatch(/F0: [\s\S]*F1: [\s\S]*F2: /);
+    expect(four).toContain("F2: Fact 2");
+    expect(four).not.toContain("F1: ");
+    expect(four).toContain("End on the idea itself");
+  });
+
+  it("rewrites beats that repeat earlier ones, and cuts word-for-word copies", async () => {
+    const lines = [
+      "Saturn's rings stretch wider than the distance between Earth and the Moon.",
+      "Most of their mass is water ice, bright enough to reflect sunlight like snow.",
+      "Gaps in the rings are carved by small moons that orbit inside them.",
+      "Some ring particles are as small as dust, others as big as houses.",
+    ];
+    const echo = "Cassini dove between the rings and the planet in 2017, a daring final plunge.";
+    let section = 0;
+    const sectionBeats = () => ({
+      beats: [beat(lines[section++ % 4] as string), beat(echo, "stock-video")],
+    });
+    const fresh = [
+      "Cassini's last images showed ripples raised by the moon Daphnis.",
+      "The rings may be raining down on Saturn, a little more every year.",
+      "Seen edge-on from Earth, the rings almost vanish.",
+    ];
+    const rewriting = overriding((p) =>
+      p.includes("Write section")
+        ? sectionBeats()
+        : p.includes("say again what an earlier beat")
+          ? { beats: fresh.map((f) => beat(f, "stock-video")) }
+          : undefined,
+    );
+    const first = setup(rewriting.router);
+    await first.writers.proposeIdeas("space-explainers", 2);
+    const doc = await first.writers.settled(
+      first.writers.start("space-explainers", { format: "long" }).id,
+    );
+    const ask = rewriting.calls.find((c) => c.prompt?.includes("say again what an earlier beat"));
+    expect(ask?.prompt).toContain("B3 repeats B1");
+    expect(ask?.prompt).toContain("in this order: B3, B5, B7");
+    expect(doc?.beats.map((b) => b.narration).slice(3)).toEqual([
+      fresh[0],
+      lines[2],
+      fresh[1],
+      lines[3],
+      fresh[2],
+    ]);
+    expect(repeatedBeats(doc?.beats ?? [])).toEqual([]);
+
+    // When the rewrite fails, the word-for-word copies go and the rest stays.
+    section = 0;
+    const failing = overriding((p) =>
+      p.includes("Write section")
+        ? sectionBeats()
+        : p.includes("say again what an earlier beat")
+          ? { beats: [] }
+          : undefined,
+    );
+    const second = setup(failing.router);
+    await second.writers.proposeIdeas("space-explainers", 2);
+    const cut = await second.writers.settled(
+      second.writers.start("space-explainers", { format: "long" }).id,
+    );
+    expect(cut?.beats.map((b) => b.narration).slice(1)).toEqual([echo, ...lines.slice(1)]);
   });
 
   it("rewrites with corrected facts, or with fresh research and a corrected angle", async () => {
@@ -465,6 +585,12 @@ describe("hooks", () => {
       ),
     ).toMatch(/definition/);
     expect(weakOpening("In this video we look at Venus.", "short")).toMatch(/opens with/);
+    expect(
+      weakOpening(
+        "Fast radio bursts outshine the Sun for a millisecond. This video will reveal the mystery behind them.",
+        "long",
+      ),
+    ).toMatch(/promise is vague/);
     expect(weakOpening("Have you ever wondered why Venus spins backwards?", "short")).toMatch(
       /opens with/,
     );

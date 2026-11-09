@@ -75,12 +75,25 @@ const outlineSchema = z.object({
         heading: z.string().max(90),
         points: z.array(z.string().max(240)).min(1).max(6),
         words: z.number().int().min(80).max(420),
+        /** The facts this section uses ("F3" or 3), each fact in one section only. */
+        facts: z
+          .array(z.union([z.number().int(), z.string().max(8)]))
+          .max(30)
+          .optional(),
       }),
     )
     .min(4)
     .max(9),
 });
 const sectionSchema = z.object({ beats: z.array(beatSchema).min(2).max(14) });
+/** Lens's fixes and the repeat pass: the flagged beats back, rewritten, in the same order. */
+const rewriteSchema = z.object({ beats: z.array(beatSchema).min(1).max(24) });
+
+/** "F12", "12" or 12 as a fact's index into the brief (null when it isn't one). */
+function factIndex(x: number | string, count: number): number | null {
+  const n = typeof x === "number" ? x : Number(String(x).replace(/^F/i, ""));
+  return Number.isInteger(n) && n >= 0 && n < count ? n : null;
+}
 
 /** The hook pass: five openings, the strongest one, and the first beat rewritten around it. */
 const hookSchema = z.object({
@@ -132,6 +145,12 @@ export function weakOpening(narration: string, format: "short" | "long"): string
   }
   if (n > (format === "short" ? 20 : 28)) {
     return `The first line runs ${n} words; a hook lands in about 15.`;
+  }
+  const vague = narration.match(
+    /\b(reveal|uncover|explore|unravel)\s+(the\s+)?(mystery|mysteries|secrets?|truth)\b[^.!?]*/i,
+  );
+  if (vague) {
+    return `The promise is vague ("${vague[0].slice(0, 60)}"); name the payoff the viewer will see.`;
   }
   return null;
 }
@@ -438,6 +457,27 @@ export function repeatedBeats(beats: Beat[], threshold = 0.5): [number, number][
       for (const w of x) if (y.has(w)) common++;
       const paraphrase = fewer >= 5 && common / fewer >= 0.6;
       if (phrasing || paraphrase) out.push([i, j]);
+    }
+  }
+  return out;
+}
+
+/** Beats that are mostly an earlier beat word for word: they add nothing, so the repeat pass cuts them. */
+export function verbatimRepeats(beats: Beat[], threshold = 0.7): number[] {
+  const grams = beats.map((b) => trigrams(b.narration));
+  const out: number[] = [];
+  for (let j = 1; j < grams.length; j++) {
+    const later = grams[j] as Set<string>;
+    if (later.size < 4) continue;
+    for (let i = 0; i < j; i++) {
+      if (out.includes(i)) continue;
+      const earlier = grams[i] as Set<string>;
+      let shared = 0;
+      for (const t of later) if (earlier.has(t)) shared++;
+      if (shared / later.size >= threshold) {
+        out.push(j);
+        break;
+      }
     }
   }
   return out;
@@ -902,9 +942,10 @@ export class WritersRoom {
     idea: Pick<Idea, "id" | "title" | "angle" | "wikipedia">,
   ): Promise<void> {
     if (doc.brief.facts.length === 0) doc.brief = await this.research(channel, idea, doc.format);
-    const facts = doc.brief.facts
-      .map((f, i) => `F${i}: ${f.fact} [${doc.brief.sources[f.source]?.title ?? "?"}]`)
-      .join("\n");
+    const lines = doc.brief.facts.map(
+      (f, i) => `F${i}: ${f.fact} [${doc.brief.sources[f.source]?.title ?? "?"}]`,
+    );
+    const facts = lines.join("\n");
     const words = channel.formats[doc.format];
     const revision = doc.note
       ? `\n\nThe owner sent the previous version back with this note; follow it:\n${doc.note}`
@@ -926,10 +967,11 @@ export class WritersRoom {
         thumbnails: draft.thumbnails,
       });
     } else {
+      const target = Math.round((words.minWords + words.maxWords) / 2);
       const outline = await this.ask(
         "creative",
         channelSystem(channel, this.lessons(channel.id)),
-        `Outline an 8-12 minute YouTube video (${words.minWords}-${words.maxWords} words in all) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nFacts available:\n${facts}\n\nGive 5 to 8 sections (the first is the hook and promise, the last pays it off), each with points and a word budget. Also 2-3 titles of 35 to 65 characters that make a viewer curious without lying (never just the topic), 2-3 alternative opening hooks, a description (3-4 sentences, then "Narration: AI voice."), up to 15 tags and 2-3 thumbnail ideas (2 to 5 words that tease the hook, not just the topic).${revision}`,
+        `Outline an 8-12 minute YouTube video (${words.minWords}-${words.maxWords} words in all) on:\nIdea: ${doc.idea.title}\nAngle: ${doc.idea.angle}\n\nFacts available:\n${facts}\n\nGive 5 to 8 sections (the first is the hook and promise, the last pays it off), each with points, a word budget (about ${target} words in all) and "facts": the numbers of the facts it uses (e.g. [0, 4, 7]). Give each fact to one section only, so the video never says the same thing twice, and leave out facts that don't serve the story. Also 2-3 titles of 35 to 65 characters that make a viewer curious without lying (never just the topic), 2-3 alternative opening hooks, a description (3-4 sentences, then "Narration: AI voice."), up to 15 tags and 2-3 thumbnail ideas (2 to 5 words that tease the hook, not just the topic).${revision}`,
         outlineSchema,
       );
       Object.assign(doc, {
@@ -940,11 +982,28 @@ export class WritersRoom {
         thumbnails: outline.thumbnails,
         beats: [],
       });
+      // Each section writes from its own facts and sees what the video has already said: written
+      // blind, sections each restated the brief's best facts (one script said a fact five times).
+      // Budgets are scaled to land the whole script inside the channel's word range.
+      const owned = outline.sections.map((s) => [
+        ...new Set(
+          (s.facts ?? [])
+            .map((x) => factIndex(x, lines.length))
+            .filter((n): n is number => n !== null),
+        ),
+      ]);
+      const planned = outline.sections.reduce((n, s) => n + s.words, 0);
+      const scale = planned > words.maxWords || planned < words.minWords ? target / planned : 1;
+      const last = outline.sections.length - 1;
       for (const [i, section] of outline.sections.entries()) {
+        const budget = Math.max(60, Math.round(section.words * scale));
+        const own = owned[i] ?? [];
+        const payoff = i === 0 && last > 0 ? (owned[last] ?? []) : [];
+        const said = doc.beats.map((b) => `- ${b.narration.slice(0, 160)}`).join("\n");
         const part = await this.ask(
           "creative",
           channelSystem(channel, this.lessons(channel.id)),
-          `Write section ${i + 1} of ${outline.sections.length} ("${section.heading}") of a video titled "${outline.titles[0]}". About ${section.words} words of narration in beats.\nCover: ${section.points.join("; ")}\n${i === 0 ? "Open with the hook (at most 22 words: the most surprising true thing, never a definition), then one sentence promising what the video will reveal." : `It follows: "${doc.beats.at(-1)?.narration.slice(-200) ?? ""}"`}\n${i === outline.sections.length - 1 ? "End on the idea itself; no call to action." : ""}\nUse only these facts:\n${facts}\n\n${VISUAL_GUIDE}`,
+          `Write section ${i + 1} of ${outline.sections.length} ("${section.heading}") of a video titled "${outline.titles[0]}". About ${budget} words of narration (never more than ${Math.round(budget * 1.15)}), in beats of 1 to 3 sentences, each adding something new.\nCover: ${section.points.join("; ")}\n${i === 0 ? "Open with the hook (at most 22 words: the most surprising true thing, never a definition), then one sentence promising the payoff the video builds to: name what the viewer will find out, never just 'this video will reveal the mystery'." : `It follows: "${doc.beats.at(-1)?.narration.slice(-200) ?? ""}"`}\n${i === last ? "End on the idea itself; no call to action." : ""}\n${said ? `Already said earlier in the video (never say any of it again):\n${said}\n\n` : ""}${own.length > 0 ? `Use only these facts (this section's own; the others belong to other sections):\n${own.map((n) => lines[n]).join("\n")}` : `Use only these facts:\n${facts}`}${payoff.length > 0 ? `\n\nThe payoff the video builds to (tease it in the promise; don't explain it yet):\n${payoff.map((n) => lines[n]).join("\n")}` : ""}\n\n${VISUAL_GUIDE}`,
           sectionSchema,
         );
         doc.beats.push(...part.beats);
@@ -952,12 +1011,48 @@ export class WritersRoom {
         this.saveScript(doc);
       }
     }
+    await this.tighten(channel, doc, facts);
     await this.sharpenHook(channel, doc, facts);
     await this.check(channel, doc, true);
     doc.status = "review";
     this.saveScript(doc);
     if (doc.ideaId) this.setIdeaStatus(doc.ideaId, "scripted");
     this.submit(channel, doc);
+  }
+
+  /**
+   * The repeat pass: a beat that says again what an earlier beat said is rewritten to move the
+   * video on, and one that is still an earlier beat word for word is cut. A failed rewrite only
+   * leaves the cuts.
+   */
+  private async tighten(channel: Channel, doc: ScriptDoc, facts: string): Promise<void> {
+    const echoes = new Map<number, number>();
+    for (const [a, b] of repeatedBeats(doc.beats)) if (!echoes.has(b)) echoes.set(b, a);
+    const targets = [...echoes.keys()].sort((x, y) => x - y).slice(0, 24);
+    if (targets.length > 0) {
+      this.say("operator", `Rewriting ${targets.length} beat(s) that repeat earlier ones…`);
+      const fixed = await this.ask(
+        "creative",
+        channelSystem(channel, this.lessons(channel.id)),
+        `Some beats in this script say again what an earlier beat already said:\n${targets.map((b) => `B${b} repeats B${echoes.get(b)}`).join("\n")}\n\nRewrite each of those beats so it moves the video on: a fact from the list that no other beat uses, or one short sentence that bridges to the beat after it. Keep each beat's visual unless it no longer fits. Return exactly ${targets.length} beat(s), in this order: ${targets.map((b) => `B${b}`).join(", ")}.\n\nThe script:\n${doc.beats.map((b, i) => `B${i}: ${b.narration}`).join("\n")}\n\nBeats to rewrite:\n${targets.map((i) => `B${i}: ${JSON.stringify(doc.beats[i])}`).join("\n")}\n\nFacts:\n${facts}`,
+        rewriteSchema,
+      ).catch((err: unknown) => {
+        this.log(`repeat pass failed: ${String(err)}`);
+        return null;
+      });
+      if (fixed && fixed.beats.length === targets.length) {
+        targets.forEach((bi, k) => {
+          const b = fixed.beats[k];
+          if (b) doc.beats[bi] = b;
+        });
+      }
+    }
+    const copies = new Set(verbatimRepeats(doc.beats));
+    if (copies.size > 0 && doc.beats.length - copies.size >= 3) {
+      doc.beats = doc.beats.filter((_b, i) => !copies.has(i));
+    }
+    doc.updatedAt = new Date(this.now()).toISOString();
+    this.saveScript(doc);
   }
 
   /**
@@ -980,7 +1075,7 @@ export class WritersRoom {
           .map((b) => `- ${b.narration.slice(0, 160)}`)
           .join(
             "\n",
-          )}\nHook ideas so far: ${doc.hooks.join(" | ") || "(none)"}\n\nUse only these facts:\n${facts}\n\nWrite 5 hooks (each a spoken line and its screen words), then give the index of the one a scroller can't skip as "best". "opening" is only the first beat, about ${firstWords} words, rewritten to start with that hook line and flow on without repeating it or anything the later beats say${doc.format === "long" ? "; end it with one sentence that promises what the video will reveal" : ""}. Never put the whole script into it.`,
+          )}\nHook ideas so far: ${doc.hooks.join(" | ") || "(none)"}\n\nUse only these facts:\n${facts}\n\nWrite 5 hooks (each a spoken line and its screen words), then give the index of the one a scroller can't skip as "best". "opening" is only the first beat, about ${firstWords} words, rewritten to start with that hook line and flow on without repeating it or anything the later beats say${doc.format === "long" ? "; end it with one sentence promising the payoff the video builds to: name what the viewer will find out, never just 'this video will reveal the mystery'" : ""}. Never put the whole script into it.`,
         hookSchema,
       );
       const best = res.hooks[res.best] ?? res.hooks[0];
@@ -1078,19 +1173,26 @@ export class WritersRoom {
       );
     }
     doc.checks = checks;
-    if (revise && (checks.unsupported.length > 0 || checks.banned.length > 0)) {
-      const targets = [...new Set(checks.unsupported.map((u) => u.beat))];
+    // The flagged beats and those holding a banned phrase (one in a title alone needs no rewrite).
+    const targets = [
+      ...new Set([
+        ...checks.unsupported.map((u) => u.beat),
+        ...doc.beats.flatMap((b, i) => (bannedIn(b.narration, channel).length > 0 ? [i] : [])),
+      ]),
+    ]
+      .sort((a, b) => a - b)
+      .slice(0, 24);
+    if (revise && targets.length > 0) {
       this.say("operator", "Fixing the lines Lens flagged…");
       const fixed = await this.ask(
         "creative",
         channelSystem(channel, this.lessons(channel.id)),
-        `Rewrite these beats so that every claim is supported by the facts (cut or soften what isn't), and remove these banned phrases: ${checks.banned.join(", ") || "(none)"}. Keep each beat's visual unless it no longer fits. Return the rewritten beats in the same order.\n\nFlagged:\n${checks.unsupported.map((u) => `B${u.beat}: "${u.claim}" (${u.why})`).join("\n") || "(only banned phrases)"}\n\nBeats to rewrite:\n${(targets.length > 0 ? targets : doc.beats.map((_b, i) => i)).map((i) => `B${i}: ${JSON.stringify(doc.beats[i])}`).join("\n")}\n\nFacts:\n${facts}`,
-        sectionSchema,
+        `Rewrite these beats so that every claim is supported by the facts (cut or soften what isn't), and remove these banned phrases: ${checks.banned.join(", ") || "(none)"}. Keep each beat's visual unless it no longer fits; a stat card must show a number the facts give. Return exactly ${targets.length} beat(s), in this order: ${targets.map((i) => `B${i}`).join(", ")}.\n\nFlagged:\n${checks.unsupported.map((u) => `B${u.beat}: "${u.claim}" (${u.why})`).join("\n") || "(only banned phrases)"}\n\nBeats to rewrite:\n${targets.map((i) => `B${i}: ${JSON.stringify(doc.beats[i])}`).join("\n")}\n\nFacts:\n${facts}`,
+        rewriteSchema,
       ).catch(() => null);
       if (fixed) {
-        const indices = targets.length > 0 ? targets : doc.beats.map((_b, i) => i);
-        if (fixed.beats.length === indices.length) {
-          indices.forEach((bi, k) => {
+        if (fixed.beats.length === targets.length) {
+          targets.forEach((bi, k) => {
             const b = fixed.beats[k];
             if (b) doc.beats[bi] = b;
           });
